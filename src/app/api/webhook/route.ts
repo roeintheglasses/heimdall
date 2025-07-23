@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
 
 export const runtime = 'edge'
 
@@ -18,9 +17,19 @@ export async function POST(req: NextRequest) {
 
     // Verify GitHub webhook signature if present
     if (githubEvent && signature && process.env.GITHUB_WEBHOOK_SECRET) {
-      const expectedSignature = 'sha256=' + createHmac('sha256', process.env.GITHUB_WEBHOOK_SECRET)
-        .update(body)
-        .digest('hex')
+      const encoder = new TextEncoder()
+      const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(process.env.GITHUB_WEBHOOK_SECRET),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      )
+      
+      const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(body))
+      const expectedSignature = 'sha256=' + Array.from(new Uint8Array(signatureBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
       
       if (expectedSignature !== signature) {
         return new NextResponse('Invalid signature', { status: 401 })
