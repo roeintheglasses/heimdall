@@ -1,0 +1,256 @@
+package main
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
+)
+
+// QStashPayload represents the payload structure from QStash
+type QStashPayload struct {
+	Event     json.RawMessage `json:"event"`
+	EventType string          `json:"type"`
+	Timestamp int64           `json:"timestamp"`
+}
+
+// DashboardEvent represents a processed event for the dashboard
+type DashboardEvent struct {
+	ID        string                 `json:"id"`
+	EventType string                 `json:"event_type"`
+	Title     string                 `json:"title"`
+	Metadata  map[string]interface{} `json:"metadata"`
+	CreatedAt time.Time              `json:"created_at"`
+}
+
+// App holds the application dependencies
+type App struct {
+	DB *sql.DB
+}
+
+func main() {
+	// Get database URL from environment
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "postgres://heimdall_user:heimdall_password@localhost:5432/heimdall?sslmode=disable"
+	}
+
+	// Connect to database
+	db, err := sql.Open("postgres", databaseURL)
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+	defer db.Close()
+
+	// Test database connection
+	if err := db.Ping(); err != nil {
+		log.Fatal("Failed to ping database:", err)
+	}
+
+	log.Println("Connected to database successfully")
+
+	app := &App{DB: db}
+
+	// Create router
+	r := mux.NewRouter()
+
+	// API routes
+	api := r.PathPrefix("/api").Subrouter()
+	api.HandleFunc("/health", app.healthHandler).Methods("GET")
+	api.HandleFunc("/events", app.getEventsHandler).Methods("GET")
+	api.HandleFunc("/webhook", app.processWebhookHandler).Methods("POST")
+
+	// Add CORS middleware
+	r.Use(corsMiddleware)
+
+	// Get port from environment
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Go webhook processor starting on :%s", port)
+	log.Fatal(http.ListenAndServe(":"+port, r))
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "healthy",
+		"timestamp": time.Now().UTC(),
+		"service":   "heimdall-go-service",
+	})
+}
+
+func (app *App) getEventsHandler(w http.ResponseWriter, r *http.Request) {
+	query := `
+		SELECT id, event_type, title, metadata, created_at 
+		FROM events 
+		ORDER BY created_at DESC 
+		LIMIT 50
+	`
+
+	rows, err := app.DB.Query(query)
+	if err != nil {
+		http.Error(w, "Database query failed", http.StatusInternalServerError)
+		log.Printf("Database query error: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	var events []DashboardEvent
+	for rows.Next() {
+		var event DashboardEvent
+		var metadataBytes []byte
+
+		err := rows.Scan(&event.ID, &event.EventType, &event.Title, &metadataBytes, &event.CreatedAt)
+		if err != nil {
+			log.Printf("Row scan error: %v", err)
+			continue
+		}
+
+		// Parse metadata JSON
+		if metadataBytes != nil {
+			if err := json.Unmarshal(metadataBytes, &event.Metadata); err != nil {
+				log.Printf("Metadata parse error: %v", err)
+				event.Metadata = make(map[string]interface{})
+			}
+		}
+
+		events = append(events, event)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}
+
+func (app *App) processWebhookHandler(w http.ResponseWriter, r *http.Request) {
+	var payload QStashPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		log.Printf("JSON decode error: %v", err)
+		return
+	}
+
+	var dashboardEvent DashboardEvent
+	var err error
+
+	switch payload.EventType {
+	case "github.push":
+		dashboardEvent, err = transformGitHubPush(payload.Event)
+	case "vercel.deploy":
+		dashboardEvent, err = transformVercelDeploy(payload.Event)
+	default:
+		http.Error(w, "Unknown event type", http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		http.Error(w, "Transform error", http.StatusInternalServerError)
+		log.Printf("Transform error: %v", err)
+		return
+	}
+
+	// Insert into database
+	if err := app.insertEvent(dashboardEvent); err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		log.Printf("Database insert error: %v", err)
+		return
+	}
+
+	log.Printf("Processed %s event: %s", dashboardEvent.EventType, dashboardEvent.Title)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (app *App) insertEvent(event DashboardEvent) error {
+	metadataJSON, err := json.Marshal(event.Metadata)
+	if err != nil {
+		return err
+	}
+
+	query := `
+		INSERT INTO events (event_type, title, metadata, created_at) 
+		VALUES ($1, $2, $3, $4)
+	`
+
+	_, err = app.DB.Exec(query, event.EventType, event.Title, metadataJSON, time.Now().UTC())
+	return err
+}
+
+func transformGitHubPush(eventData json.RawMessage) (DashboardEvent, error) {
+	var pushEvent struct {
+		Repository struct {
+			Name string `json:"name"`
+		} `json:"repository"`
+		HeadCommit struct {
+			Message string `json:"message"`
+			Author  struct {
+				Name string `json:"name"`
+			} `json:"author"`
+		} `json:"head_commit"`
+	}
+
+	if err := json.Unmarshal(eventData, &pushEvent); err != nil {
+		return DashboardEvent{}, err
+	}
+
+	return DashboardEvent{
+		EventType: "github.push",
+		Title:     fmt.Sprintf("Push to %s", pushEvent.Repository.Name),
+		Metadata: map[string]interface{}{
+			"repo":    pushEvent.Repository.Name,
+			"message": pushEvent.HeadCommit.Message,
+			"author":  pushEvent.HeadCommit.Author.Name,
+		},
+		CreatedAt: time.Now().UTC(),
+	}, nil
+}
+
+func transformVercelDeploy(eventData json.RawMessage) (DashboardEvent, error) {
+	var deployEvent struct {
+		Project struct {
+			Name string `json:"name"`
+		} `json:"project"`
+		Deployment struct {
+			State string `json:"state"`
+			URL   string `json:"url"`
+		} `json:"deployment"`
+	}
+
+	if err := json.Unmarshal(eventData, &deployEvent); err != nil {
+		return DashboardEvent{}, err
+	}
+
+	return DashboardEvent{
+		EventType: "vercel.deploy",
+		Title:     fmt.Sprintf("Deployment of %s", deployEvent.Project.Name),
+		Metadata: map[string]interface{}{
+			"project": deployEvent.Project.Name,
+			"status":  deployEvent.Deployment.State,
+			"url":     deployEvent.Deployment.URL,
+		},
+		CreatedAt: time.Now().UTC(),
+	}, nil
+}
