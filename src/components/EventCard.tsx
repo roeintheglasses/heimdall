@@ -1,7 +1,7 @@
 interface EventCardProps {
   event: {
     id: string
-    event_type: string
+    event_type?: string
     title: string
     metadata: Record<string, any>
     created_at: string
@@ -38,15 +38,15 @@ export default function EventCard({ event }: EventCardProps) {
   return (
     <div className="p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors border-b border-gray-200 dark:border-gray-700 last:border-b-0">
       <div className="flex items-start gap-4">
-        <div className="text-2xl flex-shrink-0">{getEventIcon(event.event_type)}</div>
+        <div className="text-2xl flex-shrink-0">{getEventIcon(event.event_type || 'unknown')}</div>
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
               {event.title}
             </h3>
-            <span className={`px-2 py-1 text-xs rounded-full border ${getEventColor(event.event_type)} flex-shrink-0`}>
-              {event.event_type.replace('.', ' ')}
+            <span className={`px-2 py-1 text-xs rounded-full border ${getEventColor(event.event_type || 'unknown')} flex-shrink-0`}>
+              {(event.event_type || 'unknown').replace('.', ' ')}
             </span>
           </div>
           
