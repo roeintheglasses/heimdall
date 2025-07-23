@@ -62,9 +62,9 @@ func main() {
 
 	// API routes
 	api := r.PathPrefix("/api").Subrouter()
-	api.HandleFunc("/health", app.healthHandler).Methods("GET")
-	api.HandleFunc("/events", app.getEventsHandler).Methods("GET")
-	api.HandleFunc("/webhook", app.processWebhookHandler).Methods("POST")
+	api.HandleFunc("/health", app.healthHandler).Methods("GET", "OPTIONS")
+	api.HandleFunc("/events", app.getEventsHandler).Methods("GET", "OPTIONS")
+	api.HandleFunc("/webhook", app.processWebhookHandler).Methods("POST", "OPTIONS")
 
 	// Add CORS middleware
 	r.Use(corsMiddleware)
@@ -95,6 +95,10 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -105,6 +109,11 @@ func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) getEventsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	
 	query := `
 		SELECT id, event_type, title, metadata, created_at 
 		FROM events 
@@ -147,12 +156,20 @@ func (app *App) getEventsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) processWebhookHandler(w http.ResponseWriter, r *http.Request) {
+	// Handle CORS preflight
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	var payload QStashPayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "Invalid payload", http.StatusBadRequest)
 		log.Printf("JSON decode error: %v", err)
 		return
 	}
+
+	log.Printf("Received webhook payload: %+v", payload)
 
 	var dashboardEvent DashboardEvent
 	var err error
