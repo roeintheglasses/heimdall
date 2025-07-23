@@ -23,16 +23,21 @@ export default function Dashboard() {
     const fetchEvents = async () => {
       try {
         const goServiceUrl = process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app'
+        console.log('Fetching events from:', `${goServiceUrl}/api/events`)
         const response = await fetch(`${goServiceUrl}/api/events`)
+        console.log('Response status:', response.status)
         if (response.ok) {
           const initialEvents = await response.json()
+          console.log('Fetched events:', initialEvents.length)
           setEvents(initialEvents)
         } else {
-          setError('Failed to fetch initial events')
+          const errorText = await response.text()
+          console.error('Fetch failed:', response.status, errorText)
+          setError(`Failed to fetch initial events: ${response.status}`)
         }
       } catch (err) {
-        setError('Failed to connect to service')
         console.error('Error fetching events:', err)
+        setError('Failed to connect to service: ' + (err as Error).message)
       }
     }
 
