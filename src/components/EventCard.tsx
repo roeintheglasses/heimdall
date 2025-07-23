@@ -1,3 +1,8 @@
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { GitBranch, Rocket, FileText, Clock } from "lucide-react"
+
 interface EventCardProps {
   event: {
     id: string
@@ -10,68 +15,94 @@ interface EventCardProps {
 
 export default function EventCard({ event }: EventCardProps) {
   const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString()
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
+    return date.toLocaleDateString()
   }
 
-  const getEventIcon = (eventType: string) => {
+  const getEventConfig = (eventType: string) => {
     switch (eventType) {
       case 'github.push':
-        return '🔄'
+        return {
+          icon: GitBranch,
+          variant: 'default' as const,
+          label: 'Code Push',
+          color: 'text-blue-600 dark:text-blue-400',
+          bgColor: 'bg-blue-50 dark:bg-blue-950'
+        }
       case 'vercel.deploy':
-        return '🚀'
+        return {
+          icon: Rocket,
+          variant: 'secondary' as const,
+          label: 'Deployment',
+          color: 'text-green-600 dark:text-green-400',
+          bgColor: 'bg-green-50 dark:bg-green-950'
+        }
       default:
-        return '📝'
+        return {
+          icon: FileText,
+          variant: 'outline' as const,
+          label: 'Event',
+          color: 'text-muted-foreground',
+          bgColor: 'bg-muted/20'
+        }
     }
   }
 
-  const getEventColor = (eventType: string) => {
-    switch (eventType) {
-      case 'github.push':
-        return 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700'
-      case 'vercel.deploy':
-        return 'bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700'
-      default:
-        return 'bg-gray-100 dark:bg-gray-900 border-gray-300 dark:border-gray-700'
-    }
-  }
+  const config = getEventConfig(event.event_type || 'unknown')
+  const IconComponent = config.icon
 
   return (
-    <div className="p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-      <div className="flex items-start gap-4">
-        <div className="text-2xl flex-shrink-0">{getEventIcon(event.event_type || 'unknown')}</div>
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
-              {event.title}
-            </h3>
-            <span className={`px-2 py-1 text-xs rounded-full border ${getEventColor(event.event_type || 'unknown')} flex-shrink-0`}>
-              {(event.event_type || 'unknown').replace('.', ' ')}
-            </span>
-          </div>
+    <Card className="group hover:shadow-md transition-all duration-300 ease-out border-l-4 border-l-primary/20 hover:border-l-primary/60 animate-in slide-in-from-right-8 fade-in-0 duration-500">
+      <CardHeader className="pb-2 sm:pb-3">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <Avatar className={`h-8 w-8 sm:h-10 sm:w-10 ${config.bgColor} transition-transform duration-200 group-hover:scale-105 shrink-0`}>
+            <AvatarFallback className={`${config.color} ${config.bgColor}`}>
+              <IconComponent className="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:rotate-12" />
+            </AvatarFallback>
+          </Avatar>
           
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-            {formatTimestamp(event.created_at)}
-          </p>
-          
-          {event.metadata && Object.keys(event.metadata).length > 0 && (
-            <div className="bg-gray-50 dark:bg-gray-700 rounded p-3">
-              <div className="grid grid-cols-1 gap-2">
-                {Object.entries(event.metadata).map(([key, value]) => (
-                  <div key={key} className="flex flex-col sm:flex-row sm:items-center">
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider sm:w-20 flex-shrink-0">
-                      {key}:
-                    </span>
-                    <span className="text-sm text-gray-700 dark:text-gray-300 font-mono break-all">
-                      {typeof value === 'string' ? value : JSON.stringify(value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+          <div className="flex-1 space-y-1 sm:space-y-2 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold leading-tight text-card-foreground group-hover:text-primary transition-colors duration-200 text-sm sm:text-base truncate">
+                {event.title}
+              </h3>
+              <Badge variant={config.variant} className="shrink-0 transition-all duration-200 hover:scale-105 text-xs">
+                {config.label}
+              </Badge>
             </div>
-          )}
+            
+            <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground">
+              <Clock className="h-3 w-3 transition-transform duration-200 group-hover:rotate-12 shrink-0" />
+              <span className="text-xs">
+                {formatTimestamp(event.created_at)}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </CardHeader>
+
+      {event.metadata && Object.keys(event.metadata).length > 0 && (
+        <CardContent className="pt-0">
+          <div className="rounded-lg bg-muted/30 p-2 sm:p-3 space-y-1 sm:space-y-2">
+            {Object.entries(event.metadata).map(([key, value]) => (
+              <div key={key} className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2 sm:items-center text-sm">
+                <span className="font-medium text-muted-foreground capitalize text-xs sm:text-sm">
+                  {key.replace('_', ' ')}
+                </span>
+                <span className="text-card-foreground font-mono text-xs bg-background px-2 py-1 rounded truncate sm:max-w-40 break-all">
+                  {typeof value === 'string' ? value : JSON.stringify(value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      )}
+    </Card>
   )
 }
