@@ -16,7 +16,7 @@ import { ArrowLeft, Shield, TrendingUp, Zap, AlertCircle, Search, Filter, X, Loa
 
 interface DashboardEvent {
   id: string
-  event_type: string
+  event_type?: string
   title: string
   metadata: Record<string, any>
   created_at: string
@@ -121,7 +121,7 @@ export default function Dashboard() {
     if (searchQuery) {
       filtered = filtered.filter(event => 
         event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.event_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (event.event_type && event.event_type.toLowerCase().includes(searchQuery.toLowerCase())) ||
         JSON.stringify(event.metadata).toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
@@ -140,7 +140,7 @@ export default function Dashboard() {
 
   // Get available event types for filter buttons
   const availableEventTypes = useMemo(() => {
-    const types = [...new Set(events.map(e => e.event_type))]
+    const types = [...new Set(events.map(e => e.event_type).filter(Boolean))]
     return types.sort()
   }, [events])
 
@@ -250,6 +250,7 @@ export default function Dashboard() {
                   </Button>
                   
                   {availableEventTypes.map((type) => {
+                    if (!type) return null
                     const count = events.filter(e => e.event_type === type).length
                     const isActive = selectedFilter === type
                     
@@ -275,7 +276,7 @@ export default function Dashboard() {
                             <span className="xs:hidden">Deploy</span>
                           </>
                         ) : (
-                          <span className="hidden xs:inline">{type.split('.')[1] || type}</span>
+                          <span className="hidden xs:inline">{type ? (type.split('.')[1] || type) : 'Unknown'}</span>
                         )}
                         <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
                           {isLoading ? '...' : count}
