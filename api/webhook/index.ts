@@ -50,23 +50,15 @@ export default async function handler(req: NextRequest) {
       return new NextResponse('Unknown event type', { status: 400 })
     }
 
-    // Send to QStash (or directly to Go service for now)
-    const goServiceUrl = process.env.GO_SERVICE_URL || 'http://localhost:8080'
-    
-    const response = await fetch(`${goServiceUrl}/api/webhook`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(qstashPayload)
+    // For now, just log the webhook and return success
+    // TODO: Deploy Go service and add GO_SERVICE_URL environment variable
+    console.log('Webhook received:', {
+      eventType: githubEvent || 'vercel',
+      payload: qstashPayload
     })
 
-    if (!response.ok) {
-      console.error('Failed to process webhook:', response.status, await response.text())
-      return new NextResponse('Failed to process webhook', { status: 500 })
-    }
-
-    return new NextResponse('Webhook processed successfully', { status: 200 })
+    // Return success for now (until Go service is deployed)
+    return new NextResponse('Webhook received and logged', { status: 200 })
 
   } catch (error) {
     console.error('Webhook processing error:', error)
