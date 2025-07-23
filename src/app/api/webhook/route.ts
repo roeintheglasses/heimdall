@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const runtime = 'edge'
 
 interface QStashPayload {
-  event_type: string
+  type: string
   event: any
 }
 
@@ -44,12 +44,12 @@ export async function POST(req: NextRequest) {
 
     if (githubEvent === 'push') {
       qstashPayload = {
-        event_type: 'github.push',
+        type: 'github.push',
         event: payload
       }
     } else if (vercelEvent) {
       qstashPayload = {
-        event_type: 'vercel.deploy',
+        type: 'vercel.deploy',
         event: payload
       }
     } else {
