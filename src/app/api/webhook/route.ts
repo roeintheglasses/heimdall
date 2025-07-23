@@ -8,10 +8,7 @@ interface QStashPayload {
   event: any
 }
 
-export default async function handler(req: NextRequest) {
-  if (req.method !== 'POST') {
-    return new NextResponse('Method not allowed', { status: 405 })
-  }
+export async function POST(req: NextRequest) {
 
   try {
     const body = await req.text()
