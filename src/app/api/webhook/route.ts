@@ -56,15 +56,29 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Unknown event type', { status: 400 })
     }
 
-    // For now, just log the webhook and return success
-    // TODO: Deploy Go service and add GO_SERVICE_URL environment variable
-    console.log('Webhook received:', {
+    // Forward to deployed Go service on Railway
+    const goServiceUrl = process.env.GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app'
+    
+    console.log('Forwarding webhook to Go service:', {
       eventType: githubEvent || 'vercel',
-      payload: qstashPayload
+      url: goServiceUrl
     })
 
-    // Return success for now (until Go service is deployed)
-    return new NextResponse('Webhook received and logged', { status: 200 })
+    const response = await fetch(`${goServiceUrl}/api/webhook`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(qstashPayload)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Failed to process webhook:', response.status, errorText)
+      return new NextResponse(`Failed to process webhook: ${response.status}`, { status: 500 })
+    }
+
+    return new NextResponse('Webhook processed successfully', { status: 200 })
 
   } catch (error) {
     console.error('Webhook processing error:', error)

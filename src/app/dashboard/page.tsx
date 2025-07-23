@@ -22,7 +22,7 @@ export default function Dashboard() {
     // Fetch initial events
     const fetchEvents = async () => {
       try {
-        const goServiceUrl = process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'http://localhost:8080'
+        const goServiceUrl = process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app'
         const response = await fetch(`${goServiceUrl}/api/events`)
         if (response.ok) {
           const initialEvents = await response.json()
