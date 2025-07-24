@@ -25,6 +25,7 @@ const { promisify } = require('util');
 const GITHUB_API_BASE = 'https://api.github.com';
 const DEFAULT_WEBHOOK_URL = 'https://heimdall-roeintheglasses.vercel.app/api/webhook';
 const WEBHOOK_EVENTS = ['push', 'create', 'delete', 'release'];
+const DEFAULT_WEBHOOK_SECRET = 'heimdall-webhook-secret-2024';
 
 // Colors for console output
 const colors = {
@@ -39,9 +40,10 @@ const colors = {
 };
 
 class GitHubWebhookManager {
-  constructor(token, webhookUrl) {
+  constructor(token, webhookUrl, webhookSecret) {
     this.token = token;
     this.webhookUrl = webhookUrl;
+    this.webhookSecret = webhookSecret;
     this.stats = {
       total: 0,
       added: 0,
@@ -144,6 +146,7 @@ class GitHubWebhookManager {
       config: {
         url: this.webhookUrl,
         content_type: 'json',
+        secret: this.webhookSecret,
         insecure_ssl: '0'
       }
     };
@@ -189,6 +192,7 @@ class GitHubWebhookManager {
     try {
       this.log(`${colors.bright}🚀 Heimdall Webhook Manager${colors.reset}`, 'cyan');
       this.log(`📡 Webhook URL: ${this.webhookUrl}`, 'blue');
+      this.log(`🔐 Webhook Secret: ${'*'.repeat(this.webhookSecret.length)}`, 'blue');
       this.log(`🎯 Events: ${WEBHOOK_EVENTS.join(', ')}`, 'blue');
 
       // Get all repositories
@@ -259,6 +263,11 @@ Then set it as an environment variable:
 
 Or create a .env file in the project root:
   GITHUB_TOKEN=your_token_here
+  WEBHOOK_SECRET=your_webhook_secret_here
+
+${colors.bright}Security Note:${colors.reset}${colors.yellow}
+Make sure to use the same WEBHOOK_SECRET in your webhook endpoint 
+to verify that payloads are actually coming from GitHub.
 ${colors.reset}`);
     process.exit(1);
   }
@@ -276,8 +285,13 @@ async function main() {
 
   const token = validateEnvironment();
   const webhookUrl = process.env.WEBHOOK_URL || DEFAULT_WEBHOOK_URL;
+  const webhookSecret = process.env.WEBHOOK_SECRET || DEFAULT_WEBHOOK_SECRET;
   
-  const manager = new GitHubWebhookManager(token, webhookUrl);
+  if (webhookSecret === DEFAULT_WEBHOOK_SECRET) {
+    console.log(`${colors.yellow}⚠️  Using default webhook secret. For production, set a custom WEBHOOK_SECRET environment variable.${colors.reset}`);
+  }
+  
+  const manager = new GitHubWebhookManager(token, webhookUrl, webhookSecret);
   await manager.run();
 }
 
@@ -298,15 +312,16 @@ ${colors.cyan}Usage:${colors.reset}
   node scripts/add-webhooks.js
 
 ${colors.cyan}Environment Variables:${colors.reset}
-  GITHUB_TOKEN  - Your GitHub Personal Access Token (required)
-  WEBHOOK_URL   - Custom webhook URL (optional, defaults to production)
+  GITHUB_TOKEN   - Your GitHub Personal Access Token (required)
+  WEBHOOK_URL    - Custom webhook URL (optional, defaults to production)
+  WEBHOOK_SECRET - Secret for webhook verification (optional, defaults to built-in)
 
 ${colors.cyan}Examples:${colors.reset}
   # Basic usage with environment variable
   GITHUB_TOKEN="ghp_..." node scripts/add-webhooks.js
   
-  # With custom webhook URL
-  GITHUB_TOKEN="ghp_..." WEBHOOK_URL="https://my-custom-domain.com/webhook" node scripts/add-webhooks.js
+  # With custom webhook URL and secret
+  GITHUB_TOKEN="ghp_..." WEBHOOK_URL="https://my-domain.com/webhook" WEBHOOK_SECRET="my-secret" node scripts/add-webhooks.js
 `);
   process.exit(0);
 }

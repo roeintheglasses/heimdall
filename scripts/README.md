@@ -19,7 +19,8 @@ export GITHUB_TOKEN="ghp_your_token_here"
 Or create a `.env` file in the project root:
 ```env
 GITHUB_TOKEN=ghp_your_token_here
-WEBHOOK_URL=https://your-custom-url.com/api/webhook  # optional
+WEBHOOK_URL=https://your-custom-url.com/api/webhook    # optional
+WEBHOOK_SECRET=your-secure-webhook-secret-here         # recommended
 ```
 
 ### 3. Run the Script
@@ -49,6 +50,7 @@ npm run add-webhooks
 |----------|----------|---------|-------------|
 | `GITHUB_TOKEN` | ✅ Yes | - | GitHub Personal Access Token |
 | `WEBHOOK_URL` | ❌ No | Production URL | Custom webhook endpoint |
+| `WEBHOOK_SECRET` | ❌ No | Built-in default | Secret for webhook payload verification |
 
 ### Webhook Events
 
@@ -65,9 +67,9 @@ The script configures webhooks to listen for these events:
 GITHUB_TOKEN="ghp_..." node scripts/add-webhooks.js
 ```
 
-### With Custom Webhook URL
+### With Custom Webhook URL and Secret
 ```bash
-GITHUB_TOKEN="ghp_..." WEBHOOK_URL="https://my-domain.com/webhook" node scripts/add-webhooks.js
+GITHUB_TOKEN="ghp_..." WEBHOOK_URL="https://my-domain.com/webhook" WEBHOOK_SECRET="my-secret" node scripts/add-webhooks.js
 ```
 
 ### Using .env File
@@ -84,6 +86,7 @@ node scripts/add-webhooks.js
 ```
 🚀 Heimdall Webhook Manager
 📡 Webhook URL: https://heimdall-roeintheglasses.vercel.app/api/webhook
+🔐 Webhook Secret: ****************************
 🎯 Events: push, create, delete, release
 
 🔍 Fetching your repositories...
@@ -130,10 +133,34 @@ node scripts/add-webhooks.js --help
 
 ## 🔒 Security Notes
 
-- Keep your GitHub token secure and never commit it to version control
-- Use environment variables or `.env` files (add `.env` to `.gitignore`)
+- **Keep your GitHub token secure** and never commit it to version control
+- **Use environment variables** or `.env` files (add `.env` to `.gitignore`)
+- **Set a custom webhook secret** for production use instead of the default
+- **Verify webhook signatures** in your webhook endpoint using the secret
 - The script only adds webhooks, it doesn't modify repository code
 - Webhooks are configured with SSL verification enabled (`insecure_ssl: '0'`)
+
+### Webhook Secret Security
+
+The webhook secret is used to verify that webhook payloads are actually coming from GitHub and not from malicious sources. Your webhook endpoint should:
+
+1. **Verify the signature** using the `X-Hub-Signature-256` header
+2. **Use the same secret** that was configured in the webhook
+3. **Reject requests** with invalid signatures
+
+Example verification (Node.js):
+```javascript
+const crypto = require('crypto');
+
+function verifyWebhookSignature(payload, signature, secret) {
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload, 'utf8')
+    .digest('hex');
+  
+  return signature === `sha256=${expectedSignature}`;
+}
+```
 
 ## 🛠️ Advanced Usage
 
