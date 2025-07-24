@@ -65,14 +65,14 @@ export default function EventCard({ event }: EventCardProps) {
   return (
     <Card className={`
       group relative overflow-hidden transition-all duration-300 ease-out
-      hover:shadow-xl hover:shadow-${category.color}-500/20 hover:-translate-y-1
+      hover:shadow-xl hover:-translate-y-1
       border-l-4 ${colorClasses.border.replace('border-', 'border-l-')}
-      bg-white dark:bg-slate-900 hover:bg-${category.color}-50/50 dark:hover:bg-${category.color}-950/20
+      bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800
       ${event.isNew ? 'animate-in slide-in-from-top-4 fade-in-0 ring-2 ring-primary/50' : ''}
     `}>
       <CardContent className="p-0 relative">
         {/* Subtle gradient overlay */}
-        <div className={`absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-${category.color}-500/5 pointer-events-none`} />
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-slate-500/5 pointer-events-none" />
         
         {/* Main Content Area */}
         <div className="p-4 sm:p-5 relative z-10">
@@ -82,13 +82,13 @@ export default function EventCard({ event }: EventCardProps) {
             <div className="relative shrink-0 mt-0.5">
               <div className={`
                 w-10 h-10 rounded-full flex items-center justify-center
-                bg-${category.color}-500 dark:bg-${category.color}-600
+                ${colorClasses.bg} border ${colorClasses.border}
                 transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg
                 ring-2 ring-white dark:ring-slate-800 shadow-md
               `}>
                 <ServiceIcon 
                   service={serviceInfo} 
-                  className="h-5 w-5"
+                  className={`h-5 w-5`}
                 />
               </div>
               
@@ -175,7 +175,7 @@ export default function EventCard({ event }: EventCardProps) {
         {/* Hover Accent Bar */}
         <div className={`
           h-2 w-full transition-all duration-300
-          bg-gradient-to-r from-${category.color}-400 via-${category.color}-500 to-${category.color}-600
+          ${colorClasses.bg}
           opacity-0 group-hover:opacity-100 scale-x-0 group-hover:scale-x-100
           origin-left shadow-lg
         `} />

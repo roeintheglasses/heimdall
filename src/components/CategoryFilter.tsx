@@ -66,7 +66,7 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
             {/* All Categories Tab */}
             <TabsTrigger 
               value="all" 
-              className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px] data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+              className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px] data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-200"
             >
               <LayoutGrid className="h-4 w-4 shrink-0" />
               <div className="flex flex-col sm:flex-row items-center gap-1">
@@ -89,12 +89,7 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
                 <TabsTrigger 
                   key={category.id}
                   value={category.id}
-                  className={`
-                    flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px]
-                    data-[state=active]:bg-${category.color}-600 data-[state=active]:text-white data-[state=active]:shadow-lg
-                    hover:bg-${category.color}-100 dark:hover:bg-${category.color}-900/50
-                    text-slate-700 dark:text-slate-300
-                  `}
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px] data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-200"
                 >
                   <CategoryIcon 
                     iconName={category.icon} 
@@ -108,7 +103,7 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
                       variant={isSelected ? "default" : "secondary"}
                       className={`text-xs px-1.5 py-0.5 h-auto min-h-0 ${
                         isSelected 
-                          ? 'bg-white/90 text-slate-900 hover:bg-white/80'
+                          ? 'bg-white text-slate-900'
                           : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
                       }`}
                     >

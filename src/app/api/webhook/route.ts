@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Client } from '@upstash/qstash'
 
 export const runtime = 'edge'
 
@@ -86,31 +87,84 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Unknown event type', { status: 400 })
     }
 
-    // Forward to deployed Go service on Railway
+    // Check if QStash is configured
+    const qstashToken = process.env.QSTASH_TOKEN
     const goServiceUrl = process.env.GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app'
     
-    console.log('Forwarding webhook to Go service:', {
-      eventType: githubEvent || 'vercel',
-      url: goServiceUrl
-    })
-
-    const response = await fetch(`${goServiceUrl}/api/webhook`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(qstashPayload)
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Failed to process webhook:', {
-        status: response.status,
-        error: errorText,
-        goServiceUrl,
-        eventType: qstashPayload.type
+    if (qstashToken) {
+      // Use QStash for reliable message queuing
+      console.log('Using QStash for webhook processing:', {
+        eventType: qstashPayload.type,
+        destination: goServiceUrl
       })
-      return new NextResponse(`Failed to process webhook: ${response.status}`, { status: 500 })
+      
+      try {
+        const qstash = new Client({ token: qstashToken })
+        
+        const result = await qstash.publishJSON({
+          url: `${goServiceUrl}/api/webhook`,
+          body: qstashPayload,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          // Add retry configuration for better reliability
+          retries: 3,
+          delay: 1000, // 1 second delay between retries
+        })
+        
+        console.log('Message queued successfully via QStash:', {
+          messageId: result.messageId,
+          eventType: qstashPayload.type
+        })
+        
+      } catch (qstashError) {
+        console.error('QStash queueing failed, falling back to direct call:', qstashError)
+        
+        // Fallback to direct call if QStash fails
+        const response = await fetch(`${goServiceUrl}/api/webhook`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(qstashPayload)
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error('Fallback webhook processing failed:', {
+            status: response.status,
+            error: errorText,
+            goServiceUrl,
+            eventType: qstashPayload.type
+          })
+          return new NextResponse(`Failed to process webhook: ${response.status}`, { status: 500 })
+        }
+      }
+    } else {
+      // Direct forwarding when QStash is not configured
+      console.log('QStash not configured, forwarding directly to Go service:', {
+        eventType: githubEvent || 'vercel',
+        url: goServiceUrl
+      })
+
+      const response = await fetch(`${goServiceUrl}/api/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(qstashPayload)
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Failed to process webhook:', {
+          status: response.status,
+          error: errorText,
+          goServiceUrl,
+          eventType: qstashPayload.type
+        })
+        return new NextResponse(`Failed to process webhook: ${response.status}`, { status: 500 })
+      }
     }
 
     const processingTime = Date.now() - startTime

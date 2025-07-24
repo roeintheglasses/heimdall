@@ -64,9 +64,9 @@ export default function CategoryStatsCards({
   }
   
   // Get service breakdown for a category
+  const { getEventCategory } = useCategories()
   const getServiceBreakdown = (categoryId: string) => {
     const categoryEvents = events.filter(event => {
-      const { getEventCategory } = useCategories()
       const eventCategory = getEventCategory(event)
       return eventCategory.id === categoryId
     })
@@ -133,8 +133,8 @@ export default function CategoryStatsCards({
         const colorClasses = getCategoryColorClasses(category.color)
         
         const cardClasses = isSelected 
-          ? `bg-${category.color}-100 dark:bg-${category.color}-900 border-${category.color}-300 dark:border-${category.color}-700 text-${category.color}-900 dark:text-${category.color}-100`
-          : `bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-${category.color}-50 dark:hover:bg-${category.color}-950/20`
+          ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 ring-2 ring-slate-900 dark:ring-slate-100'
+          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
         
         return (
           <Card 
@@ -152,11 +152,11 @@ export default function CategoryStatsCards({
               <div className="flex items-start justify-between mb-4 relative z-10">
                 <div className={`
                   p-3 rounded-xl shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl
-                  bg-${category.color}-500 dark:bg-${category.color}-600
+                  ${colorClasses.bg} border ${colorClasses.border}
                 `}>
                   <CategoryIcon 
                     iconName={category.icon} 
-                    className="h-5 w-5 sm:h-6 sm:w-6 text-white drop-shadow-sm" 
+                    className={`h-5 w-5 sm:h-6 sm:w-6 ${colorClasses.text} drop-shadow-sm`} 
                   />
                 </div>
                 
@@ -169,15 +169,11 @@ export default function CategoryStatsCards({
               
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className={`font-semibold text-sm sm:text-base truncate ${
-                    isSelected 
-                      ? `text-${category.color}-900 dark:text-${category.color}-100`
-                      : 'text-slate-900 dark:text-slate-100'
-                  }`}>
+                  <h3 className="font-semibold text-sm sm:text-base truncate text-slate-900 dark:text-slate-100">
                     {category.name}
                   </h3>
                   {isSelected && (
-                    <Badge variant="default" className="text-xs bg-white/90 text-slate-900">
+                    <Badge variant="default" className="text-xs bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
                       Active
                     </Badge>
                   )}
@@ -186,25 +182,17 @@ export default function CategoryStatsCards({
                 <div className="flex items-end gap-2">
                   <p className={`text-2xl sm:text-3xl font-bold ${
                     isSelected 
-                      ? `text-${category.color}-800 dark:text-${category.color}-200`
-                      : `text-${category.color}-600 dark:text-${category.color}-400`
+                      ? 'text-slate-900 dark:text-slate-100'
+                      : `${colorClasses.text}`
                   }`}>
                     {count}
                   </p>
-                  <p className={`text-sm mb-1 font-medium ${
-                    isSelected 
-                      ? `text-${category.color}-700 dark:text-${category.color}-300`
-                      : 'text-slate-600 dark:text-slate-400'
-                  }`}>
+                  <p className="text-sm mb-1 font-medium text-slate-600 dark:text-slate-400">
                     {percentage}%
                   </p>
                 </div>
                 
-                <p className={`text-xs leading-tight ${
-                  isSelected 
-                    ? `text-${category.color}-600 dark:text-${category.color}-400`
-                    : 'text-slate-500 dark:text-slate-400'
-                }`}>
+                <p className="text-xs leading-tight text-slate-500 dark:text-slate-400">
                   {category.description}
                 </p>
                 
@@ -231,9 +219,9 @@ export default function CategoryStatsCards({
                 )}
                 
                 {/* Progress bar */}
-                <div className="w-full bg-white/70 dark:bg-slate-800/70 rounded-full h-2 mt-3 overflow-hidden shadow-inner">
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mt-3 overflow-hidden shadow-inner">
                   <div 
-                    className={`h-2 rounded-full transition-all duration-500 ${colorClasses.bg.replace('50', '400').replace('950', '600')} shadow-sm`}
+                    className={`h-2 rounded-full transition-all duration-500 ${colorClasses.bg} shadow-sm`}
                     style={{ width: `${percentage}%` }}
                   />
                 </div>
