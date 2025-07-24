@@ -278,9 +278,15 @@ ${colors.reset}`);
 async function main() {
   // Load .env file if it exists
   try {
-    require('dotenv').config();
+    const dotenv = require('dotenv');
+    const result = dotenv.config();
+    
+    if (result.parsed) {
+      console.log(`${colors.green}✅ Loaded .env file with ${Object.keys(result.parsed).length} variables${colors.reset}`);
+    }
   } catch (err) {
-    // dotenv not installed, that's okay
+    // dotenv not available, continue without it
+    console.log(`${colors.yellow}⚠️  .env file support not available: ${err.message}${colors.reset}`);
   }
 
   const token = validateEnvironment();
