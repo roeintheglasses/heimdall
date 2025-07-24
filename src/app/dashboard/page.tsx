@@ -267,30 +267,32 @@ function DashboardContent() {
         </Card>
 
         {/* Events Section */}
-        <Card className="animate-in slide-in-from-bottom-8 fade-in-0" style={{ animationDelay: '400ms' }}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>
-                  Latest webhook events processed by the edge pipeline, organized by category
-                </CardDescription>
-              </div>
-              {filteredEvents.length > 0 && (
-                <div className="flex items-center gap-2">
-                  {filter.selectedCategory && (
-                    <Badge variant="secondary" className="text-xs">
-                      Category: {filter.selectedCategory}
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="transition-all duration-200 hover:scale-105">
-                    {filteredEvents.length} {filteredEvents.length === events.length ? 'events' : `of ${events.length} events`}
-                  </Badge>
-                </div>
-              )}
+        <div className="space-y-6">
+          {/* Events Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Recent Activity</h3>
+              <p className="text-sm text-muted-foreground">
+                Latest webhook events processed by the edge pipeline, organized by category
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
+            {filteredEvents.length > 0 && (
+              <div className="flex items-center gap-2">
+                {filter.selectedCategory && (
+                  <Badge variant="secondary" className="text-xs">
+                    Category: {filter.selectedCategory}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="transition-all duration-200 hover:scale-105">
+                  {filteredEvents.length} {filteredEvents.length === events.length ? 'events' : `of ${events.length} events`}
+                </Badge>
+              </div>
+            )}
+          </div>
+          
+          {/* Events List */}
+          <div className="animate-in slide-in-from-bottom-8 fade-in-0" style={{ animationDelay: '400ms' }}>
+            <div>
             {isLoading ? (
               // Loading skeleton for events
               <div className="divide-y">
@@ -332,15 +334,11 @@ function DashboardContent() {
                 </Button>
               </div>
             ) : (
-              <div className="divide-y">
+              <div className="space-y-3 sm:space-y-4 p-4 sm:p-6">
                 {filteredEvents.map((event, index) => (
                   <div 
                     key={event.id} 
-                    className={`p-3 sm:p-4 transition-all duration-500 ${
-                      event.isNew 
-                        ? 'animate-in slide-in-from-top-4 fade-in-0 bg-primary/5 border-l-2 border-l-primary' 
-                        : 'animate-in slide-in-from-top-2 fade-in-0'
-                    }`}
+                    className="animate-in slide-in-from-bottom-2 fade-in-0"
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <EventCard event={event} />
@@ -348,8 +346,9 @@ function DashboardContent() {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   )

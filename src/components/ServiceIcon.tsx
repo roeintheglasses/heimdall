@@ -127,7 +127,7 @@ export function ServiceBadge({
   return (
     <div 
       className={`
-        inline-flex items-center rounded-full font-medium transition-colors duration-200
+        inline-flex items-center justify-center rounded-full font-medium transition-colors duration-200
         ${sizeClasses[size]}
         ${variantClasses[variant]}
         ${className}
@@ -137,11 +137,11 @@ export function ServiceBadge({
       {showIcon && (
         <ServiceIcon 
           service={serviceInfo} 
-          className={size === 'sm' ? 'h-3 w-3' : size === 'md' ? 'h-4 w-4' : 'h-5 w-5'} 
+          className={`${size === 'sm' ? 'h-3 w-3' : size === 'md' ? 'h-4 w-4' : 'h-5 w-5'} shrink-0`} 
         />
       )}
       {showName && (
-        <span className="truncate">
+        <span className="truncate whitespace-nowrap">
           {serviceInfo.name}
         </span>
       )}

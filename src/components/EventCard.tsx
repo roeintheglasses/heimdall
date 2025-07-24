@@ -1,18 +1,22 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { GitBranch, Rocket, FileText, Clock, Server, AlertCircle, Shield } from "lucide-react"
+import { Clock } from "lucide-react"
 import { useCategories } from '@/contexts/CategoryContext'
 import { DashboardEvent, getCategoryColorClasses } from '@/types/categories'
-import { ServiceIcon, ServiceBadge, ServiceAvatar } from '@/components/ServiceIcon'
+import { ServiceIcon, ServiceBadge } from '@/components/ServiceIcon'
 import { getServiceFromEventType } from '@/types/services'
 
-interface EventCardProps {
-  event: DashboardEvent
-}
+import { 
+  GitBranch, 
+  Rocket, 
+  Server, 
+  AlertCircle, 
+  Shield, 
+  FileText 
+} from 'lucide-react'
 
 // Icon mapping for categories
-const CATEGORY_ICONS = {
+const ICON_MAP = {
   GitBranch,
   Rocket,
   Server,
@@ -22,15 +26,22 @@ const CATEGORY_ICONS = {
 } as const
 
 function CategoryIcon({ iconName, className }: { iconName: string, className?: string }) {
-  const IconComponent = CATEGORY_ICONS[iconName as keyof typeof CATEGORY_ICONS] || FileText
+  const IconComponent = ICON_MAP[iconName as keyof typeof ICON_MAP] || FileText
   return <IconComponent className={className} />
+}
+
+interface EventCardProps {
+  event: DashboardEvent
 }
 
 export default function EventCard({ event }: EventCardProps) {
   const { getEventCategory } = useCategories()
   
-  // Get service info for this event
+  // Get category and service info for this event
+  const category = getEventCategory(event)
   const serviceInfo = getServiceFromEventType(event.event_type || 'unknown')
+  const colorClasses = getCategoryColorClasses(category.color)
+  
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp)
     const now = new Date()
@@ -42,107 +53,129 @@ export default function EventCard({ event }: EventCardProps) {
     return date.toLocaleDateString()
   }
 
-  // Get category for this event
-  const category = getEventCategory(event)
-  const colorClasses = getCategoryColorClasses(category.color)
-  
-  const getEventConfig = (eventType: string) => {
+  const getEventTypeLabel = (eventType: string) => {
     switch (eventType) {
-      case 'github.push':
-        return {
-          label: 'Code Push',
-          variant: 'default' as const
-        }
-      case 'vercel.deploy':
-        return {
-          label: 'Deployment',
-          variant: 'secondary' as const
-        }
-      default:
-        return {
-          label: 'Event',
-          variant: 'outline' as const
-        }
+      case 'github.push': return 'Push'
+      case 'vercel.deploy': return 'Deploy'
+      case 'railway.deploy': return 'Deploy'
+      default: return eventType?.split('.')[1] || 'Event'
     }
   }
 
-  const config = getEventConfig(event.event_type || 'unknown')
-
   return (
-    <Card className={`group hover:shadow-md transition-all duration-300 ease-out border-l-4 ${colorClasses.border.replace('border-', 'border-l-')} hover:border-l-primary/60 animate-in slide-in-from-right-8 fade-in-0 duration-500`}>
-      <CardHeader className="pb-2 sm:pb-3">
-        <div className="flex items-start gap-2 sm:gap-3">
-          {/* Dual Avatar: Category + Service */}
-          <div className="relative shrink-0">
-            {/* Main category avatar */}
-            <Avatar className={`h-8 w-8 sm:h-10 sm:w-10 ${colorClasses.bg} transition-transform duration-200 group-hover:scale-105`}>
-              <AvatarFallback className={`${colorClasses.text} ${colorClasses.bg}`}>
-                <CategoryIcon iconName={category.icon} className="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:rotate-12" />
-              </AvatarFallback>
-            </Avatar>
-            
-            {/* Service icon overlay */}
-            <div className="absolute -bottom-1 -right-1 sm:-bottom-0.5 sm:-right-0.5">
-              <ServiceAvatar 
-                service={serviceInfo} 
-                size="sm" 
-                className="border-2 border-background shadow-sm" 
-                showTooltip={true}
-              />
-            </div>
-          </div>
-          
-          <div className="flex-1 space-y-1 sm:space-y-2 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="font-semibold leading-tight text-card-foreground group-hover:text-primary transition-colors duration-200 text-sm sm:text-base truncate">
-                {event.title}
-              </h3>
-              <div className="flex items-center gap-2 shrink-0">
-                <ServiceBadge 
-                  service={serviceInfo}
-                  variant="outline"
-                  size="sm"
-                  showIcon={false}
-                  className="text-xs transition-all duration-200 hover:scale-105"
+    <Card className={`
+      group relative overflow-hidden transition-all duration-300 ease-out
+      hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5
+      border-l-4 ${colorClasses.border.replace('border-', 'border-l-')}
+      ${event.isNew ? 'animate-in slide-in-from-top-4 fade-in-0 bg-primary/5' : ''}
+    `}>
+      <CardContent className="p-0">
+        {/* Main Content Area */}
+        <div className="p-4 sm:p-5">
+          {/* Header Row */}
+          <div className="flex items-start gap-4 mb-3">
+            {/* Service Icon */}
+            <div className="relative shrink-0 mt-0.5">
+              <div className={`
+                w-10 h-10 rounded-full flex items-center justify-center
+                ${colorClasses.bg} 
+                transition-all duration-200 group-hover:scale-110
+                ring-2 ring-background shadow-sm
+              `}>
+                <ServiceIcon 
+                  service={serviceInfo} 
+                  className="h-5 w-5"
                 />
+              </div>
+              
+              {/* Category indicator dot */}
+              <div className={`
+                absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full 
+                ${colorClasses.bg} border-2 border-background
+                flex items-center justify-center shadow-sm
+              `}>
+                <CategoryIcon 
+                  iconName={category.icon} 
+                  className={`h-2.5 w-2.5 ${colorClasses.text}`}
+                />
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              {/* Title and Badges Row */}
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <h3 className="font-semibold text-base text-foreground leading-tight group-hover:text-primary transition-colors duration-200 truncate">
+                  {event.title}
+                </h3>
+                
+                {/* Badges */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <ServiceBadge 
+                    service={serviceInfo}
+                    variant="outline"
+                    size="sm"
+                    showIcon={false}
+                    showName={true}
+                    className="text-xs font-medium"
+                  />
+                  <Badge 
+                    variant="secondary"
+                    className="text-xs font-medium"
+                  >
+                    {getEventTypeLabel(event.event_type || 'unknown')}
+                  </Badge>
+                </div>
+              </div>
+              
+              {/* Metadata Row */}
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                {/* Timestamp */}
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                  <span className="font-medium">
+                    {formatTimestamp(event.created_at)}
+                  </span>
+                </div>
+                
+                {/* Category Badge */}
                 <Badge 
                   variant="outline" 
-                  className={`text-xs transition-all duration-200 hover:scale-105 ${colorClasses.badge}`}
+                  className={`text-xs font-medium ${colorClasses.badge}`}
                 >
                   {category.name}
                 </Badge>
-                <Badge variant={config.variant} className="text-xs transition-all duration-200 hover:scale-105">
-                  {config.label}
-                </Badge>
               </div>
             </div>
-            
-            <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground">
-              <Clock className="h-3 w-3 transition-transform duration-200 group-hover:rotate-12 shrink-0" />
-              <span className="text-xs">
-                {formatTimestamp(event.created_at)}
-              </span>
-            </div>
           </div>
+          
+          {/* Metadata Details (if present) */}
+          {event.metadata && Object.keys(event.metadata).length > 0 && (
+            <div className="mt-4 pt-3 border-t border-border/50">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {Object.entries(event.metadata).slice(0, 4).map(([key, value]) => (
+                  <div key={key} className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-muted-foreground capitalize truncate">
+                      {key.replace('_', ' ')}:
+                    </span>
+                    <span className="text-foreground font-mono text-xs bg-muted px-2 py-1 rounded truncate max-w-32">
+                      {typeof value === 'string' ? value : JSON.stringify(value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </CardHeader>
-
-      {event.metadata && Object.keys(event.metadata).length > 0 && (
-        <CardContent className="pt-0">
-          <div className="rounded-lg bg-muted/30 p-2 sm:p-3 space-y-1 sm:space-y-2">
-            {Object.entries(event.metadata).map(([key, value]) => (
-              <div key={key} className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2 sm:items-center text-sm">
-                <span className="font-medium text-muted-foreground capitalize text-xs sm:text-sm">
-                  {key.replace('_', ' ')}
-                </span>
-                <span className="text-card-foreground font-mono text-xs bg-background px-2 py-1 rounded truncate sm:max-w-40 break-all">
-                  {typeof value === 'string' ? value : JSON.stringify(value)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      )}
+        
+        {/* Hover Accent Bar */}
+        <div className={`
+          h-1 w-full transition-all duration-300
+          ${colorClasses.bg.replace('50', '100').replace('950', '800')}
+          opacity-0 group-hover:opacity-100 scale-x-0 group-hover:scale-x-100
+          origin-left
+        `} />
+      </CardContent>
     </Card>
   )
 }
