@@ -7,20 +7,43 @@ interface QStashPayload {
   event: any
 }
 
-export async function POST(req: NextRequest) {
+// Handle CORS preflight requests
+export async function OPTIONS(req: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-GitHub-Event, X-Hub-Signature-256',
+    },
+  })
+}
 
+export async function POST(req: NextRequest) {
+  const startTime = Date.now()
+  
   try {
     const body = await req.text()
     const githubEvent = req.headers.get('x-github-event')
     const vercelEvent = req.headers.get('x-vercel-deployment-url')
     const signature = req.headers.get('x-hub-signature-256')
+    
+    console.log('Webhook received:', {
+      githubEvent,
+      vercelEvent,
+      hasSignature: !!signature,
+      bodyLength: body.length,
+      timestamp: new Date().toISOString()
+    })
 
     // Verify GitHub webhook signature if present
-    if (githubEvent && signature && process.env.GITHUB_WEBHOOK_SECRET) {
+    const webhookSecret = process.env.WEBHOOK_SECRET || process.env.GITHUB_WEBHOOK_SECRET
+    if (githubEvent && signature && webhookSecret) {
+      console.log('Verifying webhook signature...')
       const encoder = new TextEncoder()
       const key = await crypto.subtle.importKey(
         'raw',
-        encoder.encode(process.env.GITHUB_WEBHOOK_SECRET),
+        encoder.encode(webhookSecret),
         { name: 'HMAC', hash: 'SHA-256' },
         false,
         ['sign']
@@ -32,8 +55,15 @@ export async function POST(req: NextRequest) {
         .join('')
       
       if (expectedSignature !== signature) {
+        console.error('Webhook signature verification failed:', {
+          expected: expectedSignature,
+          received: signature
+        })
         return new NextResponse('Invalid signature', { status: 401 })
       }
+      console.log('Webhook signature verified successfully')
+    } else if (githubEvent && signature) {
+      console.warn('Webhook secret not configured - skipping signature verification')
     }
 
     // Parse the webhook payload
@@ -74,9 +104,20 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Failed to process webhook:', response.status, errorText)
+      console.error('Failed to process webhook:', {
+        status: response.status,
+        error: errorText,
+        goServiceUrl,
+        eventType: qstashPayload.type
+      })
       return new NextResponse(`Failed to process webhook: ${response.status}`, { status: 500 })
     }
+
+    const processingTime = Date.now() - startTime
+    console.log('Webhook processed successfully:', {
+      eventType: qstashPayload.type,
+      processingTime: `${processingTime}ms`
+    })
 
     return new NextResponse('Webhook processed successfully', { status: 200 })
 

@@ -110,7 +110,7 @@ function startPolling() {
     }
     
     try {
-      const goServiceUrl = process.env.GO_SERVICE_URL || 'http://localhost:8080'
+      const goServiceUrl = process.env.GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app'
       const response = await fetch(`${goServiceUrl}/api/events`)
       
       if (response.ok) {
