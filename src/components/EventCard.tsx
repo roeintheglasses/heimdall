@@ -1,19 +1,31 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { GitBranch, Rocket, FileText, Clock } from "lucide-react"
+import { GitBranch, Rocket, FileText, Clock, Server, AlertCircle, Shield } from "lucide-react"
+import { useCategories } from '@/contexts/CategoryContext'
+import { DashboardEvent, getCategoryColorClasses } from '@/types/categories'
 
 interface EventCardProps {
-  event: {
-    id: string
-    event_type?: string
-    title: string
-    metadata: Record<string, any>
-    created_at: string
-  }
+  event: DashboardEvent
+}
+
+// Icon mapping for categories
+const CATEGORY_ICONS = {
+  GitBranch,
+  Rocket,
+  Server,
+  AlertCircle,
+  Shield,
+  FileText
+} as const
+
+function CategoryIcon({ iconName, className }: { iconName: string, className?: string }) {
+  const IconComponent = CATEGORY_ICONS[iconName as keyof typeof CATEGORY_ICONS] || FileText
+  return <IconComponent className={className} />
 }
 
 export default function EventCard({ event }: EventCardProps) {
+  const { getEventCategory } = useCategories()
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp)
     const now = new Date()
@@ -25,45 +37,39 @@ export default function EventCard({ event }: EventCardProps) {
     return date.toLocaleDateString()
   }
 
+  // Get category for this event
+  const category = getEventCategory(event)
+  const colorClasses = getCategoryColorClasses(category.color)
+  
   const getEventConfig = (eventType: string) => {
     switch (eventType) {
       case 'github.push':
         return {
-          icon: GitBranch,
-          variant: 'default' as const,
           label: 'Code Push',
-          color: 'text-blue-600 dark:text-blue-400',
-          bgColor: 'bg-blue-50 dark:bg-blue-950'
+          variant: 'default' as const
         }
       case 'vercel.deploy':
         return {
-          icon: Rocket,
-          variant: 'secondary' as const,
           label: 'Deployment',
-          color: 'text-green-600 dark:text-green-400',
-          bgColor: 'bg-green-50 dark:bg-green-950'
+          variant: 'secondary' as const
         }
       default:
         return {
-          icon: FileText,
-          variant: 'outline' as const,
           label: 'Event',
-          color: 'text-muted-foreground',
-          bgColor: 'bg-muted/20'
+          variant: 'outline' as const
         }
     }
   }
 
   const config = getEventConfig(event.event_type || 'unknown')
-  const IconComponent = config.icon
 
   return (
-    <Card className="group hover:shadow-md transition-all duration-300 ease-out border-l-4 border-l-primary/20 hover:border-l-primary/60 animate-in slide-in-from-right-8 fade-in-0 duration-500">
+    <Card className={`group hover:shadow-md transition-all duration-300 ease-out border-l-4 ${colorClasses.border.replace('border-', 'border-l-')} hover:border-l-primary/60 animate-in slide-in-from-right-8 fade-in-0 duration-500`}>
       <CardHeader className="pb-2 sm:pb-3">
         <div className="flex items-start gap-2 sm:gap-3">
-          <Avatar className={`h-8 w-8 sm:h-10 sm:w-10 ${config.bgColor} transition-transform duration-200 group-hover:scale-105 shrink-0`}>
-            <AvatarFallback className={`${config.color} ${config.bgColor}`}>
-              <IconComponent className="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:rotate-12" />
+          <Avatar className={`h-8 w-8 sm:h-10 sm:w-10 ${colorClasses.bg} transition-transform duration-200 group-hover:scale-105 shrink-0`}>
+            <AvatarFallback className={`${colorClasses.text} ${colorClasses.bg}`}>
+              <CategoryIcon iconName={category.icon} className="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:rotate-12" />
             </AvatarFallback>
           </Avatar>
           
@@ -72,9 +78,17 @@ export default function EventCard({ event }: EventCardProps) {
               <h3 className="font-semibold leading-tight text-card-foreground group-hover:text-primary transition-colors duration-200 text-sm sm:text-base truncate">
                 {event.title}
               </h3>
-              <Badge variant={config.variant} className="shrink-0 transition-all duration-200 hover:scale-105 text-xs">
-                {config.label}
-              </Badge>
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs transition-all duration-200 hover:scale-105 ${colorClasses.badge}`}
+                >
+                  {category.name}
+                </Badge>
+                <Badge variant={config.variant} className="text-xs transition-all duration-200 hover:scale-105">
+                  {config.label}
+                </Badge>
+              </div>
             </div>
             
             <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground">

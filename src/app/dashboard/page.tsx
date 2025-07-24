@@ -12,18 +12,16 @@ import { Skeleton } from "@/components/ui/skeleton"
 import EventCard from '@/components/EventCard'
 import EventCardSkeleton from '@/components/EventCardSkeleton'
 import ConnectionStatus from '@/components/ConnectionStatus'
+import CategoryFilter from '@/components/CategoryFilter'
+import CategoryStatsCards from '@/components/CategoryStatsCards'
+import { CategoryProvider, useCategories } from '@/contexts/CategoryContext'
 import { ArrowLeft, Shield, TrendingUp, Zap, AlertCircle, Search, Filter, X, Loader2 } from 'lucide-react'
+import { DashboardEvent } from '@/types/categories'
 
-interface DashboardEvent {
-  id: string
-  event_type?: string
-  title: string
-  metadata: Record<string, any>
-  created_at: string
-  isNew?: boolean
-}
-
-export default function Dashboard() {
+// Dashboard component wrapped with CategoryProvider
+function DashboardContent() {
+  const { calculateStats, filterEvents, filter, setFilter } = useCategories()
+  
   const [events, setEvents] = useState<DashboardEvent[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,6 +29,11 @@ export default function Dashboard() {
   const [selectedFilter, setSelectedFilter] = useState<string>('all')
   const [isLoading, setIsLoading] = useState(true)
   const [isSearching, setIsSearching] = useState(false)
+
+  // Update category context when search changes
+  useEffect(() => {
+    setFilter({ searchQuery })
+  }, [searchQuery, setFilter])
 
   useEffect(() => {
     // Fetch initial events
@@ -112,7 +115,6 @@ export default function Dashboard() {
     }
   }, [])
 
-
   // Add search debounce effect
   useEffect(() => {
     if (searchQuery) {
@@ -126,26 +128,15 @@ export default function Dashboard() {
     }
   }, [searchQuery])
 
-  // Filter and search events
+  // Calculate category statistics
+  const categoryStats = useMemo(() => {
+    return calculateStats(events)
+  }, [events, calculateStats])
+
+  // Filter events using category context
   const filteredEvents = useMemo(() => {
-    let filtered = events
-
-    // Apply type filter
-    if (selectedFilter !== 'all') {
-      filtered = filtered.filter(event => event.event_type === selectedFilter)
-    }
-
-    // Apply search query
-    if (searchQuery) {
-      filtered = filtered.filter(event => 
-        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (event.event_type && event.event_type.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        JSON.stringify(event.metadata).toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    }
-
-    return filtered
-  }, [events, selectedFilter, searchQuery])
+    return filterEvents(events)
+  }, [events, filterEvents])
 
   const getEventStats = () => {
     const pushEvents = events.filter(e => e.event_type === 'github.push').length
@@ -202,7 +193,7 @@ export default function Dashboard() {
             Real-time Event Dashboard
           </h2>
           <p className="text-muted-foreground text-base sm:text-lg">
-            Monitor your GitHub pushes and Vercel deployments in real-time through the edge pipeline architecture
+            Monitor your development activities across GitHub, Vercel, and other integrations with intelligent categorization
           </p>
         </div>
 
@@ -214,12 +205,39 @@ export default function Dashboard() {
           </Alert>
         )}
 
-        {/* Search and Filter Controls */}
-        <Card className="mb-6 animate-in slide-in-from-top-4 fade-in-0" style={{ animationDelay: '200ms' }}>
+        {/* Category Stats Cards */}
+        <div className="mb-6 animate-in slide-in-from-top-4 fade-in-0" style={{ animationDelay: '200ms' }}>
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Card key={index} className="animate-pulse">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <Skeleton className="h-12 w-12 rounded-lg" />
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-8 w-12" />
+                      <Skeleton className="h-3 w-32" />
+                      <Skeleton className="h-1.5 w-full" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <CategoryStatsCards categoryStats={categoryStats} />
+          )}
+        </div>
+
+        {/* Category Filter & Search */}
+        <Card className="mb-6 animate-in slide-in-from-top-4 fade-in-0" style={{ animationDelay: '300ms' }}>
           <CardHeader className="pb-4">
-            <div className="flex flex-col gap-4 items-start justify-between">
+            <div className="space-y-4">
+              <CategoryFilter categoryStats={categoryStats} />
+              
               {/* Search */}
-              <div className="relative w-full sm:flex-1 sm:max-w-md">
+              <div className="relative w-full sm:max-w-md">
                 {isSearching ? (
                   <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
                 ) : (
@@ -244,214 +262,31 @@ export default function Dashboard() {
                   </Button>
                 )}
               </div>
-
-              {/* Filter Badges */}
-              <div className="flex items-start sm:items-center gap-3 w-full sm:w-auto">
-                <div className="flex items-center gap-1 text-sm text-muted-foreground shrink-0">
-                  <Filter className="h-4 w-4" />
-                  <span className="hidden xs:inline">Filter:</span>
-                </div>
-                
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    variant={selectedFilter === 'all' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedFilter('all')}
-                    className="transition-all duration-200 text-xs sm:text-sm"
-                    disabled={isLoading}
-                  >
-                    <span className="hidden xs:inline">All Events</span>
-                    <span className="xs:hidden">All</span>
-                    <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
-                      {isLoading ? '...' : events.length}
-                    </Badge>
-                  </Button>
-                  
-                  {availableEventTypes.map((type) => {
-                    if (!type) return null
-                    const count = events.filter(e => e.event_type === type).length
-                    const isActive = selectedFilter === type
-                    
-                    return (
-                      <Button
-                        key={type}
-                        variant={isActive ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setSelectedFilter(type)}
-                        className="transition-all duration-200 text-xs sm:text-sm"
-                        disabled={isLoading}
-                      >
-                        {type === 'github.push' ? (
-                          <>
-                            <Zap className="h-3 w-3 mr-1" />
-                            <span className="hidden xs:inline">Pushes</span>
-                            <span className="xs:hidden">Push</span>
-                          </>
-                        ) : type === 'vercel.deploy' ? (
-                          <>
-                            <Shield className="h-3 w-3 mr-1" />
-                            <span className="hidden xs:inline">Deploys</span>
-                            <span className="xs:hidden">Deploy</span>
-                          </>
-                        ) : (
-                          <span className="hidden xs:inline">{type ? (type.split('.')[1] || type) : 'Unknown'}</span>
-                        )}
-                        <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
-                          {isLoading ? '...' : count}
-                        </Badge>
-                      </Button>
-                    )
-                  })}
-                </div>
-              </div>
             </div>
-
-            {/* Active Filters Display */}
-            {(searchQuery || selectedFilter !== 'all') && (
-              <div className="flex items-center gap-2 pt-3 border-t mt-3">
-                <span className="text-sm text-muted-foreground">Active filters:</span>
-                
-                {searchQuery && (
-                  <Badge variant="outline" className="gap-1">
-                    Search: "{searchQuery}"
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSearchQuery('')}
-                      className="h-4 w-4 p-0 hover:bg-destructive/10 hover:text-destructive ml-1"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                )}
-                
-                {selectedFilter !== 'all' && (
-                  <Badge variant="outline" className="gap-1">
-                    Type: {selectedFilter}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedFilter('all')}
-                      className="h-4 w-4 p-0 hover:bg-destructive/10 hover:text-destructive ml-1"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                )}
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSearchQuery('')
-                    setSelectedFilter('all')
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground ml-auto"
-                >
-                  Clear all
-                </Button>
-              </div>
-            )}
           </CardHeader>
         </Card>
 
-        {/* Stats Cards */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3 mb-6 sm:mb-8">
-          {isLoading ? (
-            // Loading skeleton for stats cards
-            <>
-              <Card className="animate-in slide-in-from-left-4 fade-in-0">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-4 rounded-full" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-16 mb-1" />
-                  <Skeleton className="h-3 w-32" />
-                </CardContent>
-              </Card>
-              
-              <Card className="animate-in slide-in-from-bottom-4 fade-in-0" style={{ animationDelay: '100ms' }}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-4 rounded-full" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-12 mb-1" />
-                  <Skeleton className="h-3 w-36" />
-                </CardContent>
-              </Card>
-              
-              <Card className="animate-in slide-in-from-right-4 fade-in-0" style={{ animationDelay: '200ms' }}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-4 rounded-full" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-12 mb-1" />
-                  <Skeleton className="h-3 w-40" />
-                </CardContent>
-              </Card>
-            </>
-          ) : (
-            // Actual stats cards
-            <>
-              <Card className="hover:shadow-md transition-all duration-300 animate-in slide-in-from-left-4 fade-in-0">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Events</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground transition-transform duration-200 hover:scale-110" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold transition-all duration-300 hover:scale-105">{events.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    All webhook events received
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card className="hover:shadow-md transition-all duration-300 animate-in slide-in-from-bottom-4 fade-in-0" style={{ animationDelay: '100ms' }}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Code Pushes</CardTitle>
-                  <Zap className="h-4 w-4 text-blue-600 transition-transform duration-200 hover:scale-110" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600 transition-all duration-300 hover:scale-105">{pushEvents}</div>
-                  <p className="text-xs text-muted-foreground">
-                    GitHub repository updates
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card className="hover:shadow-md transition-all duration-300 animate-in slide-in-from-right-4 fade-in-0" style={{ animationDelay: '200ms' }}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Deployments</CardTitle>
-                  <Shield className="h-4 w-4 text-green-600 transition-transform duration-200 hover:scale-110" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600 transition-all duration-300 hover:scale-105">{deployEvents}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Vercel production deploys
-                  </p>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </div>
-
         {/* Events Section */}
-        <Card className="animate-in slide-in-from-bottom-8 fade-in-0" style={{ animationDelay: '300ms' }}>
+        <Card className="animate-in slide-in-from-bottom-8 fade-in-0" style={{ animationDelay: '400ms' }}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Recent Activity</CardTitle>
                 <CardDescription>
-                  Latest webhook events processed by the edge pipeline
+                  Latest webhook events processed by the edge pipeline, organized by category
                 </CardDescription>
               </div>
               {filteredEvents.length > 0 && (
-                <Badge variant="outline" className="transition-all duration-200 hover:scale-105">
-                  {filteredEvents.length} {filteredEvents.length === events.length ? 'events' : `of ${events.length} events`}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {filter.selectedCategory && (
+                    <Badge variant="secondary" className="text-xs">
+                      Category: {filter.selectedCategory}
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="transition-all duration-200 hover:scale-105">
+                    {filteredEvents.length} {filteredEvents.length === events.length ? 'events' : `of ${events.length} events`}
+                  </Badge>
+                </div>
               )}
             </div>
           </CardHeader>
@@ -482,7 +317,7 @@ export default function Dashboard() {
                 </div>
                 <h3 className="mt-4 text-lg font-semibold">No matching events</h3>
                 <p className="text-sm text-muted-foreground">
-                  Try adjusting your search query or filters to see more results.
+                  Try adjusting your category selection or search query to see more results.
                 </p>
                 <Button
                   variant="outline"
@@ -517,5 +352,14 @@ export default function Dashboard() {
         </Card>
       </main>
     </div>
+  )
+}
+
+// Main Dashboard component with CategoryProvider
+export default function Dashboard() {
+  return (
+    <CategoryProvider>
+      <DashboardContent />
+    </CategoryProvider>
   )
 }

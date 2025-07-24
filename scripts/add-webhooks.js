@@ -23,7 +23,7 @@ const { promisify } = require('util');
 
 // Configuration
 const GITHUB_API_BASE = 'https://api.github.com';
-const DEFAULT_WEBHOOK_URL = 'https://heimdall-roeintheglasses.vercel.app/api/webhook';
+const DEFAULT_WEBHOOK_URL = 'https://heimdall-ashen.vercel.app/api/webhook';
 const WEBHOOK_EVENTS = ['push', 'create', 'delete', 'release'];
 const DEFAULT_WEBHOOK_SECRET = 'heimdall-webhook-secret-2024';
 
