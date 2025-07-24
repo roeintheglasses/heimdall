@@ -51,7 +51,7 @@ The system follows a serverless, event-driven architecture:
 ## Performance
 
 - Webhook processing: ~45ms p95
-- Go service processing: ~80ms p95  
+- Go service processing: ~80ms p95
 - Database writes: ~100ms p95
 - End-to-end frontend updates: <400ms
 - Monthly costs: $0 (using generous free tiers)
@@ -68,6 +68,7 @@ The system follows a serverless, event-driven architecture:
 ### Local Development
 
 1. **Clone and install dependencies**:
+
    ```bash
    git clone <your-repo-url>
    cd heimdall
@@ -75,17 +76,20 @@ The system follows a serverless, event-driven architecture:
    ```
 
 2. **Start the database**:
+
    ```bash
    docker-compose up -d postgres
    ```
 
 3. **Start the Go service**:
+
    ```bash
    cd backend
    go run main.go
    ```
 
 4. **Start the Next.js frontend**:
+
    ```bash
    npm run dev
    ```
@@ -117,17 +121,20 @@ QSTASH_TOKEN=your_qstash_token_here
 ## Testing
 
 ### Backend Tests
+
 ```bash
 cd backend
 go test -v
 ```
 
 ### Frontend Tests
+
 ```bash
 npm test
 ```
 
 ### Test Webhooks
+
 ```bash
 # Test GitHub push webhook
 curl -X POST http://localhost:8080/api/webhook \\
@@ -239,8 +246,6 @@ heimdall/
 
 ## License
 
-MIT License - see LICENSE file for details
+## Use how you like License.
 
----
-
-Built with ❤️ for the over-engineering community. Because why use a simple solution when you can build something delightfully complex?
+Built with ❤️ for the over-engineering community.
