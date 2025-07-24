@@ -72,13 +72,31 @@ export default function Dashboard() {
     eventSource.onmessage = (event) => {
       try {
         const newEvent = JSON.parse(event.data)
-        // Add a brief flash effect for new events
-        setEvents(prev => [{ ...newEvent, isNew: true }, ...prev.slice(0, 49)]) // Keep latest 50 events
         
-        // Remove the "new" flag after animation completes
-        setTimeout(() => {
-          setEvents(prev => prev.map(e => e.id === newEvent.id ? { ...e, isNew: false } : e))
-        }, 1000)
+        // Skip heartbeat and connection messages
+        if (newEvent.type === 'heartbeat' || newEvent.type === 'connected') {
+          return
+        }
+        
+        // Add deduplication check to prevent duplicate events
+        setEvents(prev => {
+          // Check if event already exists
+          const existingEvent = prev.find(e => e.id === newEvent.id)
+          if (existingEvent) {
+            console.log('Duplicate event detected, skipping:', newEvent.id)
+            return prev // Return unchanged if duplicate
+          }
+          
+          // Add new event with flash effect
+          const updatedEvents = [{ ...newEvent, isNew: true }, ...prev.slice(0, 49)]
+          
+          // Remove the "new" flag after animation completes
+          setTimeout(() => {
+            setEvents(current => current.map(e => e.id === newEvent.id ? { ...e, isNew: false } : e))
+          }, 1000)
+          
+          return updatedEvents
+        })
       } catch (err) {
         console.error('Error parsing SSE data:', err)
       }

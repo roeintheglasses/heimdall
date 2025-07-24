@@ -18,6 +18,10 @@ export async function GET(request: NextRequest) {
     start(controller) {
       // Add this client to the set
       clients.add(controller)
+      console.log(`Client connected. Total clients: ${clients.size}`)
+      
+      // Start polling when first client connects
+      startPolling()
       
       // Send initial connection message
       const data = `data: ${JSON.stringify({ type: 'connected', message: 'SSE connection established' })}\n\n`
@@ -31,6 +35,7 @@ export async function GET(request: NextRequest) {
         } catch (error) {
           clearInterval(heartbeat)
           clients.delete(controller)
+          console.log(`Client disconnected (heartbeat). Total clients: ${clients.size}`)
         }
       }, 30000) // Send heartbeat every 30 seconds
       
@@ -38,6 +43,7 @@ export async function GET(request: NextRequest) {
       request.signal.addEventListener('abort', () => {
         clearInterval(heartbeat)
         clients.delete(controller)
+        console.log(`Client disconnected (abort). Total clients: ${clients.size}`)
         try {
           controller.close()
         } catch (error) {
@@ -81,11 +87,15 @@ function broadcastEvent(event: DashboardEvent) {
 
 // Polling mechanism to fetch new events from Go service
 let lastEventId: string | null = null
+let lastEventTimestamp: string | null = null
 let pollingInterval: NodeJS.Timeout | null = null
+let sentEventIds: Set<string> = new Set()
 
 // Start polling when first client connects
 function startPolling() {
   if (pollingInterval) return
+  
+  console.log('Starting event polling...')
   
   pollingInterval = setInterval(async () => {
     if (clients.size === 0) {
@@ -93,6 +103,8 @@ function startPolling() {
       if (pollingInterval) {
         clearInterval(pollingInterval)
         pollingInterval = null
+        sentEventIds.clear()
+        console.log('Stopped polling - no clients connected')
       }
       return
     }
@@ -104,15 +116,37 @@ function startPolling() {
       if (response.ok) {
         const events: DashboardEvent[] = await response.json()
         
-        // Find new events since last check
-        if (events.length > 0) {
-          const latestEvent = events[0]
-          
-          if (!lastEventId || latestEvent.id !== lastEventId) {
-            // New event found, broadcast it
-            broadcastEvent(latestEvent)
-            lastEventId = latestEvent.id
+        // Process new events (check all events, not just the latest)
+        let newEventsFound = 0
+        
+        for (const event of events) {
+          // Skip if we've already sent this event
+          if (sentEventIds.has(event.id)) {
+            continue
           }
+          
+          // Skip if this event is older than our last known event
+          if (lastEventTimestamp && event.created_at <= lastEventTimestamp) {
+            continue
+          }
+          
+          // This is a new event, broadcast it
+          console.log('Broadcasting new event:', event.id, event.title)
+          broadcastEvent(event)
+          sentEventIds.add(event.id)
+          lastEventId = event.id
+          lastEventTimestamp = event.created_at
+          newEventsFound++
+        }
+        
+        if (newEventsFound > 0) {
+          console.log(`Broadcasted ${newEventsFound} new events`)
+        }
+        
+        // Clean up old event IDs to prevent memory leak (keep last 100)
+        if (sentEventIds.size > 100) {
+          const idsArray = Array.from(sentEventIds)
+          sentEventIds = new Set(idsArray.slice(-50))
         }
       }
     } catch (error) {
@@ -121,8 +155,4 @@ function startPolling() {
   }, 5000) // Poll every 5 seconds
 }
 
-// Start polling when this module loads
-if (typeof window === 'undefined') {
-  // Only start polling on server side
-  setTimeout(startPolling, 1000)
-}
+// Polling will be started when clients connect
