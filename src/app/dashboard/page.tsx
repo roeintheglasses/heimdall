@@ -154,9 +154,9 @@ function DashboardContent() {
   }, [events])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-slate-900/60 shadow-sm">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/">
@@ -168,10 +168,14 @@ function DashboardContent() {
             
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Shield className="h-6 w-6 text-primary" />
-                <h1 className="text-xl font-bold">Heimdall</h1>
+                <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-lg">
+                  <Shield className="h-5 w-5 text-white" />
+                </div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Heimdall
+                </h1>
               </div>
-              <Badge variant="secondary" className="hidden sm:inline-flex">
+              <Badge variant="secondary" className="hidden sm:inline-flex bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800">
                 Dashboard
               </Badge>
             </div>
@@ -188,13 +192,18 @@ function DashboardContent() {
       {/* Main Content */}
       <main className="container py-4 sm:py-6 px-4 sm:px-6">
         {/* Hero Section */}
-        <div className="mb-6 sm:mb-8">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">
-            Real-time Event Dashboard
-          </h2>
-          <p className="text-muted-foreground text-base sm:text-lg">
-            Monitor your development activities across GitHub, Vercel, and other integrations with intelligent categorization
-          </p>
+        <div className="mb-6 sm:mb-8 relative">
+          {/* Background decoration */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 via-purple-600/10 to-pink-600/10 rounded-2xl blur-3xl -z-10" />
+          
+          <div className="relative bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm rounded-2xl p-6 border border-blue-200/50 dark:border-blue-800/50 shadow-lg">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Real-time Event Dashboard
+            </h2>
+            <p className="text-slate-600 dark:text-slate-300 text-base sm:text-lg">
+              Monitor your development activities across GitHub, Vercel, and other integrations with intelligent categorization
+            </p>
+          </div>
         </div>
 
         {/* Error Alert */}
@@ -206,7 +215,9 @@ function DashboardContent() {
         )}
 
         {/* Category Stats Cards */}
-        <div className="mb-6 animate-in slide-in-from-top-4 fade-in-0" style={{ animationDelay: '200ms' }}>
+        <div className="mb-6 animate-in slide-in-from-top-4 fade-in-0 relative" style={{ animationDelay: '200ms' }}>
+          {/* Gradient background for stats section */}
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 rounded-3xl blur-2xl" />
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {Array.from({ length: 5 }).map((_, index) => (
@@ -231,7 +242,7 @@ function DashboardContent() {
         </div>
 
         {/* Category Filter & Search */}
-        <Card className="mb-6 animate-in slide-in-from-top-4 fade-in-0" style={{ animationDelay: '300ms' }}>
+        <Card className="mb-6 animate-in slide-in-from-top-4 fade-in-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-purple-200/50 dark:border-purple-800/50 shadow-lg" style={{ animationDelay: '300ms' }}>
           <CardHeader className="pb-4">
             <div className="space-y-4">
               <CategoryFilter categoryStats={categoryStats} />
@@ -291,7 +302,9 @@ function DashboardContent() {
           </div>
           
           {/* Events List */}
-          <div className="animate-in slide-in-from-bottom-8 fade-in-0" style={{ animationDelay: '400ms' }}>
+          <div className="animate-in slide-in-from-bottom-8 fade-in-0 relative" style={{ animationDelay: '400ms' }}>
+            {/* Background gradient for events */}
+            <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 via-purple-500/5 to-pink-500/5 rounded-2xl blur-xl -z-10" />
             <div>
             {isLoading ? (
               // Loading skeleton for events

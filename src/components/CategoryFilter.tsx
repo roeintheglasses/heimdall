@@ -62,11 +62,11 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
           onValueChange={handleCategoryChange}
           className="w-full"
         >
-          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto p-1">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto p-1 bg-gradient-to-r from-slate-100 via-white to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-slate-700">
             {/* All Categories Tab */}
             <TabsTrigger 
               value="all" 
-              className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px]"
+              className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg"
             >
               <LayoutGrid className="h-4 w-4 shrink-0" />
               <div className="flex flex-col sm:flex-row items-center gap-1">
@@ -89,7 +89,12 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
                 <TabsTrigger 
                   key={category.id}
                   value={category.id}
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px]"
+                  className={`
+                    flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px]
+                    data-[state=active]:bg-gradient-to-r data-[state=active]:from-${category.color}-500 data-[state=active]:to-${category.color}-600 
+                    data-[state=active]:text-white data-[state=active]:shadow-lg
+                    hover:bg-${category.color}-50 dark:hover:bg-${category.color}-950/50
+                  `}
                 >
                   <CategoryIcon 
                     iconName={category.icon} 

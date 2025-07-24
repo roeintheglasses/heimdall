@@ -65,22 +65,27 @@ export default function EventCard({ event }: EventCardProps) {
   return (
     <Card className={`
       group relative overflow-hidden transition-all duration-300 ease-out
-      hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5
+      hover:shadow-xl hover:shadow-${category.color}-500/20 hover:-translate-y-1
       border-l-4 ${colorClasses.border.replace('border-', 'border-l-')}
-      ${event.isNew ? 'animate-in slide-in-from-top-4 fade-in-0 bg-primary/5' : ''}
+      bg-gradient-to-r from-white via-white to-${category.color}-50/30 
+      dark:from-slate-900 dark:via-slate-900 dark:to-${category.color}-950/30
+      ${event.isNew ? 'animate-in slide-in-from-top-4 fade-in-0 ring-2 ring-primary/50' : ''}
     `}>
-      <CardContent className="p-0">
+      <CardContent className="p-0 relative">
+        {/* Subtle gradient overlay */}
+        <div className={`absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-${category.color}-500/5 pointer-events-none`} />
+        
         {/* Main Content Area */}
-        <div className="p-4 sm:p-5">
+        <div className="p-4 sm:p-5 relative z-10">
           {/* Header Row */}
           <div className="flex items-start gap-4 mb-3">
             {/* Service Icon */}
             <div className="relative shrink-0 mt-0.5">
               <div className={`
                 w-10 h-10 rounded-full flex items-center justify-center
-                ${colorClasses.bg} 
-                transition-all duration-200 group-hover:scale-110
-                ring-2 ring-background shadow-sm
+                bg-gradient-to-br ${colorClasses.bg.replace('50', '100').replace('950', '800')} to-${category.color}-200 dark:to-${category.color}-700
+                transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg
+                ring-2 ring-white dark:ring-slate-800 shadow-md
               `}>
                 <ServiceIcon 
                   service={serviceInfo} 
@@ -170,10 +175,10 @@ export default function EventCard({ event }: EventCardProps) {
         
         {/* Hover Accent Bar */}
         <div className={`
-          h-1 w-full transition-all duration-300
-          ${colorClasses.bg.replace('50', '100').replace('950', '800')}
+          h-2 w-full transition-all duration-300
+          bg-gradient-to-r from-${category.color}-400 via-${category.color}-500 to-${category.color}-600
           opacity-0 group-hover:opacity-100 scale-x-0 group-hover:scale-x-100
-          origin-left
+          origin-left shadow-lg
         `} />
       </CardContent>
     </Card>

@@ -132,20 +132,35 @@ export default function CategoryStatsCards({
         const trend = getTrendIndicator(category.id)
         const colorClasses = getCategoryColorClasses(category.color)
         
+        const gradientClasses = {
+          blue: 'bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-blue-950 dark:to-cyan-950 border-blue-300/50 dark:border-blue-700/50',
+          green: 'bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-950 dark:to-teal-950 border-emerald-300/50 dark:border-emerald-700/50',
+          purple: 'bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-950 dark:to-violet-950 border-purple-300/50 dark:border-purple-700/50',
+          red: 'bg-gradient-to-br from-red-50 to-rose-100 dark:from-red-950 dark:to-rose-950 border-red-300/50 dark:border-red-700/50',
+          orange: 'bg-gradient-to-br from-orange-50 to-amber-100 dark:from-orange-950 dark:to-amber-950 border-orange-300/50 dark:border-orange-700/50'
+        }
+        
         return (
           <Card 
             key={category.id}
-            className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-105 ${
-              isSelected ? 'ring-2 ring-primary shadow-lg' : ''
-            }`}
+            className={`
+              cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-105 group
+              ${gradientClasses[category.color as keyof typeof gradientClasses] || gradientClasses.blue}
+              ${isSelected ? 'ring-2 ring-primary shadow-xl scale-105' : ''}
+            `}
             onClick={() => selectCategory(isSelected ? null : category.id)}
           >
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className={`p-3 rounded-lg ${colorClasses.bg} transition-colors duration-200`}>
+            <CardContent className="p-4 sm:p-6 relative overflow-hidden">
+              {/* Decorative gradient overlay */}
+              <div className="absolute top-0 right-0 w-20 h-20 opacity-10 bg-gradient-to-bl from-current via-transparent to-transparent rounded-full blur-2xl" />
+              <div className="flex items-start justify-between mb-4 relative z-10">
+                <div className={`
+                  p-3 rounded-xl shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl
+                  ${colorClasses.bg.replace('50', '500').replace('950', '600')} 
+                `}>
                   <CategoryIcon 
                     iconName={category.icon} 
-                    className={`h-5 w-5 sm:h-6 sm:w-6 ${colorClasses.text}`} 
+                    className="h-5 w-5 sm:h-6 sm:w-6 text-white drop-shadow-sm" 
                   />
                 </div>
                 
@@ -169,10 +184,10 @@ export default function CategoryStatsCards({
                 </div>
                 
                 <div className="flex items-end gap-2">
-                  <p className="text-2xl sm:text-3xl font-bold">
+                  <p className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${colorClasses.text.replace('text-', 'from-').replace(' dark:', '-600 to-')} bg-clip-text text-transparent`}>
                     {count}
                   </p>
-                  <p className="text-sm text-muted-foreground mb-1">
+                  <p className="text-sm text-muted-foreground mb-1 font-medium">
                     {percentage}%
                   </p>
                 </div>
@@ -204,9 +219,9 @@ export default function CategoryStatsCards({
                 )}
                 
                 {/* Progress bar */}
-                <div className="w-full bg-muted rounded-full h-1.5 mt-3">
+                <div className="w-full bg-white/70 dark:bg-slate-800/70 rounded-full h-2 mt-3 overflow-hidden shadow-inner">
                   <div 
-                    className={`${colorClasses.bg.replace('50', '200').replace('950', '700')} h-1.5 rounded-full transition-all duration-300`}
+                    className={`h-2 rounded-full transition-all duration-500 ${colorClasses.bg.replace('50', '400').replace('950', '600')} shadow-sm`}
                     style={{ width: `${percentage}%` }}
                   />
                 </div>
