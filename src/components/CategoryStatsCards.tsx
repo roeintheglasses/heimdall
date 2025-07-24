@@ -14,10 +14,13 @@ import {
   Activity
 } from 'lucide-react'
 import { useCategories, useCategoryOperations } from '@/contexts/CategoryContext'
-import { CategoryStats, getCategoryColorClasses } from '@/types/categories'
+import { CategoryStats, getCategoryColorClasses, DashboardEvent } from '@/types/categories'
+import { ServiceIcon, ServiceAvatar } from '@/components/ServiceIcon'
+import { getServiceFromEventType, SERVICES } from '@/types/services'
 
 interface CategoryStatsCardsProps {
   categoryStats: CategoryStats
+  events?: DashboardEvent[]  // Add events prop to show service breakdown
   className?: string
   compact?: boolean
 }
@@ -38,6 +41,7 @@ function CategoryIcon({ iconName, className }: { iconName: string, className?: s
 
 export default function CategoryStatsCards({ 
   categoryStats, 
+  events = [],
   className = '',
   compact = false 
 }: CategoryStatsCardsProps) {
@@ -57,6 +61,26 @@ export default function CategoryStatsCards({
     // This could be enhanced to show actual trends from historical data
     const count = categoryStats[categoryId] || 0
     return count > 0 ? 'stable' : 'none'
+  }
+  
+  // Get service breakdown for a category
+  const getServiceBreakdown = (categoryId: string) => {
+    const categoryEvents = events.filter(event => {
+      const { getEventCategory } = useCategories()
+      const eventCategory = getEventCategory(event)
+      return eventCategory.id === categoryId
+    })
+    
+    const serviceCount: Record<string, number> = {}
+    categoryEvents.forEach(event => {
+      const service = getServiceFromEventType(event.event_type || 'unknown')
+      serviceCount[service.id] = (serviceCount[service.id] || 0) + 1
+    })
+    
+    return Object.entries(serviceCount)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3) // Top 3 services
+      .map(([serviceId, count]) => ({ serviceId, count }))
   }
 
   if (compact) {
@@ -157,6 +181,28 @@ export default function CategoryStatsCards({
                   {category.description}
                 </p>
                 
+                {/* Service breakdown for this category */}
+                {!compact && events.length > 0 && (
+                  <div className="flex items-center gap-1 mt-2">
+                    {getServiceBreakdown(category.id).map(({ serviceId, count }) => {
+                      const service = SERVICES.find(s => s.id === serviceId)
+                      if (!service) return null
+                      
+                      return (
+                        <div key={serviceId} className="flex items-center gap-1">
+                          <ServiceAvatar 
+                            service={service} 
+                            size="sm" 
+                            className="h-4 w-4"
+                            showTooltip={true}
+                          />
+                          <span className="text-xs text-muted-foreground">{count}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                
                 {/* Progress bar */}
                 <div className="w-full bg-muted rounded-full h-1.5 mt-3">
                   <div 
@@ -176,8 +222,9 @@ export default function CategoryStatsCards({
 // Summary stats card for overview
 export function CategorySummaryCard({ 
   categoryStats, 
+  events = [],
   className = '' 
-}: Pick<CategoryStatsCardsProps, 'categoryStats' | 'className'>) {
+}: Pick<CategoryStatsCardsProps, 'categoryStats' | 'events' | 'className'>) {
   const { categories } = useCategories()
   
   const totalEvents = Object.values(categoryStats).reduce((sum, count) => sum + count, 0)
@@ -219,12 +266,41 @@ export function CategorySummaryCard({
           
           {mostActiveCategory && (
             <div className="pt-2 border-t">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <CategoryIcon iconName={mostActiveCategory.icon} className="h-4 w-4" />
                 <span>
                   <strong>{mostActiveCategory.name}</strong> is your most active category
                 </span>
               </div>
+              
+              {/* Show top services across all categories */}
+              {events.length > 0 && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Top services:</span>
+                  {Object.entries(
+                    events.reduce((acc, event) => {
+                      const service = getServiceFromEventType(event.event_type || 'unknown')
+                      acc[service.id] = (acc[service.id] || 0) + 1
+                      return acc
+                    }, {} as Record<string, number>)
+                  )
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 3)
+                    .map(([serviceId, count]) => {
+                      const service = SERVICES.find(s => s.id === serviceId)
+                      if (!service) return null
+                      
+                      return (
+                        <div key={serviceId} className="flex items-center gap-1">
+                          <ServiceIcon service={service} className="h-3 w-3" />
+                          <span>{service.name} ({count})</span>
+                        </div>
+                      )
+                    })
+                    .filter(Boolean)
+                  }
+                </div>
+              )}
             </div>
           )}
         </div>

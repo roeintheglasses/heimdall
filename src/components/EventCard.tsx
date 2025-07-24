@@ -4,6 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { GitBranch, Rocket, FileText, Clock, Server, AlertCircle, Shield } from "lucide-react"
 import { useCategories } from '@/contexts/CategoryContext'
 import { DashboardEvent, getCategoryColorClasses } from '@/types/categories'
+import { ServiceIcon, ServiceBadge, ServiceAvatar } from '@/components/ServiceIcon'
+import { getServiceFromEventType } from '@/types/services'
 
 interface EventCardProps {
   event: DashboardEvent
@@ -26,6 +28,9 @@ function CategoryIcon({ iconName, className }: { iconName: string, className?: s
 
 export default function EventCard({ event }: EventCardProps) {
   const { getEventCategory } = useCategories()
+  
+  // Get service info for this event
+  const serviceInfo = getServiceFromEventType(event.event_type || 'unknown')
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp)
     const now = new Date()
@@ -67,11 +72,25 @@ export default function EventCard({ event }: EventCardProps) {
     <Card className={`group hover:shadow-md transition-all duration-300 ease-out border-l-4 ${colorClasses.border.replace('border-', 'border-l-')} hover:border-l-primary/60 animate-in slide-in-from-right-8 fade-in-0 duration-500`}>
       <CardHeader className="pb-2 sm:pb-3">
         <div className="flex items-start gap-2 sm:gap-3">
-          <Avatar className={`h-8 w-8 sm:h-10 sm:w-10 ${colorClasses.bg} transition-transform duration-200 group-hover:scale-105 shrink-0`}>
-            <AvatarFallback className={`${colorClasses.text} ${colorClasses.bg}`}>
-              <CategoryIcon iconName={category.icon} className="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:rotate-12" />
-            </AvatarFallback>
-          </Avatar>
+          {/* Dual Avatar: Category + Service */}
+          <div className="relative shrink-0">
+            {/* Main category avatar */}
+            <Avatar className={`h-8 w-8 sm:h-10 sm:w-10 ${colorClasses.bg} transition-transform duration-200 group-hover:scale-105`}>
+              <AvatarFallback className={`${colorClasses.text} ${colorClasses.bg}`}>
+                <CategoryIcon iconName={category.icon} className="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:rotate-12" />
+              </AvatarFallback>
+            </Avatar>
+            
+            {/* Service icon overlay */}
+            <div className="absolute -bottom-1 -right-1 sm:-bottom-0.5 sm:-right-0.5">
+              <ServiceAvatar 
+                service={serviceInfo} 
+                size="sm" 
+                className="border-2 border-background shadow-sm" 
+                showTooltip={true}
+              />
+            </div>
+          </div>
           
           <div className="flex-1 space-y-1 sm:space-y-2 min-w-0">
             <div className="flex items-start justify-between gap-2">
@@ -79,6 +98,13 @@ export default function EventCard({ event }: EventCardProps) {
                 {event.title}
               </h3>
               <div className="flex items-center gap-2 shrink-0">
+                <ServiceBadge 
+                  service={serviceInfo}
+                  variant="outline"
+                  size="sm"
+                  showIcon={false}
+                  className="text-xs transition-all duration-200 hover:scale-105"
+                />
                 <Badge 
                   variant="outline" 
                   className={`text-xs transition-all duration-200 hover:scale-105 ${colorClasses.badge}`}

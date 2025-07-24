@@ -226,7 +226,7 @@ function DashboardContent() {
               ))}
             </div>
           ) : (
-            <CategoryStatsCards categoryStats={categoryStats} />
+            <CategoryStatsCards categoryStats={categoryStats} events={events} />
           )}
         </div>
 
