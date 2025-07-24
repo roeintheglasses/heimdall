@@ -62,11 +62,11 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
           onValueChange={handleCategoryChange}
           className="w-full"
         >
-          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto p-1 bg-gradient-to-r from-slate-100 via-white to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-slate-700">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
             {/* All Categories Tab */}
             <TabsTrigger 
               value="all" 
-              className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg"
+              className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px] data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
             >
               <LayoutGrid className="h-4 w-4 shrink-0" />
               <div className="flex flex-col sm:flex-row items-center gap-1">
@@ -91,9 +91,9 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
                   value={category.id}
                   className={`
                     flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px]
-                    data-[state=active]:bg-gradient-to-r data-[state=active]:from-${category.color}-500 data-[state=active]:to-${category.color}-600 
-                    data-[state=active]:text-white data-[state=active]:shadow-lg
-                    hover:bg-${category.color}-50 dark:hover:bg-${category.color}-950/50
+                    data-[state=active]:bg-${category.color}-600 data-[state=active]:text-white data-[state=active]:shadow-lg
+                    hover:bg-${category.color}-100 dark:hover:bg-${category.color}-900/50
+                    text-slate-700 dark:text-slate-300
                   `}
                 >
                   <CategoryIcon 
@@ -106,7 +106,11 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
                     </span>
                     <Badge 
                       variant={isSelected ? "default" : "secondary"}
-                      className="text-xs px-1.5 py-0.5 h-auto min-h-0"
+                      className={`text-xs px-1.5 py-0.5 h-auto min-h-0 ${
+                        isSelected 
+                          ? 'bg-white/90 text-slate-900 hover:bg-white/80'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
                     >
                       {count}
                     </Badge>

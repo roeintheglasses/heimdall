@@ -132,20 +132,16 @@ export default function CategoryStatsCards({
         const trend = getTrendIndicator(category.id)
         const colorClasses = getCategoryColorClasses(category.color)
         
-        const gradientClasses = {
-          blue: 'bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-blue-950 dark:to-cyan-950 border-blue-300/50 dark:border-blue-700/50',
-          green: 'bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-950 dark:to-teal-950 border-emerald-300/50 dark:border-emerald-700/50',
-          purple: 'bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-950 dark:to-violet-950 border-purple-300/50 dark:border-purple-700/50',
-          red: 'bg-gradient-to-br from-red-50 to-rose-100 dark:from-red-950 dark:to-rose-950 border-red-300/50 dark:border-red-700/50',
-          orange: 'bg-gradient-to-br from-orange-50 to-amber-100 dark:from-orange-950 dark:to-amber-950 border-orange-300/50 dark:border-orange-700/50'
-        }
+        const cardClasses = isSelected 
+          ? `bg-${category.color}-100 dark:bg-${category.color}-900 border-${category.color}-300 dark:border-${category.color}-700 text-${category.color}-900 dark:text-${category.color}-100`
+          : `bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-${category.color}-50 dark:hover:bg-${category.color}-950/20`
         
         return (
           <Card 
             key={category.id}
             className={`
-              cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-105 group
-              ${gradientClasses[category.color as keyof typeof gradientClasses] || gradientClasses.blue}
+              cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-105 group border
+              ${cardClasses}
               ${isSelected ? 'ring-2 ring-primary shadow-xl scale-105' : ''}
             `}
             onClick={() => selectCategory(isSelected ? null : category.id)}
@@ -156,7 +152,7 @@ export default function CategoryStatsCards({
               <div className="flex items-start justify-between mb-4 relative z-10">
                 <div className={`
                   p-3 rounded-xl shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl
-                  ${colorClasses.bg.replace('50', '500').replace('950', '600')} 
+                  bg-${category.color}-500 dark:bg-${category.color}-600
                 `}>
                   <CategoryIcon 
                     iconName={category.icon} 
@@ -173,26 +169,42 @@ export default function CategoryStatsCards({
               
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm sm:text-base truncate">
+                  <h3 className={`font-semibold text-sm sm:text-base truncate ${
+                    isSelected 
+                      ? `text-${category.color}-900 dark:text-${category.color}-100`
+                      : 'text-slate-900 dark:text-slate-100'
+                  }`}>
                     {category.name}
                   </h3>
                   {isSelected && (
-                    <Badge variant="default" className="text-xs">
+                    <Badge variant="default" className="text-xs bg-white/90 text-slate-900">
                       Active
                     </Badge>
                   )}
                 </div>
                 
                 <div className="flex items-end gap-2">
-                  <p className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${colorClasses.text.replace('text-', 'from-').replace(' dark:', '-600 to-')} bg-clip-text text-transparent`}>
+                  <p className={`text-2xl sm:text-3xl font-bold ${
+                    isSelected 
+                      ? `text-${category.color}-800 dark:text-${category.color}-200`
+                      : `text-${category.color}-600 dark:text-${category.color}-400`
+                  }`}>
                     {count}
                   </p>
-                  <p className="text-sm text-muted-foreground mb-1 font-medium">
+                  <p className={`text-sm mb-1 font-medium ${
+                    isSelected 
+                      ? `text-${category.color}-700 dark:text-${category.color}-300`
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}>
                     {percentage}%
                   </p>
                 </div>
                 
-                <p className="text-xs text-muted-foreground leading-tight">
+                <p className={`text-xs leading-tight ${
+                  isSelected 
+                    ? `text-${category.color}-600 dark:text-${category.color}-400`
+                    : 'text-slate-500 dark:text-slate-400'
+                }`}>
                   {category.description}
                 </p>
                 

@@ -67,8 +67,7 @@ export default function EventCard({ event }: EventCardProps) {
       group relative overflow-hidden transition-all duration-300 ease-out
       hover:shadow-xl hover:shadow-${category.color}-500/20 hover:-translate-y-1
       border-l-4 ${colorClasses.border.replace('border-', 'border-l-')}
-      bg-gradient-to-r from-white via-white to-${category.color}-50/30 
-      dark:from-slate-900 dark:via-slate-900 dark:to-${category.color}-950/30
+      bg-white dark:bg-slate-900 hover:bg-${category.color}-50/50 dark:hover:bg-${category.color}-950/20
       ${event.isNew ? 'animate-in slide-in-from-top-4 fade-in-0 ring-2 ring-primary/50' : ''}
     `}>
       <CardContent className="p-0 relative">
@@ -83,7 +82,7 @@ export default function EventCard({ event }: EventCardProps) {
             <div className="relative shrink-0 mt-0.5">
               <div className={`
                 w-10 h-10 rounded-full flex items-center justify-center
-                bg-gradient-to-br ${colorClasses.bg.replace('50', '100').replace('950', '800')} to-${category.color}-200 dark:to-${category.color}-700
+                bg-${category.color}-500 dark:bg-${category.color}-600
                 transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg
                 ring-2 ring-white dark:ring-slate-800 shadow-md
               `}>

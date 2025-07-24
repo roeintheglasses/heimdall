@@ -156,7 +156,7 @@ function DashboardContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-slate-900/60 shadow-sm">
+      <header className="sticky top-0 z-50 w-full border-b bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-slate-900/80 shadow-sm">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/">
@@ -196,7 +196,7 @@ function DashboardContent() {
           {/* Background decoration */}
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 via-purple-600/10 to-pink-600/10 rounded-2xl blur-3xl -z-10" />
           
-          <div className="relative bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm rounded-2xl p-6 border border-blue-200/50 dark:border-blue-800/50 shadow-lg">
+          <div className="relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-2xl p-6 border border-blue-200/50 dark:border-blue-800/50 shadow-lg">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
               Real-time Event Dashboard
             </h2>
@@ -242,7 +242,7 @@ function DashboardContent() {
         </div>
 
         {/* Category Filter & Search */}
-        <Card className="mb-6 animate-in slide-in-from-top-4 fade-in-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-purple-200/50 dark:border-purple-800/50 shadow-lg" style={{ animationDelay: '300ms' }}>
+        <Card className="mb-6 animate-in slide-in-from-top-4 fade-in-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-purple-200/50 dark:border-purple-800/50 shadow-lg" style={{ animationDelay: '300ms' }}>
           <CardHeader className="pb-4">
             <div className="space-y-4">
               <CategoryFilter categoryStats={categoryStats} />
