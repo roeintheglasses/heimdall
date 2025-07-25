@@ -1,70 +1,12 @@
-'use client'
-
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Shield, Activity, Zap, ArrowRight, CheckCircle } from 'lucide-react'
-import EventActivityCard from '@/components/EventActivityCard'
-import { CategoryProvider } from '@/contexts/CategoryContext'
-import { DashboardEvent } from '@/types/categories'
-
-// Generate sample activity data for demo
-const generateSampleEvents = (): DashboardEvent[] => {
-  const events: DashboardEvent[] = []
-  const today = new Date()
-  const sixMonthsAgo = new Date(today)
-  sixMonthsAgo.setMonth(today.getMonth() - 6)
-
-  const eventTypes = ['github.push', 'vercel.deploy', 'railway.deploy', 'github.pr']
-  const titles = [
-    'Update dashboard components',
-    'Deploy to production',
-    'Fix authentication bug',
-    'Add new feature',
-    'Update dependencies',
-    'Optimize performance'
-  ]
-
-  for (let d = 0; d < 180; d++) {
-    const currentDate = new Date(sixMonthsAgo)
-    currentDate.setDate(sixMonthsAgo.getDate() + d)
-    
-    // Skip some days for realistic pattern
-    if (Math.random() < 0.4) continue
-    
-    const eventsPerDay = Math.floor(Math.random() * 8) + 1
-    
-    for (let i = 0; i < eventsPerDay; i++) {
-      const eventTime = new Date(currentDate)
-      eventTime.setHours(
-        Math.floor(Math.random() * 16) + 6,
-        Math.floor(Math.random() * 60)
-      )
-      
-      events.push({
-        id: `sample_${d}_${i}`,
-        event_type: eventTypes[Math.floor(Math.random() * eventTypes.length)],
-        title: titles[Math.floor(Math.random() * titles.length)],
-        created_at: eventTime.toISOString(),
-        metadata: {
-          repo: 'heimdall',
-          author: 'Developer',
-          status: 'SUCCESS'
-        }
-      })
-    }
-  }
-
-  return events
-}
 
 export default function Home() {
-  const sampleEvents = generateSampleEvents()
-
   return (
-    <CategoryProvider>
-      <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b">
         <div className="container flex h-16 items-center">

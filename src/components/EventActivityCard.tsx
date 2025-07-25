@@ -156,8 +156,8 @@ export default function EventActivityCard({ events, className }: EventActivityCa
 
   // Custom theme for the activity calendar
   const theme = {
-    light: ['#ffffff', '#9be9a8', '#40c463', '#30a14e', '#216e39'],
-    dark: ['#ffffff', '#0e4429', '#006d32', '#26a641', '#39d353']
+    light: ['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39'],
+    dark: ['#161b22', '#0e4429', '#006d32', '#26a641', '#39d353']
   }
 
   return (
@@ -189,18 +189,20 @@ export default function EventActivityCard({ events, className }: EventActivityCa
         <div className="mb-6 overflow-x-auto">
           <div className="min-w-[720px] flex justify-center">
             {activityData.length > 0 ? (
-              <ActivityCalendar
-                data={activityData}
-                theme={theme}
-                hideTotalCount={true}
-                hideColorLegend={false}
-                showWeekdayLabels={true}
-                weekStart={1}
-                fontSize={12}
-                blockMargin={2}
-                blockRadius={2}
-                blockSize={11}
-              />
+              <div className="[&_.react-activity-calendar__block[data-level='0']]:border [&_.react-activity-calendar__block[data-level='0']]:border-gray-300">
+                <ActivityCalendar
+                  data={activityData}
+                  theme={theme}
+                  hideTotalCount={true}
+                  hideColorLegend={false}
+                  showWeekdayLabels={true}
+                  weekStart={1}
+                  fontSize={12}
+                  blockMargin={2}
+                  blockRadius={2}
+                  blockSize={11}
+                />
+              </div>
             ) : (
               <div className="h-32 bg-muted rounded flex items-center justify-center">
                 <p className="text-muted-foreground">No event data available for activity visualization</p>
@@ -319,7 +321,7 @@ export default function EventActivityCard({ events, className }: EventActivityCa
             {theme.light.map((color, index) => (
               <div
                 key={index}
-                className="w-2.5 h-2.5 rounded-sm border border-border/20"
+                className="w-2.5 h-2.5 rounded-sm border border-border/30"
                 style={{ backgroundColor: color }}
                 title={`Level ${index}`}
               />
