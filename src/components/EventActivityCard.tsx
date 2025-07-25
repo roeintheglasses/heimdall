@@ -8,7 +8,16 @@ import dynamic from 'next/dynamic'
 
 // Dynamically import ActivityCalendar to avoid SSR issues
 const ActivityCalendar = dynamic(
-  () => import('react-activity-calendar').then(mod => mod.ActivityCalendar),
+  () => import('react-activity-calendar').then(mod => mod.ActivityCalendar).catch(() => {
+    // Fallback component if the library fails to load
+    const FallbackComponent = () => (
+      <div className="min-w-[720px] h-32 bg-muted rounded flex items-center justify-center">
+        <p className="text-muted-foreground">Activity calendar temporarily unavailable</p>
+      </div>
+    )
+    FallbackComponent.displayName = 'ActivityCalendarFallback'
+    return FallbackComponent
+  }),
   { 
     ssr: false,
     loading: () => <div className="min-w-[720px] h-32 bg-muted animate-pulse rounded" />
@@ -63,10 +72,21 @@ export default function EventActivityCard({ events, className }: EventActivityCa
 
   // Process events into activity data
   const activityData = useMemo(() => {
-    // Group events by date
+    // Validate events data
+    if (!Array.isArray(events) || events.length === 0) {
+      return []
+    }
+
+    // Group events by date with error handling
     const eventsByDate = events.reduce((acc, event) => {
-      const date = new Date(event.created_at).toISOString().split('T')[0]
-      acc[date] = (acc[date] || 0) + 1
+      try {
+        if (event?.created_at) {
+          const date = new Date(event.created_at).toISOString().split('T')[0]
+          acc[date] = (acc[date] || 0) + 1
+        }
+      } catch (error) {
+        console.warn('Error processing event date:', event, error)
+      }
       return acc
     }, {} as Record<string, number>)
 
@@ -168,37 +188,24 @@ export default function EventActivityCard({ events, className }: EventActivityCa
         {/* Activity Calendar */}
         <div className="mb-6 overflow-x-auto">
           <div className="min-w-[720px]">
-            <ActivityCalendar
-              data={activityData}
-              theme={theme}
-              hideTotalCount
-              hideColorLegend={false}
-              showWeekdayLabels
-              weekStart={1} // Monday
-              fontSize={12}
-              blockMargin={2}
-              blockRadius={2}
-              blockSize={11}
-              renderBlock={(block, activity) => (
-                <div
-                  style={{
-                    ...block,
-                    cursor: activity.count > 0 ? 'pointer' : 'default',
-                  }}
-                  title={`${new Date(activity.date).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric', 
-                    month: 'long',
-                    day: 'numeric'
-                  })}: ${activity.count} event${activity.count !== 1 ? 's' : ''}`}
-                  onClick={() => {
-                    if (activity.count > 0) {
-                      setSelectedDate(selectedDate === activity.date ? null : activity.date)
-                    }
-                  }}
-                />
-              )}
-            />
+            {activityData.length > 0 ? (
+              <ActivityCalendar
+                data={activityData}
+                theme={theme}
+                hideTotalCount={true}
+                hideColorLegend={false}
+                showWeekdayLabels={true}
+                weekStart={1}
+                fontSize={12}
+                blockMargin={2}
+                blockRadius={2}
+                blockSize={11}
+              />
+            ) : (
+              <div className="h-32 bg-muted rounded flex items-center justify-center">
+                <p className="text-muted-foreground">No event data available for activity visualization</p>
+              </div>
+            )}
           </div>
         </div>
 
