@@ -179,6 +179,8 @@ func (app *App) processWebhookHandler(w http.ResponseWriter, r *http.Request) {
 		dashboardEvent, err = transformGitHubPush(payload.Event)
 	case "vercel.deploy":
 		dashboardEvent, err = transformVercelDeploy(payload.Event)
+	case "railway.deploy":
+		dashboardEvent, err = transformRailwayDeploy(payload.Event)
 	default:
 		http.Error(w, "Unknown event type", http.StatusBadRequest)
 		return
@@ -268,6 +270,89 @@ func transformVercelDeploy(eventData json.RawMessage) (DashboardEvent, error) {
 			"status":  deployEvent.Deployment.State,
 			"url":     deployEvent.Deployment.URL,
 		},
+		CreatedAt: time.Now().UTC(),
+	}, nil
+}
+
+func transformRailwayDeploy(eventData json.RawMessage) (DashboardEvent, error) {
+	var railwayEvent struct {
+		Event string `json:"event"`
+		Data  struct {
+			Deployment struct {
+				ID        string `json:"id"`
+				Status    string `json:"status"`
+				CreatedAt string `json:"createdAt"`
+				URL       string `json:"url"`
+				Meta      struct {
+					Branch        string `json:"branch"`
+					CommitSha     string `json:"commitSha"`
+					CommitMessage string `json:"commitMessage"`
+					Author        string `json:"author"`
+				} `json:"meta"`
+			} `json:"deployment"`
+			Service struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+				URL  string `json:"url"`
+			} `json:"service"`
+			Project struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"project"`
+			Environment struct {
+				Name string `json:"name"`
+			} `json:"environment"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(eventData, &railwayEvent); err != nil {
+		return DashboardEvent{}, err
+	}
+
+	// Map Railway status to our standard format
+	status := railwayEvent.Data.Deployment.Status
+	switch status {
+	case "DEPLOYED":
+		status = "SUCCESS"
+	case "DEPLOYING":
+		status = "BUILDING"
+	case "DEPLOY_FAILED":
+		status = "FAILED"
+	}
+
+	title := fmt.Sprintf("Railway deployment of %s", railwayEvent.Data.Service.Name)
+	if railwayEvent.Data.Environment.Name != "" {
+		title = fmt.Sprintf("Railway deployment of %s to %s", railwayEvent.Data.Service.Name, railwayEvent.Data.Environment.Name)
+	}
+
+	metadata := map[string]interface{}{
+		"service_name":    railwayEvent.Data.Service.Name,
+		"deployment_url":  railwayEvent.Data.Service.URL,
+		"status":          status,
+		"environment":     railwayEvent.Data.Environment.Name,
+		"project_name":    railwayEvent.Data.Project.Name,
+		"deployment_id":   railwayEvent.Data.Deployment.ID,
+		"service_id":      railwayEvent.Data.Service.ID,
+	}
+
+	// Add git information if available
+	if railwayEvent.Data.Deployment.Meta.Branch != "" {
+		metadata["branch"] = railwayEvent.Data.Deployment.Meta.Branch
+	}
+	if railwayEvent.Data.Deployment.Meta.CommitSha != "" {
+		metadata["commit_sha"] = railwayEvent.Data.Deployment.Meta.CommitSha
+	}
+	if railwayEvent.Data.Deployment.Meta.Author != "" {
+		metadata["author"] = railwayEvent.Data.Deployment.Meta.Author
+	}
+	if railwayEvent.Data.Deployment.Meta.CommitMessage != "" {
+		metadata["commit_message"] = railwayEvent.Data.Deployment.Meta.CommitMessage
+	}
+
+	return DashboardEvent{
+		EventType: "railway.deploy",
+		Title:     title,
+		Metadata:  metadata,
 		CreatedAt: time.Now().UTC(),
 	}, nil
 }
