@@ -27,11 +27,13 @@ export async function POST(req: NextRequest) {
     const body = await req.text()
     const githubEvent = req.headers.get('x-github-event')
     const vercelEvent = req.headers.get('x-vercel-deployment-url')
+    const railwayEvent = req.headers.get('x-railway-event')
     const signature = req.headers.get('x-hub-signature-256')
     
     console.log('Webhook received:', {
       githubEvent,
       vercelEvent,
+      railwayEvent,
       hasSignature: !!signature,
       bodyLength: body.length,
       timestamp: new Date().toISOString()
@@ -81,6 +83,11 @@ export async function POST(req: NextRequest) {
     } else if (vercelEvent) {
       qstashPayload = {
         type: 'vercel.deploy',
+        event: payload
+      }
+    } else if (railwayEvent && (railwayEvent.includes('deployment') || railwayEvent === 'deploy')) {
+      qstashPayload = {
+        type: 'railway.deploy',
         event: payload
       }
     } else {
