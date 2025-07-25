@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react'
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
 import { 
   EventCategory, 
   DashboardEvent, 
@@ -103,12 +103,12 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Update filter state
-  const setFilter = (newFilter: Partial<CategoryFilter>) => {
+  const setFilter = useCallback((newFilter: Partial<CategoryFilter>) => {
     setFilterState(prev => ({
       ...prev,
       ...newFilter
     }))
-  }
+  }, [])
 
   // Fetch categories from backend (when available)
   const fetchCategories = async () => {
