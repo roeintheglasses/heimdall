@@ -1,12 +1,70 @@
+'use client'
+
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Shield, Activity, Zap, ArrowRight, CheckCircle } from 'lucide-react'
+import EventActivityCard from '@/components/EventActivityCard'
+import { CategoryProvider } from '@/contexts/CategoryContext'
+import { DashboardEvent } from '@/types/categories'
+
+// Generate sample activity data for demo
+const generateSampleEvents = (): DashboardEvent[] => {
+  const events: DashboardEvent[] = []
+  const today = new Date()
+  const sixMonthsAgo = new Date(today)
+  sixMonthsAgo.setMonth(today.getMonth() - 6)
+
+  const eventTypes = ['github.push', 'vercel.deploy', 'railway.deploy', 'github.pr']
+  const titles = [
+    'Update dashboard components',
+    'Deploy to production',
+    'Fix authentication bug',
+    'Add new feature',
+    'Update dependencies',
+    'Optimize performance'
+  ]
+
+  for (let d = 0; d < 180; d++) {
+    const currentDate = new Date(sixMonthsAgo)
+    currentDate.setDate(sixMonthsAgo.getDate() + d)
+    
+    // Skip some days for realistic pattern
+    if (Math.random() < 0.4) continue
+    
+    const eventsPerDay = Math.floor(Math.random() * 8) + 1
+    
+    for (let i = 0; i < eventsPerDay; i++) {
+      const eventTime = new Date(currentDate)
+      eventTime.setHours(
+        Math.floor(Math.random() * 16) + 6,
+        Math.floor(Math.random() * 60)
+      )
+      
+      events.push({
+        id: `sample_${d}_${i}`,
+        event_type: eventTypes[Math.floor(Math.random() * eventTypes.length)],
+        title: titles[Math.floor(Math.random() * titles.length)],
+        created_at: eventTime.toISOString(),
+        metadata: {
+          repo: 'heimdall',
+          author: 'Developer',
+          status: 'SUCCESS'
+        }
+      })
+    }
+  }
+
+  return events
+}
 
 export default function Home() {
+  const sampleEvents = generateSampleEvents()
+
   return (
-    <div className="min-h-screen bg-background">
+    <CategoryProvider>
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b">
         <div className="container flex h-16 items-center">
@@ -44,6 +102,35 @@ export default function Home() {
               <Button variant="outline" size="lg" className="gap-2 w-full sm:w-auto">
                 <CheckCircle className="h-4 w-4" />
                 API Health Check
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Activity Preview Section */}
+      <section className="container py-12 sm:py-16 px-4 sm:px-6 bg-muted/30">
+        <div className="mx-auto max-w-6xl">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+              Activity Overview
+            </h2>
+            <p className="text-muted-foreground">
+              GitHub-style activity visualization showing development patterns over time
+            </p>
+          </div>
+          
+          <EventActivityCard 
+            events={sampleEvents}
+            className="mx-auto max-w-5xl shadow-lg border-2 bg-card"
+          />
+          
+          <div className="text-center mt-6">
+            <Link href="/dashboard">
+              <Button className="gap-2">
+                <Activity className="h-4 w-4" />
+                View Live Dashboard
+                <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
           </div>
@@ -138,6 +225,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </CategoryProvider>
   )
 }

@@ -156,8 +156,8 @@ export default function EventActivityCard({ events, className }: EventActivityCa
 
   // Custom theme for the activity calendar
   const theme = {
-    light: ['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39'],
-    dark: ['#161b22', '#0e4429', '#006d32', '#26a641', '#39d353']
+    light: ['#ffffff', '#9be9a8', '#40c463', '#30a14e', '#216e39'],
+    dark: ['#ffffff', '#0e4429', '#006d32', '#26a641', '#39d353']
   }
 
   return (
@@ -187,7 +187,7 @@ export default function EventActivityCard({ events, className }: EventActivityCa
       <CardContent className="pb-6">
         {/* Activity Calendar */}
         <div className="mb-6 overflow-x-auto">
-          <div className="min-w-[720px]">
+          <div className="min-w-[720px] flex justify-center">
             {activityData.length > 0 ? (
               <ActivityCalendar
                 data={activityData}
