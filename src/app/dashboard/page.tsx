@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import EventCard from '@/components/EventCard'
 import EventCardSkeleton from '@/components/EventCardSkeleton'
+import EventActivityCard from '@/components/EventActivityCard'
 import ConnectionStatus from '@/components/ConnectionStatus'
 import CategoryFilter from '@/components/CategoryFilter'
 import CategoryStatsCards from '@/components/CategoryStatsCards'
@@ -239,6 +240,14 @@ function DashboardContent() {
           ) : (
             <CategoryStatsCards categoryStats={categoryStats} events={events} />
           )}
+        </div>
+
+        {/* Event Activity Calendar */}
+        <div className="mb-6 animate-in slide-in-from-top-4 fade-in-0" style={{ animationDelay: '200ms' }}>
+          <EventActivityCard 
+            events={events} 
+            className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-purple-200/50 dark:border-purple-800/50 shadow-lg"
+          />
         </div>
 
         {/* Category Filter & Search */}
