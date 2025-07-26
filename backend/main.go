@@ -331,33 +331,27 @@ func transformVercelDeploy(eventData json.RawMessage) (DashboardEvent, error) {
 
 func transformRailwayDeploy(eventData json.RawMessage) (DashboardEvent, error) {
 	var railwayEvent struct {
-		Event string `json:"event"`
-		Data  struct {
-			Deployment struct {
-				ID        string `json:"id"`
-				Status    string `json:"status"`
-				CreatedAt string `json:"createdAt"`
-				URL       string `json:"url"`
-				Meta      struct {
-					Branch        string `json:"branch"`
-					CommitSha     string `json:"commitSha"`
-					CommitMessage string `json:"commitMessage"`
-					Author        string `json:"author"`
-				} `json:"meta"`
-			} `json:"deployment"`
-			Service struct {
-				ID   string `json:"id"`
-				Name string `json:"name"`
-				URL  string `json:"url"`
-			} `json:"service"`
-			Project struct {
-				ID   string `json:"id"`
-				Name string `json:"name"`
-			} `json:"project"`
-			Environment struct {
-				Name string `json:"name"`
-			} `json:"environment"`
-		} `json:"data"`
+		Type      string `json:"type"`
+		Timestamp string `json:"timestamp"`
+		Project   struct {
+			ID          string `json:"id"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			CreatedAt   string `json:"createdAt"`
+		} `json:"project"`
+		Environment struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"environment"`
+		Deployment struct {
+			ID      string `json:"id"`
+			Creator struct {
+				ID     string `json:"id"`
+				Name   string `json:"name"`
+				Avatar string `json:"avatar"`
+			} `json:"creator"`
+			Meta map[string]interface{} `json:"meta"`
+		} `json:"deployment"`
 	}
 
 	if err := json.Unmarshal(eventData, &railwayEvent); err != nil {
@@ -366,46 +360,45 @@ func transformRailwayDeploy(eventData json.RawMessage) (DashboardEvent, error) {
 		return DashboardEvent{}, err
 	}
 	
-	log.Printf("Processing Railway event - Type: %s, Service: %s, Status: %s", railwayEvent.Event, railwayEvent.Data.Service.Name, railwayEvent.Data.Deployment.Status)
+	log.Printf("Processing Railway event - Type: %s, Project: %s, Environment: %s", railwayEvent.Type, railwayEvent.Project.Name, railwayEvent.Environment.Name)
 
-	// Map Railway status to our standard format
-	status := railwayEvent.Data.Deployment.Status
-	switch status {
-	case "DEPLOYED":
+	// Map Railway type to our standard format
+	status := "UNKNOWN"
+	switch railwayEvent.Type {
+	case "DEPLOY":
 		status = "SUCCESS"
-	case "DEPLOYING":
+	case "DEPLOY_STARTED":
 		status = "BUILDING"
 	case "DEPLOY_FAILED":
 		status = "FAILED"
+	default:
+		status = "DEPLOY"
 	}
 
-	title := fmt.Sprintf("Railway deployment of %s", railwayEvent.Data.Service.Name)
-	if railwayEvent.Data.Environment.Name != "" {
-		title = fmt.Sprintf("Railway deployment of %s to %s", railwayEvent.Data.Service.Name, railwayEvent.Data.Environment.Name)
+	// Use project name and environment for title
+	title := fmt.Sprintf("Railway deployment of %s", railwayEvent.Project.Name)
+	if railwayEvent.Environment.Name != "" {
+		title = fmt.Sprintf("Railway deployment of %s to %s", railwayEvent.Project.Name, railwayEvent.Environment.Name)
 	}
 
 	metadata := map[string]interface{}{
-		"service_name":    railwayEvent.Data.Service.Name,
-		"deployment_url":  railwayEvent.Data.Service.URL,
-		"status":          status,
-		"environment":     railwayEvent.Data.Environment.Name,
-		"project_name":    railwayEvent.Data.Project.Name,
-		"deployment_id":   railwayEvent.Data.Deployment.ID,
-		"service_id":      railwayEvent.Data.Service.ID,
+		"project_name":   railwayEvent.Project.Name,
+		"project_id":     railwayEvent.Project.ID,
+		"status":         status,
+		"environment":    railwayEvent.Environment.Name,
+		"environment_id": railwayEvent.Environment.ID,
+		"deployment_id":  railwayEvent.Deployment.ID,
+		"creator_name":   railwayEvent.Deployment.Creator.Name,
+		"creator_id":     railwayEvent.Deployment.Creator.ID,
+		"event_type":     railwayEvent.Type,
+		"timestamp":      railwayEvent.Timestamp,
 	}
 
-	// Add git information if available
-	if railwayEvent.Data.Deployment.Meta.Branch != "" {
-		metadata["branch"] = railwayEvent.Data.Deployment.Meta.Branch
-	}
-	if railwayEvent.Data.Deployment.Meta.CommitSha != "" {
-		metadata["commit_sha"] = railwayEvent.Data.Deployment.Meta.CommitSha
-	}
-	if railwayEvent.Data.Deployment.Meta.Author != "" {
-		metadata["author"] = railwayEvent.Data.Deployment.Meta.Author
-	}
-	if railwayEvent.Data.Deployment.Meta.CommitMessage != "" {
-		metadata["commit_message"] = railwayEvent.Data.Deployment.Meta.CommitMessage
+	// Add deployment meta information if available
+	if railwayEvent.Deployment.Meta != nil {
+		for key, value := range railwayEvent.Deployment.Meta {
+			metadata[fmt.Sprintf("meta_%s", key)] = value
+		}
 	}
 
 	return DashboardEvent{
