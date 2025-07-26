@@ -97,6 +97,12 @@ export async function POST(req: NextRequest) {
         type: 'railway.deploy',
         event: payload
       }
+    } else if (payload?.event && payload.event.includes('deployment')) {
+      // Railway webhook detected by payload structure
+      qstashPayload = {
+        type: 'railway.deploy',
+        event: payload
+      }
     } else {
       console.log('Unknown event type - payload:', payload)
       return new NextResponse('Unknown event type', { status: 400 })
