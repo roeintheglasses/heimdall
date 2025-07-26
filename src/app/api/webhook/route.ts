@@ -30,13 +30,20 @@ export async function POST(req: NextRequest) {
     const railwayEvent = req.headers.get('x-railway-event')
     const signature = req.headers.get('x-hub-signature-256')
     
+    // Enhanced logging for debugging
+    const allHeaders = Object.fromEntries(req.headers.entries())
+    const payload = body ? JSON.parse(body) : null
+    
     console.log('Webhook received:', {
       githubEvent,
       vercelEvent,
       railwayEvent,
       hasSignature: !!signature,
       bodyLength: body.length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      headers: allHeaders,
+      payloadType: payload?.type,
+      payloadKeys: payload ? Object.keys(payload) : []
     })
 
     // Verify GitHub webhook signature if present
@@ -80,7 +87,7 @@ export async function POST(req: NextRequest) {
         type: 'github.push',
         event: payload
       }
-    } else if (vercelEvent) {
+    } else if (vercelEvent || (payload?.type && payload.type.startsWith('deployment.'))) {
       qstashPayload = {
         type: 'vercel.deploy',
         event: payload
@@ -91,6 +98,7 @@ export async function POST(req: NextRequest) {
         event: payload
       }
     } else {
+      console.log('Unknown event type - payload:', payload)
       return new NextResponse('Unknown event type', { status: 400 })
     }
 
