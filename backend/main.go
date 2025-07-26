@@ -177,12 +177,16 @@ func (app *App) processWebhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch payload.EventType {
 	case "github.push":
+		log.Printf("Processing GitHub push event")
 		dashboardEvent, err = transformGitHubPush(payload.Event)
 	case "vercel.deploy":
+		log.Printf("Processing Vercel deploy event")
 		dashboardEvent, err = transformVercelDeploy(payload.Event)
 	case "railway.deploy":
+		log.Printf("Processing Railway deploy event")
 		dashboardEvent, err = transformRailwayDeploy(payload.Event)
 	default:
+		log.Printf("Unknown event type: %s", payload.EventType)
 		http.Error(w, "Unknown event type", http.StatusBadRequest)
 		return
 	}
@@ -355,8 +359,12 @@ func transformRailwayDeploy(eventData json.RawMessage) (DashboardEvent, error) {
 	}
 
 	if err := json.Unmarshal(eventData, &railwayEvent); err != nil {
+		log.Printf("Error unmarshaling Railway event: %v", err)
+		log.Printf("Raw Railway event data: %s", string(eventData))
 		return DashboardEvent{}, err
 	}
+	
+	log.Printf("Processing Railway event - Type: %s, Service: %s, Status: %s", railwayEvent.Event, railwayEvent.Data.Service.Name, railwayEvent.Data.Deployment.Status)
 
 	// Map Railway status to our standard format
 	status := railwayEvent.Data.Deployment.Status
