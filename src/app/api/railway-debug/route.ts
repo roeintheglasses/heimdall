@@ -8,7 +8,13 @@ export async function POST(req: NextRequest) {
     
     // Log everything Railway sends
     const allHeaders = Object.fromEntries(req.headers.entries())
-    const payload = body ? JSON.parse(body) : null
+    let payload = null
+    
+    try {
+      payload = body ? JSON.parse(body) : null
+    } catch (e) {
+      console.log('Non-JSON body received:', body)
+    }
     
     console.log('Railway Debug Webhook:', {
       headers: allHeaders,
@@ -18,17 +24,37 @@ export async function POST(req: NextRequest) {
       timestamp: new Date().toISOString()
     })
     
-    return new NextResponse('Railway debug webhook received successfully', { 
+    return new NextResponse('OK', { 
       status: 200,
       headers: {
-        'Content-Type': 'text/plain'
+        'Content-Type': 'text/plain',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers': '*'
       }
     })
     
   } catch (error) {
     console.error('Railway debug webhook error:', error)
-    return new NextResponse('Error processing Railway debug webhook', { status: 500 })
+    return new NextResponse('OK', { 
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain'
+      }
+    })
   }
+}
+
+// Handle OPTIONS for CORS
+export async function OPTIONS(req: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    },
+  })
 }
 
 export async function GET(req: NextRequest) {
