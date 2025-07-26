@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     
     // Enhanced logging for debugging
     const allHeaders = Object.fromEntries(req.headers.entries())
-    const payload = body ? JSON.parse(body) : null
+    const parsedPayload = body ? JSON.parse(body) : null
     
     console.log('Webhook received:', {
       githubEvent,
@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
       bodyLength: body.length,
       timestamp: new Date().toISOString(),
       headers: allHeaders,
-      payloadType: payload?.type,
-      payloadKeys: payload ? Object.keys(payload) : []
+      payloadType: parsedPayload?.type,
+      payloadKeys: parsedPayload ? Object.keys(parsedPayload) : []
     })
 
     // Verify GitHub webhook signature if present
@@ -76,8 +76,8 @@ export async function POST(req: NextRequest) {
       console.warn('Webhook secret not configured - skipping signature verification')
     }
 
-    // Parse the webhook payload
-    const payload = JSON.parse(body)
+    // Use the parsed payload from above
+    const payload = parsedPayload
     
     // Determine event type and create QStash payload
     let qstashPayload: QStashPayload
