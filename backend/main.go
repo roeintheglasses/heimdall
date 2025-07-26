@@ -105,6 +105,7 @@ func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 		"status":    "healthy",
 		"timestamp": time.Now().UTC(),
 		"service":   "heimdall-go-service",
+		"version":   "1.0.1",
 	})
 }
 
