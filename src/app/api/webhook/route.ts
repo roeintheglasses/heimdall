@@ -82,15 +82,22 @@ export async function POST(req: NextRequest) {
     // Determine event type and create QStash payload
     let qstashPayload: QStashPayload
 
-    console.log('Detection attempt:', {
+    console.log('Detection attempt v3:', {
       githubEvent,
       vercelEvent,
       railwayEvent,
       payloadType: payload?.type,
-      isGithubPush: githubEvent === 'push',
-      isRailwayDeploy: payload && payload.type === 'DEPLOY',
+      payloadEvent: payload?.event,
+      hasProject: !!payload?.project,
+      hasDeployment: !!payload?.deployment,
       hasPayloadPayload: !!payload?.payload,
-      startsWithDeployment: payload?.type?.startsWith('deployment.')
+      isGithubPush: githubEvent === 'push',
+      isRailwayByType: payload && payload.type === 'DEPLOY',
+      isRailwayByEvent: payload && payload.event && (payload.event.includes('deployment') || payload.event.includes('deploy')),
+      isRailwayByHeader: !!railwayEvent,
+      isRailwayByStructure: payload && payload.project && payload.deployment && !payload.payload,
+      isVercelByHeader: !!vercelEvent,
+      isVercelByStructure: payload?.type?.startsWith('deployment.') && !!payload?.payload
     })
 
     if (githubEvent === 'push') {
@@ -98,28 +105,33 @@ export async function POST(req: NextRequest) {
         type: 'github.push',
         event: payload
       }
-    } else if (payload && payload.type === 'DEPLOY') {
-      // Railway webhook detected by DEPLOY type
-      console.log('Railway webhook detected!', {
-        payloadType: payload.type,
-        hasProject: !!payload.project,
-        hasDeployment: !!payload.deployment,
-        projectName: payload.project?.name,
+    } else if (
+      // Comprehensive Railway detection - check multiple possible formats
+      (payload && payload.type === 'DEPLOY') ||  // Format: {"type": "DEPLOY", ...}
+      (payload && payload.event && (payload.event.includes('deployment') || payload.event.includes('deploy'))) ||  // Format: {"event": "deployment.completed", ...}
+      (railwayEvent && (railwayEvent.includes('deployment') || railwayEvent === 'deploy')) ||  // Railway header
+      (payload && payload.project && payload.deployment && !payload.payload)  // Railway structure (no nested payload)
+    ) {
+      // Railway webhook detected
+      console.log('Railway webhook detected v3!', {
+        detectionMethod: payload?.type === 'DEPLOY' ? 'type-DEPLOY' :
+                        payload?.event?.includes('deployment') ? 'event-deployment' :
+                        railwayEvent ? 'header' : 'structure',
+        payloadType: payload?.type,
+        payloadEvent: payload?.event,
+        railwayHeader: railwayEvent,
+        hasProject: !!payload?.project,
+        hasDeployment: !!payload?.deployment,
+        projectName: payload?.project?.name,
         fullPayload: payload
       })
       qstashPayload = {
         type: 'railway.deploy',
         event: payload
       }
-    } else if (railwayEvent && (railwayEvent.includes('deployment') || railwayEvent === 'deploy')) {
-      // Railway webhook detected by header
-      qstashPayload = {
-        type: 'railway.deploy',
-        event: payload
-      }
     } else if (vercelEvent || (payload?.type && payload.type.startsWith('deployment.') && payload?.payload)) {
       // Vercel webhook detected (has payload.payload structure)
-      console.log('Vercel webhook detected', {
+      console.log('Vercel webhook detected v3', {
         vercelEvent: !!vercelEvent,
         payloadType: payload?.type,
         hasPayloadPayload: !!payload?.payload,
@@ -130,7 +142,7 @@ export async function POST(req: NextRequest) {
         event: payload
       }
     } else {
-      console.log('Unknown event type - payload:', payload)
+      console.log('Unknown event type v3 - payload:', payload)
       return new NextResponse('Unknown event type', { status: 400 })
     }
 
