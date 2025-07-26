@@ -24,13 +24,27 @@ export interface CategoryStats {
   [categoryId: string]: number
 }
 
+export interface ServiceType {
+  id: string
+  name: string
+  description: string
+  icon: string
+  color: string
+  pattern: string // regex pattern to match event_type
+}
+
 export interface CategoryFilter {
   selectedCategory: string | null
+  selectedService: string | null
   searchQuery: string
   dateRange?: {
     start: Date
     end: Date
   }
+}
+
+export interface ServiceStats {
+  [serviceId: string]: number
 }
 
 // Default category definitions (matches backend schema)
@@ -116,6 +130,68 @@ export function getCategoryById(categoryId: string): EventCategory | undefined {
   return DEFAULT_CATEGORIES.find(cat => cat.id === categoryId)
 }
 
+// Default service definitions
+export const DEFAULT_SERVICES: ServiceType[] = [
+  {
+    id: 'github',
+    name: 'GitHub',
+    description: 'Git repository events and pull requests',
+    icon: 'GitBranch',
+    color: 'slate',
+    pattern: '^github\\.'
+  },
+  {
+    id: 'vercel',
+    name: 'Vercel',
+    description: 'Frontend deployment and hosting',
+    icon: 'Zap',
+    color: 'emerald',
+    pattern: '^vercel\\.'
+  },
+  {
+    id: 'railway',
+    name: 'Railway',
+    description: 'Backend deployment and infrastructure',
+    icon: 'Train',
+    color: 'violet',
+    pattern: '^railway\\.'
+  },
+  {
+    id: 'monitoring',
+    name: 'Monitoring',
+    description: 'System monitoring and alerts',
+    icon: 'Activity',
+    color: 'amber',
+    pattern: '^monitoring\\.'
+  },
+  {
+    id: 'security',
+    name: 'Security',
+    description: 'Security scans and vulnerability alerts',
+    icon: 'Shield',
+    color: 'red',
+    pattern: '^security\\.'
+  }
+]
+
+// Helper function to extract service from event_type
+export function extractService(eventType: string): string {
+  for (const service of DEFAULT_SERVICES) {
+    if (new RegExp(service.pattern).test(eventType)) {
+      return service.id
+    }
+  }
+  
+  // Fallback for unmatched types
+  const prefix = eventType.split('.')[0]
+  return prefix || 'other'
+}
+
+// Helper function to get service by ID
+export function getServiceById(serviceId: string): ServiceType | undefined {
+  return DEFAULT_SERVICES.find(service => service.id === serviceId)
+}
+
 // Helper function to get category color classes
 export function getCategoryColorClasses(color: string) {
   const colorMap = {
@@ -148,8 +224,37 @@ export function getCategoryColorClasses(color: string) {
       text: 'text-orange-600 dark:text-orange-400',
       border: 'border-orange-200 dark:border-orange-800',
       badge: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
+    },
+    slate: {
+      bg: 'bg-slate-50 dark:bg-slate-950',
+      text: 'text-slate-600 dark:text-slate-400',
+      border: 'border-slate-200 dark:border-slate-800',
+      badge: 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300'
+    },
+    emerald: {
+      bg: 'bg-emerald-50 dark:bg-emerald-950',
+      text: 'text-emerald-600 dark:text-emerald-400',
+      border: 'border-emerald-200 dark:border-emerald-800',
+      badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300'
+    },
+    violet: {
+      bg: 'bg-violet-50 dark:bg-violet-950',
+      text: 'text-violet-600 dark:text-violet-400',
+      border: 'border-violet-200 dark:border-violet-800',
+      badge: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-300'
+    },
+    amber: {
+      bg: 'bg-amber-50 dark:bg-amber-950',
+      text: 'text-amber-600 dark:text-amber-400',
+      border: 'border-amber-200 dark:border-amber-800',
+      badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
     }
   }
   
   return colorMap[color as keyof typeof colorMap] || colorMap.blue
+}
+
+// Helper function to get service color classes (same pattern as categories)
+export function getServiceColorClasses(color: string) {
+  return getCategoryColorClasses(color)
 }

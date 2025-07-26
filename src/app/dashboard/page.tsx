@@ -11,9 +11,9 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import EventCard from '@/components/EventCard'
 import EventCardSkeleton from '@/components/EventCardSkeleton'
-import EventActivityCard from '@/components/EventActivityCard'
 import ConnectionStatus from '@/components/ConnectionStatus'
 import CategoryFilter from '@/components/CategoryFilter'
+import ServiceFilter from '@/components/ServiceFilter'
 import CategoryStatsCards from '@/components/CategoryStatsCards'
 import { CategoryProvider, useCategories } from '@/contexts/CategoryContext'
 import { ArrowLeft, Shield, TrendingUp, Zap, AlertCircle, Search, Filter, X, Loader2 } from 'lucide-react'
@@ -21,7 +21,7 @@ import { DashboardEvent } from '@/types/categories'
 
 // Dashboard component wrapped with CategoryProvider
 function DashboardContent() {
-  const { calculateStats, filterEvents, filter, setFilter } = useCategories()
+  const { calculateStats, calculateServiceStats, filterEvents, filter, setFilter, serviceStats: contextServiceStats } = useCategories()
   
   const [events, setEvents] = useState<DashboardEvent[]>([])
   const [isConnected, setIsConnected] = useState(false)
@@ -134,6 +134,11 @@ function DashboardContent() {
     return calculateStats(events)
   }, [events, calculateStats])
 
+  // Calculate service statistics  
+  const serviceStats = useMemo(() => {
+    return calculateServiceStats(events)
+  }, [events, calculateServiceStats])
+
   // Filter events using category context
   const filteredEvents = useMemo(() => {
     return filterEvents(events)
@@ -242,18 +247,15 @@ function DashboardContent() {
           )}
         </div>
 
-        {/* Event Activity Calendar */}
-        <div className="mb-6 animate-in slide-in-from-top-4 fade-in-0" style={{ animationDelay: '200ms' }}>
-          <EventActivityCard 
-            events={events} 
-            className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-purple-200/50 dark:border-purple-800/50 shadow-lg"
-          />
-        </div>
 
-        {/* Category Filter & Search */}
+        {/* Filters & Search */}
         <Card className="mb-6 animate-in slide-in-from-top-4 fade-in-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-purple-200/50 dark:border-purple-800/50 shadow-lg" style={{ animationDelay: '300ms' }}>
           <CardHeader className="pb-4">
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Service Filter */}
+              <ServiceFilter serviceStats={serviceStats} />
+              
+              {/* Category Filter */}
               <CategoryFilter categoryStats={categoryStats} />
               
               {/* Search */}
@@ -297,7 +299,12 @@ function DashboardContent() {
               </p>
             </div>
             {filteredEvents.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {filter.selectedService && (
+                  <Badge variant="secondary" className="text-xs">
+                    Service: {filter.selectedService}
+                  </Badge>
+                )}
                 {filter.selectedCategory && (
                   <Badge variant="secondary" className="text-xs">
                     Category: {filter.selectedCategory}
@@ -348,7 +355,7 @@ function DashboardContent() {
                   size="sm"
                   onClick={() => {
                     setSearchQuery('')
-                    setSelectedFilter('all')
+                    setFilter({ selectedCategory: null, selectedService: null, searchQuery: '' })
                   }}
                   className="mt-3"
                 >

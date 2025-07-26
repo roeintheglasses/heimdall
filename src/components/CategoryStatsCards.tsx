@@ -14,9 +14,7 @@ import {
   Activity
 } from 'lucide-react'
 import { useCategories, useCategoryOperations } from '@/contexts/CategoryContext'
-import { CategoryStats, getCategoryColorClasses, DashboardEvent } from '@/types/categories'
-import { ServiceIcon, ServiceAvatar } from '@/components/ServiceIcon'
-import { getServiceFromEventType, SERVICES } from '@/types/services'
+import { CategoryStats, getCategoryColorClasses, DashboardEvent, extractService, getServiceById, DEFAULT_SERVICES } from '@/types/categories'
 
 interface CategoryStatsCardsProps {
   categoryStats: CategoryStats
@@ -73,8 +71,8 @@ export default function CategoryStatsCards({
     
     const serviceCount: Record<string, number> = {}
     categoryEvents.forEach(event => {
-      const service = getServiceFromEventType(event.event_type || 'unknown')
-      serviceCount[service.id] = (serviceCount[service.id] || 0) + 1
+      const serviceId = extractService(event.event_type || 'unknown')
+      serviceCount[serviceId] = (serviceCount[serviceId] || 0) + 1
     })
     
     return Object.entries(serviceCount)
@@ -200,18 +198,14 @@ export default function CategoryStatsCards({
                 {!compact && events.length > 0 && (
                   <div className="flex items-center gap-1 mt-2">
                     {getServiceBreakdown(category.id).map(({ serviceId, count }) => {
-                      const service = SERVICES.find(s => s.id === serviceId)
+                      const service = getServiceById(serviceId)
                       if (!service) return null
                       
                       return (
                         <div key={serviceId} className="flex items-center gap-1">
-                          <ServiceAvatar 
-                            service={service} 
-                            size="sm" 
-                            className="h-4 w-4"
-                            showTooltip={true}
-                          />
-                          <span className="text-xs text-muted-foreground">{count}</span>
+                          <Badge variant="outline" className="text-xs px-2 py-0">
+                            {service.name}: {count}
+                          </Badge>
                         </div>
                       )
                     })}
@@ -294,20 +288,19 @@ export function CategorySummaryCard({
                   <span>Top services:</span>
                   {Object.entries(
                     events.reduce((acc, event) => {
-                      const service = getServiceFromEventType(event.event_type || 'unknown')
-                      acc[service.id] = (acc[service.id] || 0) + 1
+                      const serviceId = extractService(event.event_type || 'unknown')
+                      acc[serviceId] = (acc[serviceId] || 0) + 1
                       return acc
                     }, {} as Record<string, number>)
                   )
                     .sort(([,a], [,b]) => b - a)
                     .slice(0, 3)
                     .map(([serviceId, count]) => {
-                      const service = SERVICES.find(s => s.id === serviceId)
+                      const service = getServiceById(serviceId)
                       if (!service) return null
                       
                       return (
                         <div key={serviceId} className="flex items-center gap-1">
-                          <ServiceIcon service={service} className="h-3 w-3" />
                           <span>{service.name} ({count})</span>
                         </div>
                       )

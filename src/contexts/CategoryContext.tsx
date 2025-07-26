@@ -6,8 +6,13 @@ import {
   DashboardEvent, 
   CategoryStats, 
   CategoryFilter,
+  ServiceType,
+  ServiceStats,
   DEFAULT_CATEGORIES,
-  classifyEvent
+  DEFAULT_SERVICES,
+  classifyEvent,
+  extractService,
+  getServiceById
 } from '@/types/categories'
 
 interface CategoryContextType {
@@ -15,13 +20,19 @@ interface CategoryContextType {
   categories: EventCategory[]
   categoryStats: CategoryStats
   
+  // Service data
+  services: ServiceType[]
+  serviceStats: ServiceStats
+  
   // Filter state
   filter: CategoryFilter
   setFilter: (filter: Partial<CategoryFilter>) => void
   
   // Helper functions
   getEventCategory: (event: DashboardEvent) => EventCategory
+  getEventService: (event: DashboardEvent) => ServiceType | null
   calculateStats: (events: DashboardEvent[]) => CategoryStats
+  calculateServiceStats: (events: DashboardEvent[]) => ServiceStats
   filterEvents: (events: DashboardEvent[]) => DashboardEvent[]
   
   // Loading states
@@ -34,9 +45,12 @@ const CategoryContext = createContext<CategoryContextType | null>(null)
 export function CategoryProvider({ children }: { children: React.ReactNode }) {
   // State
   const [categories, setCategories] = useState<EventCategory[]>(DEFAULT_CATEGORIES)
+  const [services, setServices] = useState<ServiceType[]>(DEFAULT_SERVICES)
   const [categoryStats, setCategoryStats] = useState<CategoryStats>({})
+  const [serviceStats, setServiceStats] = useState<ServiceStats>({})
   const [filter, setFilterState] = useState<CategoryFilter>({
     selectedCategory: null,
+    selectedService: null,
     searchQuery: ''
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -47,6 +61,12 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     // Use backend category if available, otherwise classify from event_type
     const categoryId = event.category || classifyEvent(event.event_type)
     return categories.find(cat => cat.id === categoryId) || categories[0]
+  }
+
+  // Helper function to get service for an event
+  const getEventService = (event: DashboardEvent): ServiceType | null => {
+    const serviceId = extractService(event.event_type)
+    return getServiceById(serviceId) || null
   }
 
   // Calculate category statistics from events
@@ -67,6 +87,29 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     return stats
   }
 
+  // Calculate service statistics from events
+  const calculateServiceStats = (events: DashboardEvent[]): ServiceStats => {
+    const stats: ServiceStats = {}
+    
+    // Initialize all services with 0
+    services.forEach(service => {
+      stats[service.id] = 0
+    })
+    
+    // Count events by service
+    events.forEach(event => {
+      const serviceId = extractService(event.event_type)
+      if (stats[serviceId] !== undefined) {
+        stats[serviceId] = (stats[serviceId] || 0) + 1
+      } else {
+        // Handle unknown services
+        stats[serviceId] = (stats[serviceId] || 0) + 1
+      }
+    })
+    
+    return stats
+  }
+
   // Filter events based on current filter state
   const filterEvents = (events: DashboardEvent[]): DashboardEvent[] => {
     let filtered = [...events]
@@ -76,6 +119,14 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
       filtered = filtered.filter(event => {
         const category = getEventCategory(event)
         return category.id === filter.selectedCategory
+      })
+    }
+    
+    // Filter by service
+    if (filter.selectedService && filter.selectedService !== 'all') {
+      filtered = filtered.filter(event => {
+        const serviceId = extractService(event.event_type)
+        return serviceId === filter.selectedService
       })
     }
     
@@ -142,10 +193,14 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
   const value: CategoryContextType = {
     categories,
     categoryStats,
+    services,
+    serviceStats,
     filter,
     setFilter,
     getEventCategory,
+    getEventService,
     calculateStats,
+    calculateServiceStats,
     filterEvents,
     isLoading,
     error
@@ -192,10 +247,18 @@ export function useCategoryOperations() {
     
     // Clear all filters
     clearFilters: () => 
-      context.setFilter({ selectedCategory: null, searchQuery: '' }),
+      context.setFilter({ selectedCategory: null, selectedService: null, searchQuery: '' }),
     
     // Set search query
     setSearch: (query: string) => 
-      context.setFilter({ searchQuery: query })
+      context.setFilter({ searchQuery: query }),
+    
+    // Service operations
+    selectService: (serviceId: string | null) => 
+      context.setFilter({ selectedService: serviceId }),
+    
+    // Check if service is selected
+    isServiceSelected: (serviceId: string) => 
+      context.filter.selectedService === serviceId
   }
 }
