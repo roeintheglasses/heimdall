@@ -89,6 +89,12 @@ export async function POST(req: NextRequest) {
       }
     } else if (payload?.type === 'DEPLOY' && payload?.project && payload?.deployment) {
       // Railway webhook detected by payload structure
+      console.log('Railway webhook detected!', {
+        payloadType: payload.type,
+        hasProject: !!payload.project,
+        hasDeployment: !!payload.deployment,
+        projectName: payload.project?.name
+      })
       qstashPayload = {
         type: 'railway.deploy',
         event: payload
@@ -101,6 +107,12 @@ export async function POST(req: NextRequest) {
       }
     } else if (vercelEvent || (payload?.type && payload.type.startsWith('deployment.') && payload?.payload)) {
       // Vercel webhook detected (has payload.payload structure)
+      console.log('Vercel webhook detected', {
+        vercelEvent: !!vercelEvent,
+        payloadType: payload?.type,
+        hasPayloadPayload: !!payload?.payload,
+        isDeploymentType: payload?.type?.startsWith('deployment.')
+      })
       qstashPayload = {
         type: 'vercel.deploy',
         event: payload
