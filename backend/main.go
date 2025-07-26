@@ -249,26 +249,67 @@ func transformGitHubPush(eventData json.RawMessage) (DashboardEvent, error) {
 
 func transformVercelDeploy(eventData json.RawMessage) (DashboardEvent, error) {
 	var deployEvent struct {
-		Project struct {
-			Name string `json:"name"`
-		} `json:"project"`
-		Deployment struct {
-			State string `json:"state"`
-			URL   string `json:"url"`
-		} `json:"deployment"`
+		Type    string `json:"type"`
+		Payload struct {
+			Team struct {
+				ID string `json:"id"`
+			} `json:"team"`
+			User struct {
+				ID string `json:"id"`
+			} `json:"user"`
+			Alias      []string `json:"alias"`
+			Deployment struct {
+				ID   string                 `json:"id"`
+				Meta map[string]interface{} `json:"meta"`
+				URL  string                 `json:"url"`
+				Name string                 `json:"name"`
+			} `json:"deployment"`
+			Links struct {
+				Deployment string `json:"deployment"`
+				Project    string `json:"project"`
+			} `json:"links"`
+			Target  string `json:"target"`
+			Project struct {
+				ID string `json:"id"`
+			} `json:"project"`
+			Plan    string   `json:"plan"`
+			Regions []string `json:"regions"`
+		} `json:"payload"`
 	}
 
 	if err := json.Unmarshal(eventData, &deployEvent); err != nil {
 		return DashboardEvent{}, err
 	}
 
+	// Determine status from event type
+	status := "UNKNOWN"
+	switch deployEvent.Type {
+	case "deployment.created":
+		status = "BUILDING"
+	case "deployment.succeeded":
+		status = "SUCCESS"
+	case "deployment.error":
+		status = "FAILED"
+	}
+
+	// Use deployment name as project name if available
+	projectName := deployEvent.Payload.Deployment.Name
+	if projectName == "" {
+		projectName = "Unknown Project"
+	}
+
 	return DashboardEvent{
 		EventType: "vercel.deploy",
-		Title:     fmt.Sprintf("Deployment of %s", deployEvent.Project.Name),
+		Title:     fmt.Sprintf("Deployment of %s", projectName),
 		Metadata: map[string]interface{}{
-			"project": deployEvent.Project.Name,
-			"status":  deployEvent.Deployment.State,
-			"url":     deployEvent.Deployment.URL,
+			"project":       projectName,
+			"status":        status,
+			"url":           deployEvent.Payload.Deployment.URL,
+			"deployment_id": deployEvent.Payload.Deployment.ID,
+			"target":        deployEvent.Payload.Target,
+			"plan":          deployEvent.Payload.Plan,
+			"regions":       deployEvent.Payload.Regions,
+			"event_type":    deployEvent.Type,
 		},
 		CreatedAt: time.Now().UTC(),
 	}, nil
