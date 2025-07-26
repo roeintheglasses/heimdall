@@ -15,7 +15,7 @@ export async function OPTIONS(req: NextRequest) {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-GitHub-Event, X-Hub-Signature-256',
+      'Access-Control-Allow-Headers': 'Content-Type, X-GitHub-Event, X-Hub-Signature-256, X-Railway-Event, X-Railway-Project, X-Railway-Service',
     },
   })
 }
@@ -194,7 +194,13 @@ export async function POST(req: NextRequest) {
       processingTime: `${processingTime}ms`
     })
 
-    return new NextResponse('Webhook processed successfully', { status: 200 })
+    return new NextResponse('Webhook processed successfully', { 
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'text/plain'
+      }
+    })
 
   } catch (error) {
     console.error('Webhook processing error:', error)
