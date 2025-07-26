@@ -87,20 +87,22 @@ export async function POST(req: NextRequest) {
         type: 'github.push',
         event: payload
       }
-    } else if (vercelEvent || (payload?.type && payload.type.startsWith('deployment.'))) {
+    } else if (payload?.event && payload.event.includes('deployment')) {
+      // Railway webhook detected by payload structure (event field with deployment)
       qstashPayload = {
-        type: 'vercel.deploy',
+        type: 'railway.deploy',
         event: payload
       }
     } else if (railwayEvent && (railwayEvent.includes('deployment') || railwayEvent === 'deploy')) {
+      // Railway webhook detected by header
       qstashPayload = {
         type: 'railway.deploy',
         event: payload
       }
-    } else if (payload?.event && payload.event.includes('deployment')) {
-      // Railway webhook detected by payload structure
+    } else if (vercelEvent || (payload?.type && payload.type.startsWith('deployment.') && payload?.payload)) {
+      // Vercel webhook detected (has payload.payload structure)
       qstashPayload = {
-        type: 'railway.deploy',
+        type: 'vercel.deploy',
         event: payload
       }
     } else {
