@@ -28,7 +28,7 @@ export default function Home() {
           </h1>
           <p className="text-lg sm:text-xl text-muted-foreground mb-8">
             Real-time personal dashboard with over-engineered edge pipeline architecture. 
-            Monitor your GitHub pushes and Vercel deployments instantly.
+            Monitor your GitHub pushes, Vercel deployments, and Railway services instantly.
           </p>
           
           <div className="flex gap-3 sm:gap-4 justify-center flex-col sm:flex-row">
