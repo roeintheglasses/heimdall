@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /
+
+# This is a personal dashboard - not intended for search engines
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /_next/
