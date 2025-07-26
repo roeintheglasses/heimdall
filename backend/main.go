@@ -170,6 +170,7 @@ func (app *App) processWebhookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Received webhook payload: %+v", payload)
+	log.Printf("Raw event data: %s", string(payload.Event))
 
 	var dashboardEvent DashboardEvent
 	var err error
@@ -248,6 +249,7 @@ func transformGitHubPush(eventData json.RawMessage) (DashboardEvent, error) {
 }
 
 func transformVercelDeploy(eventData json.RawMessage) (DashboardEvent, error) {
+	// The eventData is the raw Vercel webhook payload
 	var deployEvent struct {
 		Type    string `json:"type"`
 		Payload struct {
@@ -278,6 +280,8 @@ func transformVercelDeploy(eventData json.RawMessage) (DashboardEvent, error) {
 	}
 
 	if err := json.Unmarshal(eventData, &deployEvent); err != nil {
+		log.Printf("Error unmarshaling Vercel event: %v", err)
+		log.Printf("Raw event data: %s", string(eventData))
 		return DashboardEvent{}, err
 	}
 
@@ -290,6 +294,8 @@ func transformVercelDeploy(eventData json.RawMessage) (DashboardEvent, error) {
 		status = "SUCCESS"
 	case "deployment.error":
 		status = "FAILED"
+	default:
+		status = "DEPLOY" // Fallback for unknown types
 	}
 
 	// Use deployment name as project name if available
@@ -297,6 +303,8 @@ func transformVercelDeploy(eventData json.RawMessage) (DashboardEvent, error) {
 	if projectName == "" {
 		projectName = "Unknown Project"
 	}
+
+	log.Printf("Processing Vercel event - Type: %s, Project: %s, Status: %s", deployEvent.Type, projectName, status)
 
 	return DashboardEvent{
 		EventType: "vercel.deploy",
