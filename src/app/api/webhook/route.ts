@@ -87,13 +87,14 @@ export async function POST(req: NextRequest) {
         type: 'github.push',
         event: payload
       }
-    } else if (payload?.type === 'DEPLOY' && payload?.project && payload?.deployment) {
-      // Railway webhook detected by payload structure
+    } else if (payload && payload.type === 'DEPLOY') {
+      // Railway webhook detected by DEPLOY type
       console.log('Railway webhook detected!', {
         payloadType: payload.type,
         hasProject: !!payload.project,
         hasDeployment: !!payload.deployment,
-        projectName: payload.project?.name
+        projectName: payload.project?.name,
+        fullPayload: payload
       })
       qstashPayload = {
         type: 'railway.deploy',
