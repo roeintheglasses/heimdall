@@ -82,6 +82,17 @@ export async function POST(req: NextRequest) {
     // Determine event type and create QStash payload
     let qstashPayload: QStashPayload
 
+    console.log('Detection attempt:', {
+      githubEvent,
+      vercelEvent,
+      railwayEvent,
+      payloadType: payload?.type,
+      isGithubPush: githubEvent === 'push',
+      isRailwayDeploy: payload && payload.type === 'DEPLOY',
+      hasPayloadPayload: !!payload?.payload,
+      startsWithDeployment: payload?.type?.startsWith('deployment.')
+    })
+
     if (githubEvent === 'push') {
       qstashPayload = {
         type: 'github.push',
