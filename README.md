@@ -2,7 +2,7 @@
 
 A real-time personal dashboard system built with an over-engineered edge pipeline architecture. Monitor your GitHub commits, Vercel deployments, Railway services, and other webhook-enabled integrations with sub-400ms end-to-end latency.
 
-![Dashboard Preview](https://img.shields.io/badge/status-active-brightgreen)
+![Dashboard Preview](https://img.shields.io/badge/status-live-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-15.1.8-blue)
 ![Go](https://img.shields.io/badge/Go-1.21-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
