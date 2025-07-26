@@ -62,10 +62,13 @@ export default function Home() {
             </p>
           </div>
           
-          <EventActivityCard 
-            events={sampleEvents}
-            className="mx-auto max-w-5xl shadow-lg border-2 bg-card"
-          />
+          <Card className="mx-auto max-w-5xl shadow-lg border-2 bg-card">
+            <CardContent className="p-6">
+              <p className="text-center text-muted-foreground">
+                Connect your webhooks to see real-time activity here
+              </p>
+            </CardContent>
+          </Card>
           
           <div className="text-center mt-6">
             <Link href="/dashboard">
@@ -167,7 +170,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-      </div>
-    </CategoryProvider>
+    </div>
   )
 }
