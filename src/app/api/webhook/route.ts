@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     const allHeaders = Object.fromEntries(req.headers.entries())
     const parsedPayload = body ? JSON.parse(body) : null
     
-    console.log('Webhook received:', {
+    console.log('Webhook received v2:', {
       githubEvent,
       vercelEvent,
       railwayEvent,
