@@ -5,9 +5,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/roe/heimdall/database"
-	"github.com/roe/heimdall/models"
-	"github.com/roe/heimdall/transformers"
+	"heimdall-backend/database"
+	"heimdall-backend/models"
+	"heimdall-backend/transformers"
 )
 
 // WebhookHandler handles incoming webhook requests

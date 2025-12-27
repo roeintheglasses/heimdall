@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/roe/heimdall/models"
+	"heimdall-backend/models"
 )
 
 // EventRepository handles database operations for events

@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/roe/heimdall/database"
+	"heimdall-backend/database"
 )
 
 // EventsHandler handles event retrieval requests

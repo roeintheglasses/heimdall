@@ -1,4 +1,4 @@
-module github.com/roe/heimdall
+module heimdall-backend
 
 go 1.21
 

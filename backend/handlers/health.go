@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/roe/heimdall/config"
+	"heimdall-backend/config"
 )
 
 // HealthHandler handles health check requests

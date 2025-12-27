@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/roe/heimdall/models"
+	"heimdall-backend/models"
 )
 
 // TransformGitHubPush transforms a GitHub push event

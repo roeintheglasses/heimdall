@@ -7,11 +7,11 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
-	"github.com/roe/heimdall/config"
-	"github.com/roe/heimdall/database"
-	"github.com/roe/heimdall/handlers"
-	"github.com/roe/heimdall/middleware"
-	"github.com/roe/heimdall/transformers"
+	"heimdall-backend/config"
+	"heimdall-backend/database"
+	"heimdall-backend/handlers"
+	"heimdall-backend/middleware"
+	"heimdall-backend/transformers"
 )
 
 func main() {

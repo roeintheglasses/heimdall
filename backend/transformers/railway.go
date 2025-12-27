@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/roe/heimdall/models"
+	"heimdall-backend/models"
 )
 
 // TransformRailwayDeploy transforms a Railway deployment event

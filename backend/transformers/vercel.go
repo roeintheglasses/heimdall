@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/roe/heimdall/models"
+	"heimdall-backend/models"
 )
 
 // TransformVercelDeploy transforms a Vercel deployment event

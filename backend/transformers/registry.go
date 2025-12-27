@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/roe/heimdall/models"
+	"heimdall-backend/models"
 )
 
 // TransformFunc is a function that transforms raw event data into a DashboardEvent
