@@ -9,7 +9,7 @@ import (
 )
 
 // TransformGitHubPush transforms a GitHub push event
-func TransformGitHubPush(eventData json.RawMessage) (models.DashboardEvent, error) {
+func TransformGitHubPush(eventData json.RawMessage, timestamp time.Time) (models.DashboardEvent, error) {
 	var pushEvent struct {
 		Ref        string `json:"ref"`
 		Repository struct {
@@ -75,12 +75,12 @@ func TransformGitHubPush(eventData json.RawMessage) (models.DashboardEvent, erro
 			"commit_count":   commitCount,
 			"pusher":         pushEvent.Pusher.Name,
 		},
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: timestamp,
 	}, nil
 }
 
 // TransformGitHubPR transforms a GitHub pull request event
-func TransformGitHubPR(eventData json.RawMessage) (models.DashboardEvent, error) {
+func TransformGitHubPR(eventData json.RawMessage, timestamp time.Time) (models.DashboardEvent, error) {
 	var prEvent struct {
 		Action      string `json:"action"`
 		Number      int    `json:"number"`
@@ -133,12 +133,12 @@ func TransformGitHubPR(eventData json.RawMessage) (models.DashboardEvent, error)
 			"head_branch":    prEvent.PullRequest.Head.Ref,
 			"base_branch":    prEvent.PullRequest.Base.Ref,
 		},
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: timestamp,
 	}, nil
 }
 
 // TransformGitHubIssue transforms a GitHub issue event
-func TransformGitHubIssue(eventData json.RawMessage) (models.DashboardEvent, error) {
+func TransformGitHubIssue(eventData json.RawMessage, timestamp time.Time) (models.DashboardEvent, error) {
 	var issueEvent struct {
 		Action string `json:"action"`
 		Issue  struct {
@@ -170,12 +170,12 @@ func TransformGitHubIssue(eventData json.RawMessage) (models.DashboardEvent, err
 			"issue_url": issueEvent.Issue.HTMLURL,
 			"number":    issueEvent.Issue.Number,
 		},
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: timestamp,
 	}, nil
 }
 
 // TransformGitHubRelease transforms a GitHub release event
-func TransformGitHubRelease(eventData json.RawMessage) (models.DashboardEvent, error) {
+func TransformGitHubRelease(eventData json.RawMessage, timestamp time.Time) (models.DashboardEvent, error) {
 	var releaseEvent struct {
 		Action  string `json:"action"`
 		Release struct {
@@ -212,6 +212,6 @@ func TransformGitHubRelease(eventData json.RawMessage) (models.DashboardEvent, e
 			"release_url": releaseEvent.Release.HTMLURL,
 			"draft":       releaseEvent.Release.Draft,
 		},
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: timestamp,
 	}, nil
 }

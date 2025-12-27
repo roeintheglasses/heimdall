@@ -3,14 +3,13 @@ package transformers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"heimdall-backend/models"
 )
 
 // TransformRailwayDeploy transforms a Railway deployment event
-func TransformRailwayDeploy(eventData json.RawMessage) (models.DashboardEvent, error) {
+func TransformRailwayDeploy(eventData json.RawMessage, timestamp time.Time) (models.DashboardEvent, error) {
 	var railwayEvent struct {
 		Type      string `json:"type"`
 		Timestamp string `json:"timestamp"`
@@ -36,12 +35,8 @@ func TransformRailwayDeploy(eventData json.RawMessage) (models.DashboardEvent, e
 	}
 
 	if err := json.Unmarshal(eventData, &railwayEvent); err != nil {
-		log.Printf("Error unmarshaling Railway event: %v", err)
 		return models.DashboardEvent{}, fmt.Errorf("failed to unmarshal Railway event: %w", err)
 	}
-
-	log.Printf("Processing Railway event - Type: %s, Project: %s, Environment: %s",
-		railwayEvent.Type, railwayEvent.Project.Name, railwayEvent.Environment.Name)
 
 	// Map Railway type to standard format
 	status := "UNKNOWN"
@@ -93,6 +88,6 @@ func TransformRailwayDeploy(eventData json.RawMessage) (models.DashboardEvent, e
 		EventType: "railway.deploy",
 		Title:     title,
 		Metadata:  metadata,
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: timestamp,
 	}, nil
 }

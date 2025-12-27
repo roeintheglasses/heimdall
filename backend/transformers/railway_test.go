@@ -3,9 +3,12 @@ package transformers
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 func TestTransformRailwayDeploy(t *testing.T) {
+	testTime := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
+
 	tests := []struct {
 		name           string
 		input          string
@@ -35,7 +38,7 @@ func TestTransformRailwayDeploy(t *testing.T) {
 					}
 				}
 			}`,
-			expectedTitle:  "Railway deployment of heimdall-backend to production",
+			expectedTitle:  "heimdall-backend: SUCCESS to production",
 			expectedStatus: "SUCCESS",
 			expectedErr:    false,
 		},
@@ -57,7 +60,7 @@ func TestTransformRailwayDeploy(t *testing.T) {
 					"creator": {"id": "user_2", "name": "Jane"}
 				}
 			}`,
-			expectedTitle:  "Railway deployment of api-service to staging",
+			expectedTitle:  "api-service: BUILDING to staging",
 			expectedStatus: "BUILDING",
 			expectedErr:    false,
 		},
@@ -79,7 +82,7 @@ func TestTransformRailwayDeploy(t *testing.T) {
 					"creator": {"id": "user_3", "name": "Bob"}
 				}
 			}`,
-			expectedTitle:  "Railway deployment of broken-service to production",
+			expectedTitle:  "broken-service: FAILED to production",
 			expectedStatus: "FAILED",
 			expectedErr:    false,
 		},
@@ -100,7 +103,7 @@ func TestTransformRailwayDeploy(t *testing.T) {
 					"creator": {"id": "user_4"}
 				}
 			}`,
-			expectedTitle:  "Railway deployment of simple-app",
+			expectedTitle:  "simple-app: SUCCESS to production",
 			expectedStatus: "SUCCESS",
 			expectedErr:    false,
 		},
@@ -113,7 +116,7 @@ func TestTransformRailwayDeploy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := TransformRailwayDeploy(json.RawMessage(tt.input))
+			result, err := TransformRailwayDeploy(json.RawMessage(tt.input), testTime)
 
 			if tt.expectedErr {
 				if err == nil {
@@ -139,6 +142,10 @@ func TestTransformRailwayDeploy(t *testing.T) {
 				if status != tt.expectedStatus {
 					t.Errorf("expected status %q, got %q", tt.expectedStatus, status)
 				}
+			}
+
+			if !result.CreatedAt.Equal(testTime) {
+				t.Errorf("expected timestamp %v, got %v", testTime, result.CreatedAt)
 			}
 		})
 	}

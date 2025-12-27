@@ -112,10 +112,12 @@ function startPolling() {
     try {
       const goServiceUrl =
         process.env.GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
-      const response = await fetch(`${goServiceUrl}/api/events`);
+      const response = await fetch(`${goServiceUrl}/api/events?limit=50`);
 
       if (response.ok) {
-        const events: DashboardEvent[] = await response.json();
+        const data = await response.json();
+        // Handle both old format (array) and new format (object with events)
+        const events: DashboardEvent[] = data.events || data;
 
         // Process new events (check all events, not just the latest)
         let newEventsFound = 0;

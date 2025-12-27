@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"time"
+	"strings"
 
 	"heimdall-backend/models"
 )
@@ -21,20 +21,63 @@ func NewEventRepository(db *sql.DB) *EventRepository {
 
 // GetRecentEvents retrieves the most recent events from the database
 func (r *EventRepository) GetRecentEvents(limit int) ([]models.DashboardEvent, error) {
-	if limit <= 0 {
-		limit = 50
+	filter := models.EventsFilter{Limit: limit}
+	events, _, err := r.GetEventsWithFilters(filter)
+	return events, err
+}
+
+// GetEventsWithFilters retrieves events with pagination and filtering
+func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]models.DashboardEvent, int, error) {
+	if filter.Limit <= 0 {
+		filter.Limit = 50
+	}
+	if filter.Limit > 500 {
+		filter.Limit = 500
 	}
 
-	query := `
+	// Build WHERE clause dynamically
+	var conditions []string
+	var args []interface{}
+	argIndex := 1
+
+	if filter.EventType != "" {
+		conditions = append(conditions, fmt.Sprintf("event_type = $%d", argIndex))
+		args = append(args, filter.EventType)
+		argIndex++
+	}
+
+	if !filter.Since.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIndex))
+		args = append(args, filter.Since)
+		argIndex++
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Get total count
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM events %s", whereClause)
+	var total int
+	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count events: %w", err)
+	}
+
+	// Get events with pagination
+	query := fmt.Sprintf(`
 		SELECT id, event_type, title, metadata, created_at
 		FROM events
+		%s
 		ORDER BY created_at DESC
-		LIMIT $1
-	`
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argIndex, argIndex+1)
 
-	rows, err := r.db.Query(query, limit)
+	args = append(args, filter.Limit, filter.Offset)
+
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query events: %w", err)
+		return nil, 0, fmt.Errorf("failed to query events: %w", err)
 	}
 	defer rows.Close()
 
@@ -45,7 +88,7 @@ func (r *EventRepository) GetRecentEvents(limit int) ([]models.DashboardEvent, e
 
 		err := rows.Scan(&event.ID, &event.EventType, &event.Title, &metadataBytes, &event.CreatedAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan event row: %w", err)
+			return nil, 0, fmt.Errorf("failed to scan event row: %w", err)
 		}
 
 		if metadataBytes != nil {
@@ -58,10 +101,10 @@ func (r *EventRepository) GetRecentEvents(limit int) ([]models.DashboardEvent, e
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating event rows: %w", err)
+		return nil, 0, fmt.Errorf("error iterating event rows: %w", err)
 	}
 
-	return events, nil
+	return events, total, nil
 }
 
 // InsertEvent inserts a new event into the database
@@ -76,7 +119,8 @@ func (r *EventRepository) InsertEvent(event models.DashboardEvent) error {
 		VALUES ($1, $2, $3, $4)
 	`
 
-	_, err = r.db.Exec(query, event.EventType, event.Title, metadataJSON, time.Now().UTC())
+	// Use the event's CreatedAt timestamp (set by transformer from webhook timestamp)
+	_, err = r.db.Exec(query, event.EventType, event.Title, metadataJSON, event.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to insert event: %w", err)
 	}

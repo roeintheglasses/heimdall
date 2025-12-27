@@ -3,12 +3,14 @@ package transformers
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"heimdall-backend/models"
 )
 
 // TransformFunc is a function that transforms raw event data into a DashboardEvent
-type TransformFunc func(json.RawMessage) (models.DashboardEvent, error)
+// The timestamp parameter is the event timestamp from the webhook payload
+type TransformFunc func(eventData json.RawMessage, timestamp time.Time) (models.DashboardEvent, error)
 
 // Registry holds all registered event transformers
 type Registry struct {
@@ -38,13 +40,13 @@ func (r *Registry) Register(eventType string, fn TransformFunc) {
 }
 
 // Transform transforms event data using the appropriate transformer
-func (r *Registry) Transform(eventType string, eventData json.RawMessage) (models.DashboardEvent, error) {
+func (r *Registry) Transform(eventType string, eventData json.RawMessage, timestamp time.Time) (models.DashboardEvent, error) {
 	fn, ok := r.transformers[eventType]
 	if !ok {
 		return models.DashboardEvent{}, fmt.Errorf("unknown event type: %s", eventType)
 	}
 
-	return fn(eventData)
+	return fn(eventData, timestamp)
 }
 
 // HasTransformer checks if a transformer exists for the given event type

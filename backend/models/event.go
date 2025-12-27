@@ -20,3 +20,11 @@ type DashboardEvent struct {
 	Metadata  map[string]interface{} `json:"metadata"`
 	CreatedAt time.Time              `json:"created_at"`
 }
+
+// EventsFilter contains parameters for filtering events
+type EventsFilter struct {
+	Limit     int       // Max events to return (default 50, max 500)
+	Offset    int       // Pagination offset (default 0)
+	EventType string    // Filter by event type (optional)
+	Since     time.Time // Filter events after this time (optional)
+}

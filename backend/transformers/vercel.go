@@ -3,14 +3,13 @@ package transformers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"heimdall-backend/models"
 )
 
 // TransformVercelDeploy transforms a Vercel deployment event
-func TransformVercelDeploy(eventData json.RawMessage) (models.DashboardEvent, error) {
+func TransformVercelDeploy(eventData json.RawMessage, timestamp time.Time) (models.DashboardEvent, error) {
 	var deployEvent struct {
 		Type    string `json:"type"`
 		Payload struct {
@@ -41,7 +40,6 @@ func TransformVercelDeploy(eventData json.RawMessage) (models.DashboardEvent, er
 	}
 
 	if err := json.Unmarshal(eventData, &deployEvent); err != nil {
-		log.Printf("Error unmarshaling Vercel event: %v", err)
 		return models.DashboardEvent{}, fmt.Errorf("failed to unmarshal Vercel event: %w", err)
 	}
 
@@ -69,8 +67,6 @@ func TransformVercelDeploy(eventData json.RawMessage) (models.DashboardEvent, er
 		environment = "preview"
 	}
 
-	log.Printf("Processing Vercel event - Type: %s, Project: %s, Status: %s", deployEvent.Type, projectName, status)
-
 	// Build richer title with project, status, and environment
 	title := fmt.Sprintf("%s: %s to %s", projectName, status, environment)
 
@@ -95,6 +91,6 @@ func TransformVercelDeploy(eventData json.RawMessage) (models.DashboardEvent, er
 			"regions":        deployEvent.Payload.Regions,
 			"event_type":     deployEvent.Type,
 		},
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: timestamp,
 	}, nil
 }

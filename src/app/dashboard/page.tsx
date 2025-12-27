@@ -66,6 +66,9 @@ function DashboardContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalEvents, setTotalEvents] = useState(0);
 
   // New state for Phase 2 features
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -96,20 +99,54 @@ function DashboardContent() {
     setFilter({ searchQuery });
   }, [searchQuery, setFilter]);
 
+  const goServiceUrl =
+    process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
+
+  // Function to load more events
+  const loadMoreEvents = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const offset = events.length;
+      const response = await fetch(`${goServiceUrl}/api/events?limit=100&offset=${offset}`);
+      if (response.ok) {
+        const data = await response.json();
+        const newEvents = data.events || data;
+        if (newEvents.length > 0) {
+          setEvents((prev) => [...prev, ...newEvents]);
+        }
+        if (data.pagination) {
+          setHasMore(data.pagination.hasMore);
+          setTotalEvents(data.pagination.total);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading more events:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [events.length, goServiceUrl, hasMore, isLoadingMore]);
+
   useEffect(() => {
-    // Fetch initial events
+    // Fetch initial events with higher limit
     const fetchEvents = async () => {
       setIsLoading(true);
       try {
-        const goServiceUrl =
-          process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
-        console.log('Fetching events from:', `${goServiceUrl}/api/events`);
-        const response = await fetch(`${goServiceUrl}/api/events`);
+        console.log('Fetching events from:', `${goServiceUrl}/api/events?limit=200`);
+        const response = await fetch(`${goServiceUrl}/api/events?limit=200`);
         console.log('Response status:', response.status);
         if (response.ok) {
-          const initialEvents = await response.json();
+          const data = await response.json();
+          // Handle both old format (array) and new format (object with events)
+          const initialEvents = data.events || data;
           console.log('Fetched events:', initialEvents.length);
           setEvents(initialEvents);
+          // Handle pagination metadata if present
+          if (data.pagination) {
+            setHasMore(data.pagination.hasMore);
+            setTotalEvents(data.pagination.total);
+          }
           setError(null);
           // Play success sound on successful load
           playSuccess();
@@ -162,8 +199,8 @@ function DashboardContent() {
           // Process event for notifications (auto-detect notable events)
           processEvent(newEvent);
 
-          // Add new event with flash effect
-          const updatedEvents = [{ ...newEvent, isNew: true }, ...prev.slice(0, 49)];
+          // Add new event with flash effect (no limit - show all events)
+          const updatedEvents = [{ ...newEvent, isNew: true }, ...prev];
 
           // Remove the "new" flag after animation completes
           setTimeout(() => {
@@ -658,7 +695,7 @@ function DashboardContent() {
                       <div
                         key={event.id}
                         className="animate-in fade-in-0 slide-in-from-bottom-2"
-                        style={{ animationDelay: `${index * 50}ms` }}
+                        style={{ animationDelay: `${Math.min(index, 10) * 50}ms` }}
                       >
                         <EventCard
                           event={event}
@@ -671,6 +708,29 @@ function DashboardContent() {
                         />
                       </div>
                     ))}
+                    {/* Load More button */}
+                    {hasMore && (
+                      <div className="flex justify-center pt-4">
+                        <Button
+                          onClick={loadMoreEvents}
+                          disabled={isLoadingMore}
+                          className="gap-2 border-2 border-neon-cyan font-mono text-neon-cyan hover:bg-neon-cyan/10"
+                          variant="outline"
+                        >
+                          {isLoadingMore ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              LOADING...
+                            </>
+                          ) : (
+                            <>
+                              <Database className="h-4 w-4" />
+                              LOAD MORE ({events.length} / {totalEvents})
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>

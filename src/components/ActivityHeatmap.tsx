@@ -1,123 +1,129 @@
-'use client'
+'use client';
 
-import { useEffect, useState, useMemo } from 'react'
-import { Skeleton } from "@/components/ui/skeleton"
-import { Terminal, Activity } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useEffect, useState, useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Terminal, Activity } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface DayActivity {
-  date: string
-  count: number
-  level: 0 | 1 | 2 | 3 | 4
+  date: string;
+  count: number;
+  level: 0 | 1 | 2 | 3 | 4;
 }
 
 interface ActivityHeatmapProps {
-  className?: string
+  className?: string;
 }
 
 export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
-  const [events, setEvents] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const goServiceUrl = process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app'
-        const response = await fetch(`${goServiceUrl}/api/events`)
+        const goServiceUrl =
+          process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
+        // Fetch more events for better heatmap coverage
+        const response = await fetch(`${goServiceUrl}/api/events?limit=500`);
 
         if (!response.ok) {
-          throw new Error('Failed to fetch events')
+          throw new Error('Failed to fetch events');
         }
 
-        const data = await response.json()
-        setEvents(data || [])
+        const data = await response.json();
+        // Handle both old format (array) and new format (object with events)
+        const eventsList = data.events || data;
+        setEvents(eventsList || []);
       } catch (err) {
-        setError((err as Error).message)
+        setError((err as Error).message);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchEvents()
-  }, [])
+    fetchEvents();
+  }, []);
 
   // Aggregate events by day for the past 12 weeks (84 days)
   const activity = useMemo(() => {
-    const days: DayActivity[] = []
-    const now = new Date()
-    const eventsByDate: Record<string, number> = {}
+    const days: DayActivity[] = [];
+    const now = new Date();
+    const eventsByDate: Record<string, number> = {};
 
     // Count events by date
-    events.forEach(event => {
+    events.forEach((event) => {
       if (event.created_at) {
-        const date = new Date(event.created_at).toISOString().split('T')[0]
-        eventsByDate[date] = (eventsByDate[date] || 0) + 1
+        const date = new Date(event.created_at).toISOString().split('T')[0];
+        eventsByDate[date] = (eventsByDate[date] || 0) + 1;
       }
-    })
+    });
 
     // Find max count for level calculation
-    const counts = Object.values(eventsByDate)
-    const maxCount = counts.length > 0 ? Math.max(...counts) : 0
+    const counts = Object.values(eventsByDate);
+    const maxCount = counts.length > 0 ? Math.max(...counts) : 0;
 
     // Generate last 84 days (12 weeks)
     for (let i = 83; i >= 0; i--) {
-      const date = new Date(now)
-      date.setDate(date.getDate() - i)
-      const dateStr = date.toISOString().split('T')[0]
-      const count = eventsByDate[dateStr] || 0
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const count = eventsByDate[dateStr] || 0;
 
       // Calculate level (0-4) based on relative activity
-      let level: 0 | 1 | 2 | 3 | 4 = 0
+      let level: 0 | 1 | 2 | 3 | 4 = 0;
       if (count > 0 && maxCount > 0) {
-        const ratio = count / maxCount
-        if (ratio > 0.75) level = 4
-        else if (ratio > 0.5) level = 3
-        else if (ratio > 0.25) level = 2
-        else level = 1
+        const ratio = count / maxCount;
+        if (ratio > 0.75) level = 4;
+        else if (ratio > 0.5) level = 3;
+        else if (ratio > 0.25) level = 2;
+        else level = 1;
       }
 
-      days.push({ date: dateStr, count, level })
+      days.push({ date: dateStr, count, level });
     }
 
-    return days
-  }, [events])
+    return days;
+  }, [events]);
 
   // Calculate total events
   const totalEvents = useMemo(() => {
-    return activity.reduce((sum, day) => sum + day.count, 0)
-  }, [activity])
+    return activity.reduce((sum, day) => sum + day.count, 0);
+  }, [activity]);
 
   if (loading) {
-    return <ActivityHeatmapSkeleton />
+    return <ActivityHeatmapSkeleton />;
   }
 
   if (error) {
     return (
-      <div className="text-center py-8 font-mono">
-        <div className="text-neon-orange mb-2">
+      <div className="py-8 text-center font-mono">
+        <div className="mb-2 text-neon-orange">
           <span className="text-neon-magenta">&gt;</span> ERROR::CONNECTION_FAILED
         </div>
         <p className="text-xs text-muted-foreground">Connect webhooks to start tracking activity</p>
       </div>
-    )
+    );
   }
 
   if (events.length === 0) {
     return (
-      <div className="text-center py-8 font-mono">
-        <div className="text-neon-cyan mb-2">
+      <div className="py-8 text-center font-mono">
+        <div className="mb-2 text-neon-cyan">
           <span className="text-neon-magenta">&gt;</span> AWAITING_DATA...
         </div>
-        <p className="text-xs text-muted-foreground">Events will appear here once webhooks start sending data</p>
+        <p className="text-xs text-muted-foreground">
+          Events will appear here once webhooks start sending data
+        </p>
       </div>
-    )
+    );
   }
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn('space-y-4', className)}>
       {/* Stats summary - Terminal style */}
-      <div className="flex items-center justify-between text-xs font-mono">
+      <div className="flex items-center justify-between font-mono text-xs">
         <div className="flex items-center gap-2 text-neon-cyan">
           <Activity className="h-3 w-3" />
           <span>{String(totalEvents).padStart(4, '0')} EVENTS // 12 WEEKS</span>
@@ -125,13 +131,10 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground">LESS</span>
           <div className="flex gap-0.5">
-            {[0, 1, 2, 3, 4].map(level => (
+            {[0, 1, 2, 3, 4].map((level) => (
               <div
                 key={level}
-                className={cn(
-                  "w-3 h-3 border",
-                  getLevelStyles(level as 0 | 1 | 2 | 3 | 4)
-                )}
+                className={cn('h-3 w-3 border', getLevelStyles(level as 0 | 1 | 2 | 3 | 4))}
               />
             ))}
           </div>
@@ -141,32 +144,32 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
 
       {/* Heatmap grid - 12 columns (weeks) x 7 rows (days) - Pixelated style */}
       <div className="overflow-x-auto">
-        <div className="grid grid-cols-12 gap-1 min-w-[300px]">
+        <div className="grid min-w-[300px] grid-cols-12 gap-1">
           {activity.map((day, index) => {
-            const weekIndex = Math.floor(index / 7)
-            const dayIndex = index % 7
+            const weekIndex = Math.floor(index / 7);
+            const dayIndex = index % 7;
 
             // Arrange in columns (weeks) with days as rows
-            const gridIndex = dayIndex * 12 + weekIndex
+            const gridIndex = dayIndex * 12 + weekIndex;
 
             return (
               <div
                 key={day.date}
                 title={`${day.count} events on ${formatDate(day.date)}`}
                 className={cn(
-                  "w-full aspect-square border cursor-default transition-all duration-200",
-                  "hover:scale-110 hover:z-10",
+                  'aspect-square w-full cursor-default border transition-all duration-200',
+                  'hover:z-10 hover:scale-110',
                   getLevelStyles(day.level),
-                  day.count > 0 && "hover:shadow-[0_0_10px_currentColor]"
+                  day.count > 0 && 'hover:shadow-[0_0_10px_currentColor]'
                 )}
                 style={{ order: gridIndex }}
               />
-            )
+            );
           })}
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function getLevelStyles(level: 0 | 1 | 2 | 3 | 4): string {
@@ -176,17 +179,17 @@ function getLevelStyles(level: 0 | 1 | 2 | 3 | 4): string {
     2: 'bg-neon-green/40 border-neon-green/60 text-neon-green',
     3: 'bg-neon-green/60 border-neon-green/80 text-neon-green shadow-[0_0_5px_hsl(120_100%_50%)]',
     4: 'bg-neon-green/80 border-neon-green text-neon-green shadow-[0_0_8px_hsl(120_100%_50%)]',
-  }
-  return styles[level]
+  };
+  return styles[level];
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
+  const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
-    day: 'numeric'
-  })
+    day: 'numeric',
+  });
 }
 
 function ActivityHeatmapSkeleton() {
@@ -194,18 +197,18 @@ function ActivityHeatmapSkeleton() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Terminal className="h-3 w-3 text-neon-cyan animate-pulse" />
+          <Terminal className="h-3 w-3 animate-pulse text-neon-cyan" />
           <Skeleton className="h-4 w-48" />
         </div>
         <Skeleton className="h-4 w-24" />
       </div>
       <div className="grid grid-cols-12 gap-1">
         {Array.from({ length: 84 }).map((_, i) => (
-          <Skeleton key={i} className="w-full aspect-square" />
+          <Skeleton key={i} className="aspect-square w-full" />
         ))}
       </div>
     </div>
-  )
+  );
 }
 
-export default ActivityHeatmap
+export default ActivityHeatmap;

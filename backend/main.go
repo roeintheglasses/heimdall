@@ -1,15 +1,20 @@
 package main
 
 import (
+	"context"
 	"database/sql"
-	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 	"heimdall-backend/config"
 	"heimdall-backend/database"
 	"heimdall-backend/handlers"
+	"heimdall-backend/logger"
 	"heimdall-backend/middleware"
 	"heimdall-backend/transformers"
 )
@@ -18,19 +23,34 @@ func main() {
 	// Load configuration
 	cfg := config.LoadWithDefaults()
 
+	// Initialize structured logger
+	log := logger.New(cfg.PrettyLogs)
+
+	log.Info().
+		Str("version", cfg.Version).
+		Str("port", cfg.Port).
+		Float64("rate_limit_rps", cfg.RateLimitRPS).
+		Int("rate_limit_burst", cfg.RateLimitBurst).
+		Msg("starting Heimdall Go service")
+
 	// Connect to database
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatal().Err(err).Msg("failed to connect to database")
 	}
 	defer db.Close()
 
+	// Configure connection pool
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
 	// Test database connection
 	if err := db.Ping(); err != nil {
-		log.Fatalf("Failed to ping database: %v", err)
+		log.Fatal().Err(err).Msg("failed to ping database")
 	}
 
-	log.Println("Connected to database successfully")
+	log.Info().Msg("connected to database successfully")
 
 	// Initialize dependencies
 	eventRepo := database.NewEventRepository(db)
@@ -41,18 +61,56 @@ func main() {
 	eventsHandler := handlers.NewEventsHandler(eventRepo)
 	webhookHandler := handlers.NewWebhookHandler(eventRepo, transformerRegistry)
 
+	// Create rate limiter for webhook endpoint
+	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+
 	// Create router
 	r := mux.NewRouter()
+
+	// Apply global middleware (order matters - executed in reverse order)
+	r.Use(middleware.CORS)
+	r.Use(middleware.LogRequest(log))
+	r.Use(middleware.RequestID)
 
 	// API routes
 	api := r.PathPrefix("/api").Subrouter()
 	api.Handle("/health", healthHandler).Methods("GET", "OPTIONS")
 	api.Handle("/events", eventsHandler).Methods("GET", "OPTIONS")
-	api.Handle("/webhook", webhookHandler).Methods("POST", "OPTIONS")
+	// Apply rate limiting only to webhook endpoint
+	api.Handle("/webhook", rateLimiter.Limit(webhookHandler)).Methods("POST", "OPTIONS")
 
-	// Add CORS middleware
-	r.Use(middleware.CORS)
+	// Create server with timeouts
+	srv := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 
-	log.Printf("Heimdall Go service starting on :%s", cfg.Port)
-	log.Fatal(http.ListenAndServe(":"+cfg.Port, r))
+	// Start server in goroutine
+	go func() {
+		log.Info().Str("port", cfg.Port).Msg("server listening")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal().Err(err).Msg("server error")
+		}
+	}()
+
+	// Wait for shutdown signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Info().Msg("shutting down server...")
+
+	// Create shutdown context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Attempt graceful shutdown
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Error().Err(err).Msg("server forced to shutdown")
+	}
+
+	log.Info().Msg("server exited gracefully")
 }

@@ -3,7 +3,10 @@ package transformers
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
+
+var testTimestamp = time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
 
 func TestTransformGitHubPush(t *testing.T) {
 	tests := []struct {
@@ -16,26 +19,30 @@ func TestTransformGitHubPush(t *testing.T) {
 		{
 			name: "valid push event",
 			input: `{
+				"ref": "refs/heads/main",
 				"repository": {"name": "heimdall"},
 				"head_commit": {
 					"message": "Initial commit",
 					"author": {"name": "John Doe"}
-				}
+				},
+				"commits": [{"id": "abc123"}]
 			}`,
-			expectedTitle: "Push to heimdall",
+			expectedTitle: "1 commit pushed to heimdall/main",
 			expectedRepo:  "heimdall",
 			expectedErr:   false,
 		},
 		{
-			name: "push with special characters in message",
+			name: "push with multiple commits",
 			input: `{
+				"ref": "refs/heads/feature-branch",
 				"repository": {"name": "my-project"},
 				"head_commit": {
 					"message": "Fix bug: JSON parsing \"issue\"",
 					"author": {"name": "Jane Smith"}
-				}
+				},
+				"commits": [{"id": "abc"}, {"id": "def"}, {"id": "ghi"}]
 			}`,
-			expectedTitle: "Push to my-project",
+			expectedTitle: "3 commits pushed to my-project/feature-branch",
 			expectedRepo:  "my-project",
 			expectedErr:   false,
 		},
@@ -45,23 +52,24 @@ func TestTransformGitHubPush(t *testing.T) {
 			expectedErr: true,
 		},
 		{
-			name: "empty repository name",
+			name: "push without commits array",
 			input: `{
-				"repository": {"name": ""},
+				"ref": "refs/heads/main",
+				"repository": {"name": "test-repo"},
 				"head_commit": {
 					"message": "Commit",
 					"author": {"name": "Author"}
 				}
 			}`,
-			expectedTitle: "Push to ",
-			expectedRepo:  "",
+			expectedTitle: "1 commit pushed to test-repo/main",
+			expectedRepo:  "test-repo",
 			expectedErr:   false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := TransformGitHubPush(json.RawMessage(tt.input))
+			result, err := TransformGitHubPush(json.RawMessage(tt.input), testTimestamp)
 
 			if tt.expectedErr {
 				if err == nil {
@@ -88,6 +96,10 @@ func TestTransformGitHubPush(t *testing.T) {
 					t.Errorf("expected repo %q, got %q", tt.expectedRepo, repo)
 				}
 			}
+
+			if !result.CreatedAt.Equal(testTimestamp) {
+				t.Errorf("expected timestamp %v, got %v", testTimestamp, result.CreatedAt)
+			}
 		})
 	}
 }
@@ -109,11 +121,13 @@ func TestTransformGitHubPR(t *testing.T) {
 					"user": {"login": "contributor"},
 					"state": "open",
 					"html_url": "https://github.com/repo/pull/42",
-					"merged": false
+					"merged": false,
+					"head": {"ref": "feature-branch"},
+					"base": {"ref": "main"}
 				},
 				"repository": {"name": "heimdall"}
 			}`,
-			expectedTitle: "PR #42 opened: Add new feature",
+			expectedTitle: "PR #42 opened: Add new feature [feature-branch -> main]",
 			expectedErr:   false,
 		},
 		{
@@ -126,11 +140,13 @@ func TestTransformGitHubPR(t *testing.T) {
 					"user": {"login": "maintainer"},
 					"state": "closed",
 					"html_url": "https://github.com/repo/pull/100",
-					"merged": true
+					"merged": true,
+					"head": {"ref": "bugfix"},
+					"base": {"ref": "main"}
 				},
 				"repository": {"name": "project"}
 			}`,
-			expectedTitle: "PR #100 closed: Fix critical bug",
+			expectedTitle: "PR #100 closed: Fix critical bug [bugfix -> main]",
 			expectedErr:   false,
 		},
 		{
@@ -142,7 +158,7 @@ func TestTransformGitHubPR(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := TransformGitHubPR(json.RawMessage(tt.input))
+			result, err := TransformGitHubPR(json.RawMessage(tt.input), testTimestamp)
 
 			if tt.expectedErr {
 				if err == nil {
@@ -162,6 +178,10 @@ func TestTransformGitHubPR(t *testing.T) {
 
 			if result.EventType != "github.pr" {
 				t.Errorf("expected event type github.pr, got %q", result.EventType)
+			}
+
+			if !result.CreatedAt.Equal(testTimestamp) {
+				t.Errorf("expected timestamp %v, got %v", testTimestamp, result.CreatedAt)
 			}
 		})
 	}
@@ -215,7 +235,7 @@ func TestTransformGitHubIssue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := TransformGitHubIssue(json.RawMessage(tt.input))
+			result, err := TransformGitHubIssue(json.RawMessage(tt.input), testTimestamp)
 
 			if tt.expectedErr {
 				if err == nil {
@@ -235,6 +255,10 @@ func TestTransformGitHubIssue(t *testing.T) {
 
 			if result.EventType != "github.issue" {
 				t.Errorf("expected event type github.issue, got %q", result.EventType)
+			}
+
+			if !result.CreatedAt.Equal(testTimestamp) {
+				t.Errorf("expected timestamp %v, got %v", testTimestamp, result.CreatedAt)
 			}
 		})
 	}
@@ -288,7 +312,7 @@ func TestTransformGitHubRelease(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := TransformGitHubRelease(json.RawMessage(tt.input))
+			result, err := TransformGitHubRelease(json.RawMessage(tt.input), testTimestamp)
 
 			if tt.expectedErr {
 				if err == nil {
@@ -308,6 +332,10 @@ func TestTransformGitHubRelease(t *testing.T) {
 
 			if result.EventType != "github.release" {
 				t.Errorf("expected event type github.release, got %q", result.EventType)
+			}
+
+			if !result.CreatedAt.Equal(testTimestamp) {
+				t.Errorf("expected timestamp %v, got %v", testTimestamp, result.CreatedAt)
 			}
 		})
 	}

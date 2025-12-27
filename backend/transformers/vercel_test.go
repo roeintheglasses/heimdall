@@ -3,9 +3,12 @@ package transformers
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 func TestTransformVercelDeploy(t *testing.T) {
+	testTime := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
+
 	tests := []struct {
 		name           string
 		input          string
@@ -28,7 +31,7 @@ func TestTransformVercelDeploy(t *testing.T) {
 					"regions": ["sfo1"]
 				}
 			}`,
-			expectedTitle:  "Deployment of heimdall",
+			expectedTitle:  "heimdall: BUILDING to production",
 			expectedStatus: "BUILDING",
 			expectedErr:    false,
 		},
@@ -47,7 +50,7 @@ func TestTransformVercelDeploy(t *testing.T) {
 					"regions": ["iad1"]
 				}
 			}`,
-			expectedTitle:  "Deployment of my-app",
+			expectedTitle:  "my-app: SUCCESS to preview",
 			expectedStatus: "SUCCESS",
 			expectedErr:    false,
 		},
@@ -64,7 +67,7 @@ func TestTransformVercelDeploy(t *testing.T) {
 					"target": "production"
 				}
 			}`,
-			expectedTitle:  "Deployment of broken-app",
+			expectedTitle:  "broken-app: FAILED to production",
 			expectedStatus: "FAILED",
 			expectedErr:    false,
 		},
@@ -80,7 +83,7 @@ func TestTransformVercelDeploy(t *testing.T) {
 					}
 				}
 			}`,
-			expectedTitle:  "Deployment of test",
+			expectedTitle:  "test: DEPLOY to preview",
 			expectedStatus: "DEPLOY",
 			expectedErr:    false,
 		},
@@ -93,7 +96,7 @@ func TestTransformVercelDeploy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := TransformVercelDeploy(json.RawMessage(tt.input))
+			result, err := TransformVercelDeploy(json.RawMessage(tt.input), testTime)
 
 			if tt.expectedErr {
 				if err == nil {
@@ -119,6 +122,10 @@ func TestTransformVercelDeploy(t *testing.T) {
 				if status != tt.expectedStatus {
 					t.Errorf("expected status %q, got %q", tt.expectedStatus, status)
 				}
+			}
+
+			if !result.CreatedAt.Equal(testTime) {
+				t.Errorf("expected timestamp %v, got %v", testTime, result.CreatedAt)
 			}
 		})
 	}
