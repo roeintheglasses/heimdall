@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { Skeleton } from "@/components/ui/skeleton"
+import { Terminal, Activity } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface DayActivity {
   date: string
@@ -92,42 +94,52 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
 
   if (error) {
     return (
-      <div className="text-center text-muted-foreground py-8">
-        <p>Unable to load activity data</p>
-        <p className="text-sm mt-2">Connect webhooks to start tracking activity</p>
+      <div className="text-center py-8 font-mono">
+        <div className="text-neon-orange mb-2">
+          <span className="text-neon-magenta">&gt;</span> ERROR::CONNECTION_FAILED
+        </div>
+        <p className="text-xs text-muted-foreground">Connect webhooks to start tracking activity</p>
       </div>
     )
   }
 
   if (events.length === 0) {
     return (
-      <div className="text-center text-muted-foreground py-8">
-        <p>No activity yet</p>
-        <p className="text-sm mt-2">Events will appear here once webhooks start sending data</p>
+      <div className="text-center py-8 font-mono">
+        <div className="text-neon-cyan mb-2">
+          <span className="text-neon-magenta">&gt;</span> AWAITING_DATA...
+        </div>
+        <p className="text-xs text-muted-foreground">Events will appear here once webhooks start sending data</p>
       </div>
     )
   }
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {/* Stats summary */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>{totalEvents} events in the last 12 weeks</span>
+    <div className={cn("space-y-4", className)}>
+      {/* Stats summary - Terminal style */}
+      <div className="flex items-center justify-between text-xs font-mono">
+        <div className="flex items-center gap-2 text-neon-cyan">
+          <Activity className="h-3 w-3" />
+          <span>{String(totalEvents).padStart(4, '0')} EVENTS // 12 WEEKS</span>
+        </div>
         <div className="flex items-center gap-1">
-          <span className="text-xs">Less</span>
+          <span className="text-muted-foreground">LESS</span>
           <div className="flex gap-0.5">
             {[0, 1, 2, 3, 4].map(level => (
               <div
                 key={level}
-                className={`w-3 h-3 rounded-sm ${getLevelColor(level as 0 | 1 | 2 | 3 | 4)}`}
+                className={cn(
+                  "w-3 h-3 border",
+                  getLevelStyles(level as 0 | 1 | 2 | 3 | 4)
+                )}
               />
             ))}
           </div>
-          <span className="text-xs">More</span>
+          <span className="text-muted-foreground">MORE</span>
         </div>
       </div>
 
-      {/* Heatmap grid - 12 columns (weeks) x 7 rows (days) */}
+      {/* Heatmap grid - 12 columns (weeks) x 7 rows (days) - Pixelated style */}
       <div className="overflow-x-auto">
         <div className="grid grid-cols-12 gap-1 min-w-[300px]">
           {activity.map((day, index) => {
@@ -141,7 +153,12 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
               <div
                 key={day.date}
                 title={`${day.count} events on ${formatDate(day.date)}`}
-                className={`w-full aspect-square rounded-sm cursor-default transition-transform hover:scale-110 ${getLevelColor(day.level)}`}
+                className={cn(
+                  "w-full aspect-square border cursor-default transition-all duration-200",
+                  "hover:scale-110 hover:z-10",
+                  getLevelStyles(day.level),
+                  day.count > 0 && "hover:shadow-[0_0_10px_currentColor]"
+                )}
                 style={{ order: gridIndex }}
               />
             )
@@ -152,15 +169,15 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
   )
 }
 
-function getLevelColor(level: 0 | 1 | 2 | 3 | 4): string {
-  const colors = {
-    0: 'bg-slate-100 dark:bg-slate-800',
-    1: 'bg-green-200 dark:bg-green-900',
-    2: 'bg-green-400 dark:bg-green-700',
-    3: 'bg-green-500 dark:bg-green-600',
-    4: 'bg-green-600 dark:bg-green-500',
+function getLevelStyles(level: 0 | 1 | 2 | 3 | 4): string {
+  const styles = {
+    0: 'bg-terminal-gray border-neon-cyan/20',
+    1: 'bg-neon-green/20 border-neon-green/40 text-neon-green',
+    2: 'bg-neon-green/40 border-neon-green/60 text-neon-green',
+    3: 'bg-neon-green/60 border-neon-green/80 text-neon-green shadow-[0_0_5px_hsl(120_100%_50%)]',
+    4: 'bg-neon-green/80 border-neon-green text-neon-green shadow-[0_0_8px_hsl(120_100%_50%)]',
   }
-  return colors[level]
+  return styles[level]
 }
 
 function formatDate(dateStr: string): string {
@@ -176,12 +193,15 @@ function ActivityHeatmapSkeleton() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Skeleton className="h-4 w-48" />
+        <div className="flex items-center gap-2">
+          <Terminal className="h-3 w-3 text-neon-cyan animate-pulse" />
+          <Skeleton className="h-4 w-48" />
+        </div>
         <Skeleton className="h-4 w-24" />
       </div>
       <div className="grid grid-cols-12 gap-1">
         {Array.from({ length: 84 }).map((_, i) => (
-          <Skeleton key={i} className="w-full aspect-square rounded-sm" />
+          <Skeleton key={i} className="w-full aspect-square" />
         ))}
       </div>
     </div>

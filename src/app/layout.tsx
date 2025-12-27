@@ -1,5 +1,23 @@
 import type { Metadata } from 'next'
+import { JetBrains_Mono, Press_Start_2P } from 'next/font/google'
+import { SoundProvider } from '@/contexts/SoundContext'
+import { CRTScreenOnly } from '@/components/CRTMonitorFrame'
 import './globals.css'
+
+// Primary monospace font for all text
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+})
+
+// Pixel font for headers and emphasis
+const pressStart2P = Press_Start_2P({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-pixel',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: {
@@ -66,8 +84,8 @@ export const metadata: Metadata = {
     maximumScale: 1,
   },
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#4f46e5' },
-    { media: '(prefers-color-scheme: dark)', color: '#4f46e5' }
+    { media: '(prefers-color-scheme: light)', color: '#00FFFF' },
+    { media: '(prefers-color-scheme: dark)', color: '#00FFFF' }
   ],
 }
 
@@ -77,9 +95,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className="antialiased">
-        {children}
+    <html lang="en" className="dark">
+      <body
+        className={`${jetbrainsMono.variable} ${pressStart2P.variable} font-mono antialiased scanlines crt-vignette animate-flicker`}
+      >
+        <SoundProvider>
+          <CRTScreenOnly>
+            {children}
+          </CRTScreenOnly>
+        </SoundProvider>
       </body>
     </html>
   )

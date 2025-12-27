@@ -14,7 +14,10 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground",
+      // Retro terminal tabs container
+      "inline-flex h-10 items-center justify-center gap-1",
+      "bg-terminal-black border-2 border-neon-cyan/30 p-1",
+      "text-muted-foreground font-mono",
       className
     )}
     {...props}
@@ -29,7 +32,24 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow",
+      // Base styles
+      "inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5",
+      "text-xs font-mono uppercase tracking-wider",
+      "transition-all duration-100",
+      // Borders and background
+      "border-2 border-transparent",
+      // Focus
+      "ring-offset-terminal-black",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2",
+      // Disabled
+      "disabled:pointer-events-none disabled:opacity-50",
+      // Hover (inactive)
+      "hover:text-neon-cyan hover:border-neon-cyan/30",
+      // Active state - neon highlight
+      "data-[state=active]:border-neon-cyan",
+      "data-[state=active]:bg-neon-cyan/10",
+      "data-[state=active]:text-neon-cyan",
+      "data-[state=active]:shadow-[2px_2px_0_hsl(180_100%_50%)]",
       className
     )}
     {...props}
@@ -44,7 +64,11 @@ const TabsContent = React.forwardRef<
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      "mt-2",
+      "ring-offset-terminal-black",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2",
+      // Animation
+      "data-[state=active]:animate-in data-[state=active]:fade-in-0",
       className
     )}
     {...props}

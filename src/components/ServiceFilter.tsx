@@ -5,15 +5,17 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useCategories, useCategoryOperations } from '@/contexts/CategoryContext'
 import { getServiceColorClasses, DEFAULT_SERVICES } from '@/types/categories'
-import { 
-  GitBranch, 
-  Zap, 
-  Train, 
-  Activity, 
-  Shield, 
+import {
+  GitBranch,
+  Zap,
+  Train,
+  Activity,
+  Shield,
   Globe,
+  Terminal,
   LucideIcon
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface ServiceFilterProps {
   serviceStats: Record<string, number>
@@ -30,12 +32,38 @@ const serviceIcons: Record<string, LucideIcon> = {
   Globe
 }
 
+// Service to neon color mapping
+const SERVICE_NEON_MAP: Record<string, { border: string; bg: string; text: string; shadow: string }> = {
+  github: {
+    border: 'border-neon-cyan',
+    bg: 'bg-neon-cyan/10',
+    text: 'text-neon-cyan',
+    shadow: 'shadow-[4px_4px_0_hsl(180_100%_50%)]'
+  },
+  vercel: {
+    border: 'border-neon-magenta',
+    bg: 'bg-neon-magenta/10',
+    text: 'text-neon-magenta',
+    shadow: 'shadow-[4px_4px_0_hsl(300_100%_50%)]'
+  },
+  railway: {
+    border: 'border-neon-green',
+    bg: 'bg-neon-green/10',
+    text: 'text-neon-green',
+    shadow: 'shadow-[4px_4px_0_hsl(120_100%_50%)]'
+  }
+}
+
+function getNeonColors(serviceId: string) {
+  return SERVICE_NEON_MAP[serviceId] || SERVICE_NEON_MAP.github
+}
+
 export default function ServiceFilter({ serviceStats, className = '' }: ServiceFilterProps) {
   const { filter } = useCategories()
   const { selectService, isServiceSelected } = useCategoryOperations()
 
   // Get available services that have events
-  const availableServices = DEFAULT_SERVICES.filter(service => 
+  const availableServices = DEFAULT_SERVICES.filter(service =>
     serviceStats[service.id] > 0
   )
 
@@ -44,10 +72,8 @@ export default function ServiceFilter({ serviceStats, className = '' }: ServiceF
 
   const handleServiceClick = (serviceId: string) => {
     if (isServiceSelected(serviceId)) {
-      // If already selected, deselect (show all)
       selectService(null)
     } else {
-      // Select this service
       selectService(serviceId)
     }
   }
@@ -57,61 +83,82 @@ export default function ServiceFilter({ serviceStats, className = '' }: ServiceF
   }
 
   return (
-    <div className={`space-y-3 ${className}`}>
+    <div className={cn("space-y-3", className)}>
+      {/* Terminal-style header */}
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-foreground">Filter by Service</h4>
-        <Badge variant="outline" className="text-xs">
-          {totalEvents} total events
+        <div className="flex items-center gap-2 text-xs font-mono text-neon-cyan">
+          <Terminal className="h-3 w-3" />
+          <span>SERVICE::FILTER</span>
+        </div>
+        <Badge variant="outline" className="text-xs font-mono border-neon-cyan/50 text-neon-cyan">
+          {String(totalEvents).padStart(4, '0')} TOTAL
         </Badge>
       </div>
-      
+
       <div className="flex flex-wrap gap-2">
         {/* All Services Button */}
         <Button
-          variant={!filter.selectedService ? "default" : "outline"}
+          variant={!filter.selectedService ? "neon" : "outline"}
           size="sm"
           onClick={() => selectService(null)}
-          className="transition-all duration-200 hover:scale-105"
+          className={cn(
+            "transition-all duration-200 font-mono text-xs",
+            !filter.selectedService && "shadow-retro"
+          )}
         >
           <Globe className="w-4 h-4 mr-2" />
-          All Services
-          <Badge 
-            variant="secondary" 
-            className="ml-2 bg-white/20 text-current border-0"
+          ALL
+          <Badge
+            variant="outline"
+            className={cn(
+              "ml-2 border-0 text-[10px]",
+              !filter.selectedService ? "bg-neon-cyan/20 text-neon-cyan" : "bg-muted"
+            )}
           >
             {totalEvents}
           </Badge>
         </Button>
 
-        {/* Individual Service Buttons */}
+        {/* Individual Service Buttons - Arcade style */}
         {availableServices.map(service => {
           const count = serviceStats[service.id] || 0
           const isSelected = isServiceSelected(service.id)
-          const colors = getServiceColorClasses(service.color)
+          const neonColors = getNeonColors(service.id)
           const IconComponent = serviceIcons[service.icon] || Globe
 
           return (
             <Button
               key={service.id}
-              variant={isSelected ? "default" : "outline"}
+              variant="outline"
               size="sm"
               onClick={() => handleServiceClick(service.id)}
-              className={`transition-all duration-200 hover:scale-105 ${
-                isSelected 
-                  ? `${colors.bg} ${colors.text} ${colors.border} shadow-md` 
-                  : `hover:${colors.bg} hover:${colors.text}`
-              }`}
+              className={cn(
+                "transition-all duration-200 font-mono text-xs",
+                "border-2",
+                neonColors.border,
+                isSelected && [
+                  neonColors.bg,
+                  neonColors.text,
+                  neonColors.shadow,
+                  "-translate-x-0.5 -translate-y-0.5"
+                ],
+                !isSelected && [
+                  "hover:" + neonColors.bg,
+                  "hover:" + neonColors.text
+                ]
+              )}
             >
               <IconComponent className="w-4 h-4 mr-2" />
-              {service.name}
+              {service.name.toUpperCase()}
               {count > 0 && (
-                <Badge 
-                  variant="secondary" 
-                  className={`ml-2 ${
-                    isSelected 
-                      ? 'bg-white/20 text-current' 
-                      : colors.badge
-                  } border-0`}
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "ml-2 border-0 text-[10px]",
+                    isSelected
+                      ? neonColors.text
+                      : "bg-muted"
+                  )}
                 >
                   {count}
                 </Badge>
@@ -121,30 +168,40 @@ export default function ServiceFilter({ serviceStats, className = '' }: ServiceF
         })}
       </div>
 
-      {/* Service Description for Selected Service */}
+      {/* Selected Service Info - Terminal style */}
       {filter.selectedService && (
-        <div className="mt-3 p-3 rounded-lg bg-muted/50 border">
+        <div className={cn(
+          "mt-3 p-3 border-2 font-mono",
+          getNeonColors(filter.selectedService).border,
+          getNeonColors(filter.selectedService).bg
+        )}>
           {(() => {
             const selectedService = DEFAULT_SERVICES.find(s => s.id === filter.selectedService)
             if (!selectedService) return null
-            
-            const colors = getServiceColorClasses(selectedService.color)
+
+            const neonColors = getNeonColors(selectedService.id)
             const IconComponent = serviceIcons[selectedService.icon] || Globe
-            
+
             return (
               <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-lg ${colors.bg} ${colors.border} border`}>
-                  <IconComponent className={`w-4 h-4 ${colors.text}`} />
+                <div className={cn(
+                  "p-2 border-2",
+                  neonColors.border,
+                  neonColors.bg
+                )}>
+                  <IconComponent className={cn("w-4 h-4", neonColors.text)} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <h5 className="font-medium text-sm">{selectedService.name}</h5>
-                    <Badge className={colors.badge}>
-                      {serviceStats[selectedService.id]} events
+                    <span className={cn("text-sm font-bold", neonColors.text)}>
+                      {selectedService.name.toUpperCase()}
+                    </span>
+                    <Badge className={cn("text-[10px]", neonColors.text, neonColors.border, "border")}>
+                      {serviceStats[selectedService.id]} EVENTS
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {selectedService.description}
+                    <span className="text-neon-magenta">&gt;</span> {selectedService.description}
                   </p>
                 </div>
               </div>
