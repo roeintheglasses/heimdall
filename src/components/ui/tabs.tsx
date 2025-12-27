@@ -1,11 +1,11 @@
-"use client"
+'use client';
 
-import * as React from "react"
-import * as TabsPrimitive from "@radix-ui/react-tabs"
+import * as React from 'react';
+import * as TabsPrimitive from '@radix-ui/react-tabs';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
-const Tabs = TabsPrimitive.Root
+const Tabs = TabsPrimitive.Root;
 
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
@@ -15,15 +15,15 @@ const TabsList = React.forwardRef<
     ref={ref}
     className={cn(
       // Retro terminal tabs container
-      "inline-flex h-10 items-center justify-center gap-1",
-      "bg-terminal-black border-2 border-neon-cyan/30 p-1",
-      "text-muted-foreground font-mono",
+      'inline-flex h-10 items-center justify-center gap-1',
+      'border-2 border-neon-cyan/30 bg-terminal-black p-1',
+      'font-mono text-muted-foreground',
       className
     )}
     {...props}
   />
-))
-TabsList.displayName = TabsPrimitive.List.displayName
+));
+TabsList.displayName = TabsPrimitive.List.displayName;
 
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
@@ -33,29 +33,29 @@ const TabsTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       // Base styles
-      "inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5",
-      "text-xs font-mono uppercase tracking-wider",
-      "transition-all duration-100",
+      'inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5',
+      'font-mono text-xs uppercase tracking-wider',
+      'transition-all duration-100',
       // Borders and background
-      "border-2 border-transparent",
+      'border-2 border-transparent',
       // Focus
-      "ring-offset-terminal-black",
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2",
+      'ring-offset-terminal-black',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2',
       // Disabled
-      "disabled:pointer-events-none disabled:opacity-50",
+      'disabled:pointer-events-none disabled:opacity-50',
       // Hover (inactive)
-      "hover:text-neon-cyan hover:border-neon-cyan/30",
+      'hover:border-neon-cyan/30 hover:text-neon-cyan',
       // Active state - neon highlight
-      "data-[state=active]:border-neon-cyan",
-      "data-[state=active]:bg-neon-cyan/10",
-      "data-[state=active]:text-neon-cyan",
-      "data-[state=active]:shadow-[2px_2px_0_hsl(180_100%_50%)]",
+      'data-[state=active]:border-neon-cyan',
+      'data-[state=active]:bg-neon-cyan/10',
+      'data-[state=active]:text-neon-cyan',
+      'data-[state=active]:shadow-[2px_2px_0_hsl(180_100%_50%)]',
       className
     )}
     {...props}
   />
-))
-TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
+));
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
 const TabsContent = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Content>,
@@ -64,16 +64,16 @@ const TabsContent = React.forwardRef<
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      "mt-2",
-      "ring-offset-terminal-black",
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2",
+      'mt-2',
+      'ring-offset-terminal-black',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2',
       // Animation
-      "data-[state=active]:animate-in data-[state=active]:fade-in-0",
+      'data-[state=active]:animate-in data-[state=active]:fade-in-0',
       className
     )}
     {...props}
   />
-))
-TabsContent.displayName = TabsPrimitive.Content.displayName
+));
+TabsContent.displayName = TabsPrimitive.Content.displayName;
 
-export { Tabs, TabsList, TabsTrigger, TabsContent }
+export { Tabs, TabsList, TabsTrigger, TabsContent };

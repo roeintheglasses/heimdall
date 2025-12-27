@@ -1,16 +1,20 @@
-'use client'
+'use client';
 
-import { Badge } from "@/components/ui/badge"
-import { Activity, Wifi, WifiOff, Database, Terminal } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Badge } from '@/components/ui/badge';
+import { Activity, Wifi, WifiOff, Database, Terminal } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ConnectionStatusProps {
-  isConnected: boolean
-  eventCount: number
-  error?: string | null
+  isConnected: boolean;
+  eventCount: number;
+  error?: string | null;
 }
 
-export default function ConnectionStatus({ isConnected, eventCount, error }: ConnectionStatusProps) {
+export default function ConnectionStatus({
+  isConnected,
+  eventCount,
+  error,
+}: ConnectionStatusProps) {
   const getStatusConfig = () => {
     if (error) {
       return {
@@ -21,8 +25,8 @@ export default function ConnectionStatus({ isConnected, eventCount, error }: Con
         bgColor: 'bg-destructive/10',
         dotColor: 'bg-destructive',
         glowColor: 'shadow-[0_0_10px_hsl(0_100%_50%)]',
-        description: 'CONNECTION_FAILED'
-      }
+        description: 'CONNECTION_FAILED',
+      };
     }
 
     if (isConnected) {
@@ -34,8 +38,8 @@ export default function ConnectionStatus({ isConnected, eventCount, error }: Con
         bgColor: 'bg-neon-green/10',
         dotColor: 'bg-neon-green',
         glowColor: 'shadow-[0_0_10px_hsl(120_100%_50%)]',
-        description: 'STREAM_ACTIVE'
-      }
+        description: 'STREAM_ACTIVE',
+      };
     }
 
     return {
@@ -46,90 +50,96 @@ export default function ConnectionStatus({ isConnected, eventCount, error }: Con
       bgColor: 'bg-neon-orange/10',
       dotColor: 'bg-neon-orange',
       glowColor: 'shadow-[0_0_10px_hsl(30_100%_50%)]',
-      description: 'RECONNECTING...'
-    }
-  }
+      description: 'RECONNECTING...',
+    };
+  };
 
-  const config = getStatusConfig()
-  const StatusIcon = config.icon
+  const config = getStatusConfig();
+  const StatusIcon = config.icon;
 
   return (
-    <div className="flex items-center gap-2 sm:gap-3 font-mono">
+    <div className="flex items-center gap-2 font-mono sm:gap-3">
       {/* Connection Status */}
-      <div className={cn(
-        "flex items-center gap-2 px-2 py-1 border-2",
-        config.borderColor,
-        config.bgColor,
-        isConnected && config.glowColor
-      )}>
+      <div
+        className={cn(
+          'flex items-center gap-2 border-2 px-2 py-1',
+          config.borderColor,
+          config.bgColor,
+          isConnected && config.glowColor
+        )}
+      >
         {/* LED Indicator */}
         <div className="relative">
-          <div className={cn(
-            "w-2 h-2 transition-all duration-300",
-            config.dotColor,
-            isConnected && "animate-pulse-slow"
-          )} />
-          {isConnected && (
-            <div className={cn(
-              "absolute inset-0 w-2 h-2 animate-ping",
+          <div
+            className={cn(
+              'h-2 w-2 transition-all duration-300',
               config.dotColor,
-              "opacity-30"
-            )} />
+              isConnected && 'animate-pulse-slow'
+            )}
+          />
+          {isConnected && (
+            <div
+              className={cn('absolute inset-0 h-2 w-2 animate-ping', config.dotColor, 'opacity-30')}
+            />
           )}
         </div>
 
-        <StatusIcon className={cn("h-3 w-3", config.textColor)} />
-        <span className={cn("text-xs uppercase tracking-wider", config.textColor)}>
+        <StatusIcon className={cn('h-3 w-3', config.textColor)} />
+        <span className={cn('text-xs uppercase tracking-wider', config.textColor)}>
           {config.label}
         </span>
       </div>
 
       {/* Event Count - Database style */}
-      <div className={cn(
-        "flex items-center gap-2 px-2 py-1 border-2",
-        "border-neon-cyan/50 bg-neon-cyan/5"
-      )}>
+      <div
+        className={cn(
+          'flex items-center gap-2 border-2 px-2 py-1',
+          'border-neon-cyan/50 bg-neon-cyan/5'
+        )}
+      >
         <Database className="h-3 w-3 text-neon-cyan" />
-        <span className="text-xs text-neon-cyan font-bold tabular-nums">
+        <span className="text-xs font-bold tabular-nums text-neon-cyan">
           {String(eventCount).padStart(4, '0')}
         </span>
-        <span className="text-xs text-muted-foreground hidden xs:inline">
-          REC
-        </span>
+        <span className="hidden text-xs text-muted-foreground xs:inline">REC</span>
       </div>
 
       {/* Activity Indicator */}
       {isConnected && (
-        <div className={cn(
-          "hidden sm:flex items-center gap-2 px-2 py-1 border-2",
-          "border-neon-magenta/50 bg-neon-magenta/5"
-        )}>
-          <Activity className="h-3 w-3 text-neon-magenta animate-pulse-slow" />
-          <span className="text-xs text-neon-magenta hidden md:inline uppercase tracking-wider">
+        <div
+          className={cn(
+            'hidden items-center gap-2 border-2 px-2 py-1 sm:flex',
+            'border-neon-magenta/50 bg-neon-magenta/5'
+          )}
+        >
+          <Activity className="h-3 w-3 animate-pulse-slow text-neon-magenta" />
+          <span className="hidden text-xs uppercase tracking-wider text-neon-magenta md:inline">
             {config.description}
           </span>
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // Compact terminal-style status for headers
 export function ConnectionStatusCompact({ isConnected }: { isConnected: boolean }) {
   return (
-    <div className={cn(
-      "flex items-center gap-1.5 px-2 py-0.5 border text-xs font-mono",
-      isConnected
-        ? "border-neon-green/50 text-neon-green"
-        : "border-neon-orange/50 text-neon-orange"
-    )}>
-      <div className={cn(
-        "w-1.5 h-1.5",
-        isConnected ? "bg-neon-green animate-pulse-slow" : "bg-neon-orange"
-      )} />
-      <span className="uppercase tracking-wider">
-        {isConnected ? 'ONLINE' : 'OFFLINE'}
-      </span>
+    <div
+      className={cn(
+        'flex items-center gap-1.5 border px-2 py-0.5 font-mono text-xs',
+        isConnected
+          ? 'border-neon-green/50 text-neon-green'
+          : 'border-neon-orange/50 text-neon-orange'
+      )}
+    >
+      <div
+        className={cn(
+          'h-1.5 w-1.5',
+          isConnected ? 'animate-pulse-slow bg-neon-green' : 'bg-neon-orange'
+        )}
+      />
+      <span className="uppercase tracking-wider">{isConnected ? 'ONLINE' : 'OFFLINE'}</span>
     </div>
-  )
+  );
 }

@@ -1,12 +1,12 @@
-'use client'
+'use client';
 
-import React from 'react'
-import { cn } from '@/lib/utils'
+import React from 'react';
+import { cn } from '@/lib/utils';
 
 interface PixelIconProps {
-  size?: number
-  className?: string
-  animated?: boolean
+  size?: number;
+  className?: string;
+  animated?: boolean;
 }
 
 // GitHub Octocat - 16x16 pixel grid
@@ -17,11 +17,7 @@ export function PixelGitHub({ size = 16, className, animated = false }: PixelIco
       height={size}
       viewBox="0 0 16 16"
       fill="currentColor"
-      className={cn(
-        "pixel-icon",
-        animated && "hover:animate-pulse-slow",
-        className
-      )}
+      className={cn('pixel-icon', animated && 'hover:animate-pulse-slow', className)}
       style={{ imageRendering: 'pixelated' }}
     >
       {/* Octocat silhouette */}
@@ -52,7 +48,7 @@ export function PixelGitHub({ size = 16, className, animated = false }: PixelIco
       {/* Body fill */}
       <rect x="4" y="4" width="8" height="3" fillOpacity="0.3" />
     </svg>
-  )
+  );
 }
 
 // Vercel Triangle - 16x16 pixel grid
@@ -63,11 +59,7 @@ export function PixelVercel({ size = 16, className, animated = false }: PixelIco
       height={size}
       viewBox="0 0 16 16"
       fill="currentColor"
-      className={cn(
-        "pixel-icon",
-        animated && "hover:animate-pulse-slow",
-        className
-      )}
+      className={cn('pixel-icon', animated && 'hover:animate-pulse-slow', className)}
       style={{ imageRendering: 'pixelated' }}
     >
       {/* Triangle pointing up */}
@@ -84,7 +76,7 @@ export function PixelVercel({ size = 16, className, animated = false }: PixelIco
       <rect x="1" y="12" width="14" height="1" />
       <rect x="1" y="13" width="14" height="1" />
     </svg>
-  )
+  );
 }
 
 // Railway Train - 16x16 pixel grid
@@ -95,11 +87,7 @@ export function PixelRailway({ size = 16, className, animated = false }: PixelIc
       height={size}
       viewBox="0 0 16 16"
       fill="currentColor"
-      className={cn(
-        "pixel-icon",
-        animated && "hover:animate-pulse-slow",
-        className
-      )}
+      className={cn('pixel-icon', animated && 'hover:animate-pulse-slow', className)}
       style={{ imageRendering: 'pixelated' }}
     >
       {/* Train front view */}
@@ -129,7 +117,7 @@ export function PixelRailway({ size = 16, className, animated = false }: PixelIc
       {/* Headlight */}
       <rect x="7" y="9" width="2" height="1" fillOpacity="0.7" />
     </svg>
-  )
+  );
 }
 
 // Generic Activity/Monitor icon for other services
@@ -140,11 +128,7 @@ export function PixelMonitor({ size = 16, className, animated = false }: PixelIc
       height={size}
       viewBox="0 0 16 16"
       fill="currentColor"
-      className={cn(
-        "pixel-icon",
-        animated && "hover:animate-pulse-slow",
-        className
-      )}
+      className={cn('pixel-icon', animated && 'hover:animate-pulse-slow', className)}
       style={{ imageRendering: 'pixelated' }}
     >
       {/* Monitor frame */}
@@ -159,24 +143,24 @@ export function PixelMonitor({ size = 16, className, animated = false }: PixelIc
       <rect x="6" y="5" width="4" height="1" fillOpacity="0.5" />
       <rect x="6" y="7" width="6" height="1" fillOpacity="0.5" />
     </svg>
-  )
+  );
 }
 
 // Pixel icon wrapper component for service selection
 interface ServicePixelIconProps extends PixelIconProps {
-  service: 'github' | 'vercel' | 'railway' | 'unknown'
+  service: 'github' | 'vercel' | 'railway' | 'unknown';
 }
 
 export function ServicePixelIcon({ service, ...props }: ServicePixelIconProps) {
   switch (service) {
     case 'github':
-      return <PixelGitHub {...props} />
+      return <PixelGitHub {...props} />;
     case 'vercel':
-      return <PixelVercel {...props} />
+      return <PixelVercel {...props} />;
     case 'railway':
-      return <PixelRailway {...props} />
+      return <PixelRailway {...props} />;
     default:
-      return <PixelMonitor {...props} />
+      return <PixelMonitor {...props} />;
   }
 }
 
@@ -189,8 +173,8 @@ export function PixelGitHubLarge({ size = 32, className, animated = false }: Pix
       viewBox="0 0 32 32"
       fill="currentColor"
       className={cn(
-        "pixel-icon",
-        animated && "hover:animate-pulse-slow hover:drop-shadow-[0_0_8px_currentColor]",
+        'pixel-icon',
+        animated && 'hover:animate-pulse-slow hover:drop-shadow-[0_0_8px_currentColor]',
         className
       )}
       style={{ imageRendering: 'pixelated' }}
@@ -223,7 +207,7 @@ export function PixelGitHubLarge({ size = 32, className, animated = false }: Pix
       {/* Body fill */}
       <rect x="8" y="8" width="16" height="6" fillOpacity="0.3" />
     </svg>
-  )
+  );
 }
 
 export function PixelVercelLarge({ size = 32, className, animated = false }: PixelIconProps) {
@@ -234,8 +218,8 @@ export function PixelVercelLarge({ size = 32, className, animated = false }: Pix
       viewBox="0 0 32 32"
       fill="currentColor"
       className={cn(
-        "pixel-icon",
-        animated && "hover:animate-pulse-slow hover:drop-shadow-[0_0_8px_currentColor]",
+        'pixel-icon',
+        animated && 'hover:animate-pulse-slow hover:drop-shadow-[0_0_8px_currentColor]',
         className
       )}
       style={{ imageRendering: 'pixelated' }}
@@ -254,7 +238,7 @@ export function PixelVercelLarge({ size = 32, className, animated = false }: Pix
       <rect x="2" y="24" width="28" height="2" />
       <rect x="2" y="26" width="28" height="2" />
     </svg>
-  )
+  );
 }
 
 export function PixelRailwayLarge({ size = 32, className, animated = false }: PixelIconProps) {
@@ -265,8 +249,8 @@ export function PixelRailwayLarge({ size = 32, className, animated = false }: Pi
       viewBox="0 0 32 32"
       fill="currentColor"
       className={cn(
-        "pixel-icon",
-        animated && "hover:animate-pulse-slow hover:drop-shadow-[0_0_8px_currentColor]",
+        'pixel-icon',
+        animated && 'hover:animate-pulse-slow hover:drop-shadow-[0_0_8px_currentColor]',
         className
       )}
       style={{ imageRendering: 'pixelated' }}
@@ -288,5 +272,5 @@ export function PixelRailwayLarge({ size = 32, className, animated = false }: Pi
       {/* Headlight */}
       <rect x="14" y="18" width="4" height="2" fillOpacity="0.7" />
     </svg>
-  )
+  );
 }

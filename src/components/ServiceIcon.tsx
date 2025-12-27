@@ -1,22 +1,16 @@
-'use client'
+'use client';
 
 import React from 'react';
-import {
-  GitBranch,
-  Zap,
-  Train,
-  Monitor,
-  HelpCircle
-} from 'lucide-react';
+import { GitBranch, Zap, Train, Monitor, HelpCircle } from 'lucide-react';
 import { getServiceFromEventType, getServiceColorClasses, ServiceInfo } from '@/types/services';
 
 // Icon mapping for services (only includes icons for supported services)
 const SERVICE_ICONS = {
-  GitBranch,   // GitHub
-  Zap,         // Vercel
-  Train,       // Railway
-  Monitor,     // System
-  HelpCircle   // Unknown/fallback
+  GitBranch, // GitHub
+  Zap, // Vercel
+  Train, // Railway
+  Monitor, // System
+  HelpCircle, // Unknown/fallback
 } as const;
 
 interface ServiceIconProps {
@@ -26,43 +20,39 @@ interface ServiceIconProps {
   showTooltip?: boolean;
 }
 
-export function ServiceIcon({ 
-  eventType, 
-  service, 
+export function ServiceIcon({
+  eventType,
+  service,
   className = 'h-4 w-4',
-  showTooltip = false 
+  showTooltip = false,
 }: ServiceIconProps) {
   // Get service info either from prop or event type
   const serviceInfo = service || (eventType ? getServiceFromEventType(eventType) : null);
-  
+
   if (!serviceInfo) {
     const FallbackIcon = SERVICE_ICONS.HelpCircle;
     return <FallbackIcon className={className} />;
   }
-  
-  const IconComponent = SERVICE_ICONS[serviceInfo.icon as keyof typeof SERVICE_ICONS] || SERVICE_ICONS.HelpCircle;
+
+  const IconComponent =
+    SERVICE_ICONS[serviceInfo.icon as keyof typeof SERVICE_ICONS] || SERVICE_ICONS.HelpCircle;
   const colorClasses = getServiceColorClasses(serviceInfo.color);
-  
+
   const iconElement = (
-    <IconComponent 
-      className={`${className} ${colorClasses.text} transition-colors duration-200`} 
-    />
+    <IconComponent className={`${className} ${colorClasses.text} transition-colors duration-200`} />
   );
-  
+
   if (showTooltip) {
     return (
-      <div 
-        className="relative group"
-        title={`${serviceInfo.name}: ${serviceInfo.description}`}
-      >
+      <div className="group relative" title={`${serviceInfo.name}: ${serviceInfo.description}`}>
         {iconElement}
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+        <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 transform whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           {serviceInfo.name}
         </div>
       </div>
     );
   }
-  
+
   return iconElement;
 }
 
@@ -84,47 +74,38 @@ export function ServiceBadge({
   size = 'sm',
   showIcon = true,
   showName = true,
-  className = ''
+  className = '',
 }: ServiceBadgeProps) {
   const serviceInfo = service || (eventType ? getServiceFromEventType(eventType) : null);
-  
+
   if (!serviceInfo) return null;
-  
+
   const colorClasses = getServiceColorClasses(serviceInfo.color);
-  
+
   const sizeClasses = {
     sm: 'text-xs px-2 py-1 gap-1',
-    md: 'text-sm px-3 py-1.5 gap-1.5', 
-    lg: 'text-base px-4 py-2 gap-2'
+    md: 'text-sm px-3 py-1.5 gap-1.5',
+    lg: 'text-base px-4 py-2 gap-2',
   };
-  
+
   const variantClasses = {
     default: `${colorClasses.badge}`,
     outline: `border ${colorClasses.border} ${colorClasses.text} bg-transparent`,
-    secondary: 'bg-secondary text-secondary-foreground'
+    secondary: 'bg-secondary text-secondary-foreground',
   };
-  
+
   return (
-    <div 
-      className={`
-        inline-flex items-center justify-center rounded-full font-medium transition-colors duration-200
-        ${sizeClasses[size]}
-        ${variantClasses[variant]}
-        ${className}
-      `}
+    <div
+      className={`inline-flex items-center justify-center rounded-full font-medium transition-colors duration-200 ${sizeClasses[size]} ${variantClasses[variant]} ${className} `}
       title={serviceInfo.description}
     >
       {showIcon && (
-        <ServiceIcon 
-          service={serviceInfo} 
-          className={`${size === 'sm' ? 'h-3 w-3' : size === 'md' ? 'h-4 w-4' : 'h-5 w-5'} shrink-0`} 
+        <ServiceIcon
+          service={serviceInfo}
+          className={`${size === 'sm' ? 'h-3 w-3' : size === 'md' ? 'h-4 w-4' : 'h-5 w-5'} shrink-0`}
         />
       )}
-      {showName && (
-        <span className="truncate whitespace-nowrap">
-          {serviceInfo.name}
-        </span>
-      )}
+      {showName && <span className="truncate whitespace-nowrap">{serviceInfo.name}</span>}
     </div>
   );
 }
@@ -143,60 +124,47 @@ export function ServiceAvatar({
   service,
   size = 'md',
   className = '',
-  showTooltip = true
+  showTooltip = true,
 }: ServiceAvatarProps) {
   const serviceInfo = service || (eventType ? getServiceFromEventType(eventType) : null);
-  
+
   if (!serviceInfo) return null;
-  
+
   const colorClasses = getServiceColorClasses(serviceInfo.color);
-  
+
   const sizeClasses = {
     sm: 'h-6 w-6',
     md: 'h-8 w-8',
     lg: 'h-10 w-10',
-    xl: 'h-12 w-12'
+    xl: 'h-12 w-12',
   };
-  
+
   const iconSizes = {
     sm: 'h-3 w-3',
-    md: 'h-4 w-4', 
+    md: 'h-4 w-4',
     lg: 'h-5 w-5',
-    xl: 'h-6 w-6'
+    xl: 'h-6 w-6',
   };
-  
+
   const avatarElement = (
-    <div 
-      className={`
-        ${sizeClasses[size]} 
-        ${colorClasses.bg} 
-        ${colorClasses.border}
-        border rounded-full flex items-center justify-center
-        transition-all duration-200 hover:scale-105 hover:shadow-md
-        ${className}
-      `}
+    <div
+      className={` ${sizeClasses[size]} ${colorClasses.bg} ${colorClasses.border} flex items-center justify-center rounded-full border transition-all duration-200 hover:scale-105 hover:shadow-md ${className} `}
     >
-      <ServiceIcon 
-        service={serviceInfo} 
-        className={iconSizes[size]}
-      />
+      <ServiceIcon service={serviceInfo} className={iconSizes[size]} />
     </div>
   );
-  
+
   if (showTooltip) {
     return (
-      <div 
-        className="relative group"
-        title={`${serviceInfo.name}: ${serviceInfo.description}`}
-      >
+      <div className="group relative" title={`${serviceInfo.name}: ${serviceInfo.description}`}>
         {avatarElement}
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+        <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 transform whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           {serviceInfo.name}
         </div>
       </div>
     );
   }
-  
+
   return avatarElement;
 }
 

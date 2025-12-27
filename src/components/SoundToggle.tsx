@@ -1,28 +1,28 @@
-'use client'
+'use client';
 
-import { Volume2, VolumeX } from 'lucide-react'
-import { useSound } from '@/contexts/SoundContext'
-import { cn } from '@/lib/utils'
+import { Volume2, VolumeX } from 'lucide-react';
+import { useSound } from '@/contexts/SoundContext';
+import { cn } from '@/lib/utils';
 
 interface SoundToggleProps {
-  className?: string
-  size?: 'sm' | 'md' | 'lg'
+  className?: string;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export function SoundToggle({ className, size = 'md' }: SoundToggleProps) {
-  const { isEnabled, toggle, initialized } = useSound()
+  const { isEnabled, toggle, initialized } = useSound();
 
   const sizeClasses = {
     sm: 'w-8 h-8 p-1.5',
     md: 'w-10 h-10 p-2',
     lg: 'w-12 h-12 p-2.5',
-  }
+  };
 
   const iconSize = {
     sm: 16,
     md: 20,
     lg: 24,
-  }
+  };
 
   return (
     <button
@@ -43,7 +43,7 @@ export function SoundToggle({ className, size = 'md' }: SoundToggleProps) {
         // Focus
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-terminal-black',
         // Disabled
-        'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0',
+        'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0',
         // Size
         sizeClasses[size],
         className
@@ -52,33 +52,25 @@ export function SoundToggle({ className, size = 'md' }: SoundToggleProps) {
       title={isEnabled ? 'Sound ON - Click to mute' : 'Sound OFF - Click to enable'}
     >
       {/* Glow effect when enabled */}
-      {isEnabled && (
-        <span className="absolute inset-0 bg-neon-cyan/10 animate-glow-pulse" />
-      )}
+      {isEnabled && <span className="absolute inset-0 animate-glow-pulse bg-neon-cyan/10" />}
 
       {/* Icon */}
       {isEnabled ? (
-        <Volume2
-          size={iconSize[size]}
-          className="relative z-10 animate-pulse-slow"
-        />
+        <Volume2 size={iconSize[size]} className="relative z-10 animate-pulse-slow" />
       ) : (
-        <VolumeX
-          size={iconSize[size]}
-          className="relative z-10"
-        />
+        <VolumeX size={iconSize[size]} className="relative z-10" />
       )}
 
       {/* Corner decoration */}
-      <span className="absolute top-0 right-0 w-1 h-1 bg-current" />
-      <span className="absolute bottom-0 left-0 w-1 h-1 bg-current" />
+      <span className="absolute right-0 top-0 h-1 w-1 bg-current" />
+      <span className="absolute bottom-0 left-0 h-1 w-1 bg-current" />
     </button>
-  )
+  );
 }
 
 // Compact version for inline use
 export function SoundToggleCompact({ className }: { className?: string }) {
-  const { isEnabled, toggle, initialized } = useSound()
+  const { isEnabled, toggle, initialized } = useSound();
 
   return (
     <button
@@ -86,13 +78,13 @@ export function SoundToggleCompact({ className }: { className?: string }) {
       disabled={!initialized}
       className={cn(
         'inline-flex items-center gap-1.5 px-2 py-1',
-        'text-xs font-mono uppercase tracking-wider',
+        'font-mono text-xs uppercase tracking-wider',
         'border transition-all duration-100',
         isEnabled
-          ? 'border-neon-cyan/50 text-neon-cyan bg-neon-cyan/10'
-          : 'border-muted-foreground/30 text-muted-foreground bg-transparent',
+          ? 'border-neon-cyan/50 bg-neon-cyan/10 text-neon-cyan'
+          : 'border-muted-foreground/30 bg-transparent text-muted-foreground',
         'hover:border-neon-cyan hover:text-neon-cyan',
-        'disabled:opacity-50 disabled:cursor-not-allowed',
+        'disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}
       aria-label={isEnabled ? 'Mute sounds' : 'Enable sounds'}
@@ -109,5 +101,5 @@ export function SoundToggleCompact({ className }: { className?: string }) {
         </>
       )}
     </button>
-  )
+  );
 }

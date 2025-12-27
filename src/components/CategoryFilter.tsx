@@ -1,9 +1,9 @@
-'use client'
+'use client';
 
-import React from 'react'
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import React from 'react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   GitBranch,
   Rocket,
@@ -12,15 +12,15 @@ import {
   Shield,
   LayoutGrid,
   X,
-  Terminal
-} from 'lucide-react'
-import { useCategories, useCategoryOperations } from '@/contexts/CategoryContext'
-import { EventCategory, CategoryStats } from '@/types/categories'
-import { cn } from '@/lib/utils'
+  Terminal,
+} from 'lucide-react';
+import { useCategories, useCategoryOperations } from '@/contexts/CategoryContext';
+import { EventCategory, CategoryStats } from '@/types/categories';
+import { cn } from '@/lib/utils';
 
 interface CategoryFilterProps {
-  categoryStats: CategoryStats
-  className?: string
+  categoryStats: CategoryStats;
+  className?: string;
 }
 
 // Icon mapping for categories
@@ -30,8 +30,8 @@ const CATEGORY_ICONS = {
   Server,
   AlertCircle,
   Shield,
-  LayoutGrid
-} as const
+  LayoutGrid,
+} as const;
 
 // Category to neon color mapping
 const CATEGORY_NEON_MAP: Record<string, { border: string; bg: string; text: string }> = {
@@ -60,69 +60,66 @@ const CATEGORY_NEON_MAP: Record<string, { border: string; bg: string; text: stri
     bg: 'bg-neon-pink/10',
     text: 'text-neon-pink',
   },
-}
+};
 
-function CategoryIcon({ iconName, className }: { iconName: string, className?: string }) {
-  const IconComponent = CATEGORY_ICONS[iconName as keyof typeof CATEGORY_ICONS] || LayoutGrid
-  return <IconComponent className={className} />
+function CategoryIcon({ iconName, className }: { iconName: string; className?: string }) {
+  const IconComponent = CATEGORY_ICONS[iconName as keyof typeof CATEGORY_ICONS] || LayoutGrid;
+  return <IconComponent className={className} />;
 }
 
 function getCategoryNeonColors(categoryId: string) {
-  return CATEGORY_NEON_MAP[categoryId] || CATEGORY_NEON_MAP.development
+  return CATEGORY_NEON_MAP[categoryId] || CATEGORY_NEON_MAP.development;
 }
 
 export default function CategoryFilter({ categoryStats, className = '' }: CategoryFilterProps) {
-  const { categories, filter } = useCategories()
-  const { getSortedCategories, selectCategory, isCategorySelected, clearFilters } = useCategoryOperations()
+  const { categories, filter } = useCategories();
+  const { getSortedCategories, selectCategory, isCategorySelected, clearFilters } =
+    useCategoryOperations();
 
-  const sortedCategories = getSortedCategories()
-  const totalEvents = Object.values(categoryStats).reduce((sum, count) => sum + count, 0)
+  const sortedCategories = getSortedCategories();
+  const totalEvents = Object.values(categoryStats).reduce((sum, count) => sum + count, 0);
 
   const handleCategoryChange = (value: string) => {
     if (value === 'all') {
-      selectCategory(null)
+      selectCategory(null);
     } else {
-      selectCategory(value)
+      selectCategory(value);
     }
-  }
+  };
 
-  const selectedValue = filter.selectedCategory || 'all'
+  const selectedValue = filter.selectedCategory || 'all';
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn('space-y-4', className)}>
       {/* Terminal-style header */}
-      <div className="flex items-center gap-2 text-xs font-mono text-neon-magenta">
+      <div className="flex items-center gap-2 font-mono text-xs text-neon-magenta">
         <Terminal className="h-3 w-3" />
         <span>CATEGORY::FILTER</span>
       </div>
 
       {/* Main Category Tabs - Arcade style */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <Tabs
-          value={selectedValue}
-          onValueChange={handleCategoryChange}
-          className="w-full"
-        >
-          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto p-1 bg-terminal-black border-2 border-neon-cyan/50">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <Tabs value={selectedValue} onValueChange={handleCategoryChange} className="w-full">
+          <TabsList className="grid h-auto w-full grid-cols-3 border-2 border-neon-cyan/50 bg-terminal-black p-1 sm:grid-cols-6">
             {/* All Categories Tab */}
             <TabsTrigger
               value="all"
               className={cn(
-                "flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3",
-                "text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px]",
-                "font-mono border-2 border-transparent",
-                "data-[state=active]:border-neon-cyan data-[state=active]:bg-neon-cyan/10",
-                "data-[state=active]:text-neon-cyan data-[state=active]:shadow-retro-sm",
-                "hover:bg-neon-cyan/5 hover:text-neon-cyan",
-                "text-muted-foreground transition-all duration-200"
+                'flex flex-col items-center gap-1 p-2 sm:flex-row sm:gap-2 sm:p-3',
+                'h-auto min-h-[60px] text-xs sm:min-h-[50px] sm:text-sm',
+                'border-2 border-transparent font-mono',
+                'data-[state=active]:border-neon-cyan data-[state=active]:bg-neon-cyan/10',
+                'data-[state=active]:text-neon-cyan data-[state=active]:shadow-retro-sm',
+                'hover:bg-neon-cyan/5 hover:text-neon-cyan',
+                'text-muted-foreground transition-all duration-200'
               )}
             >
               <LayoutGrid className="h-4 w-4 shrink-0" />
-              <div className="flex flex-col sm:flex-row items-center gap-1">
+              <div className="flex flex-col items-center gap-1 sm:flex-row">
                 <span className="font-bold uppercase">All</span>
                 <Badge
                   variant="outline"
-                  className="text-[10px] px-1.5 py-0 h-auto min-h-0 border-neon-cyan/30"
+                  className="h-auto min-h-0 border-neon-cyan/30 px-1.5 py-0 text-[10px]"
                 >
                   {totalEvents}
                 </Badge>
@@ -130,50 +127,45 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
             </TabsTrigger>
 
             {/* Category Tabs */}
-            {sortedCategories.map(category => {
-              const count = categoryStats[category.id] || 0
-              const isSelected = isCategorySelected(category.id)
-              const neonColors = getCategoryNeonColors(category.id)
+            {sortedCategories.map((category) => {
+              const count = categoryStats[category.id] || 0;
+              const isSelected = isCategorySelected(category.id);
+              const neonColors = getCategoryNeonColors(category.id);
 
               return (
                 <TabsTrigger
                   key={category.id}
                   value={category.id}
                   className={cn(
-                    "flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3",
-                    "text-xs sm:text-sm h-auto min-h-[60px] sm:min-h-[50px]",
-                    "font-mono border-2 border-transparent",
-                    "data-[state=active]:" + neonColors.border,
-                    "data-[state=active]:" + neonColors.bg,
-                    "data-[state=active]:" + neonColors.text,
-                    "data-[state=active]:shadow-retro-sm",
-                    "hover:" + neonColors.bg,
-                    "hover:" + neonColors.text,
-                    "text-muted-foreground transition-all duration-200"
+                    'flex flex-col items-center gap-1 p-2 sm:flex-row sm:gap-2 sm:p-3',
+                    'h-auto min-h-[60px] text-xs sm:min-h-[50px] sm:text-sm',
+                    'border-2 border-transparent font-mono',
+                    'data-[state=active]:' + neonColors.border,
+                    'data-[state=active]:' + neonColors.bg,
+                    'data-[state=active]:' + neonColors.text,
+                    'data-[state=active]:shadow-retro-sm',
+                    'hover:' + neonColors.bg,
+                    'hover:' + neonColors.text,
+                    'text-muted-foreground transition-all duration-200'
                   )}
                 >
-                  <CategoryIcon
-                    iconName={category.icon}
-                    className="h-4 w-4 shrink-0"
-                  />
-                  <div className="flex flex-col sm:flex-row items-center gap-1">
-                    <span className="font-bold truncate max-w-16 sm:max-w-none uppercase">
+                  <CategoryIcon iconName={category.icon} className="h-4 w-4 shrink-0" />
+                  <div className="flex flex-col items-center gap-1 sm:flex-row">
+                    <span className="max-w-16 truncate font-bold uppercase sm:max-w-none">
                       {category.name}
                     </span>
                     <Badge
                       variant="outline"
                       className={cn(
-                        "text-[10px] px-1.5 py-0 h-auto min-h-0",
-                        isSelected
-                          ? neonColors.border
-                          : "border-muted-foreground/30"
+                        'h-auto min-h-0 px-1.5 py-0 text-[10px]',
+                        isSelected ? neonColors.border : 'border-muted-foreground/30'
                       )}
                     >
                       {count}
                     </Badge>
                   </div>
                 </TabsTrigger>
-              )
+              );
             })}
           </TabsList>
         </Tabs>
@@ -184,7 +176,7 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
             variant="outline"
             size="sm"
             onClick={clearFilters}
-            className="flex items-center gap-2 shrink-0 border-2 border-neon-orange text-neon-orange hover:bg-neon-orange/10 font-mono text-xs"
+            className="flex shrink-0 items-center gap-2 border-2 border-neon-orange font-mono text-xs text-neon-orange hover:bg-neon-orange/10"
           >
             <X className="h-4 w-4" />
             CLEAR
@@ -194,26 +186,28 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
 
       {/* Active Filter Indicator - Terminal style */}
       {filter.selectedCategory && (
-        <div className="flex items-center gap-2 text-xs font-mono">
+        <div className="flex items-center gap-2 font-mono text-xs">
           <span className="text-neon-magenta">&gt;</span>
           <span className="text-muted-foreground">FILTER_ACTIVE:</span>
           <Badge
             variant="outline"
             className={cn(
-              "flex items-center gap-1 border-2",
+              'flex items-center gap-1 border-2',
               getCategoryNeonColors(filter.selectedCategory).border,
               getCategoryNeonColors(filter.selectedCategory).text
             )}
           >
             <CategoryIcon
-              iconName={categories.find(c => c.id === filter.selectedCategory)?.icon || 'LayoutGrid'}
+              iconName={
+                categories.find((c) => c.id === filter.selectedCategory)?.icon || 'LayoutGrid'
+              }
               className="h-3 w-3"
             />
-            {categories.find(c => c.id === filter.selectedCategory)?.name.toUpperCase()}
+            {categories.find((c) => c.id === filter.selectedCategory)?.name.toUpperCase()}
             <Button
               variant="ghost"
               size="sm"
-              className="h-auto p-0 hover:bg-transparent ml-1"
+              className="ml-1 h-auto p-0 hover:bg-transparent"
               onClick={() => selectCategory(null)}
             >
               <X className="h-3 w-3" />
@@ -222,5 +216,5 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
         </div>
       )}
     </div>
-  )
+  );
 }
