@@ -6,15 +6,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import EventCard from '@/components/EventCard';
 import EventCardSkeleton from '@/components/EventCardSkeleton';
 import EventDetailDrawer from '@/components/EventDetailDrawer';
 import ActivityGraph from '@/components/ActivityGraph';
 import ConnectionStatus from '@/components/ConnectionStatus';
-import CategoryFilter from '@/components/CategoryFilter';
-import ServiceFilter from '@/components/ServiceFilter';
+import FilterPanel from '@/components/FilterPanel';
 import CategoryStatsCards from '@/components/CategoryStatsCards';
 import { SoundToggleCompact } from '@/components/SoundToggle';
 import { ActivityTicker } from '@/components/ActivityTicker';
@@ -31,11 +29,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import {
   ArrowLeft,
   Shield,
-  TrendingUp,
   AlertCircle,
-  Search,
-  Filter,
-  X,
   Loader2,
   Terminal,
   Database,
@@ -53,8 +47,8 @@ function DashboardContent() {
     calculateServiceStats,
     filterEvents,
     filter,
-    setFilter,
-    serviceStats: contextServiceStats,
+    clearAllFilters,
+    hasActiveFilters,
   } = useCategories();
   const { selectCategory, clearFilters } = useCategoryOperations();
   const { playSuccess, playError, playNotification, playClick, toggleSound } = useSoundEffects();
@@ -63,9 +57,7 @@ function DashboardContent() {
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isSearching, setIsSearching] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [totalEvents, setTotalEvents] = useState(0);
@@ -74,7 +66,6 @@ function DashboardContent() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [selectedEventIndex, setSelectedEventIndex] = useState<number | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const eventListRef = useRef<HTMLDivElement>(null);
 
   // State for event detail drawer
@@ -93,11 +84,6 @@ function DashboardContent() {
     },
     [playClick]
   );
-
-  // Update category context when search changes
-  useEffect(() => {
-    setFilter({ searchQuery });
-  }, [searchQuery, setFilter]);
 
   const goServiceUrl =
     process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
@@ -226,19 +212,6 @@ function DashboardContent() {
     };
   }, [playSuccess, playError, playNotification]);
 
-  // Add search debounce effect
-  useEffect(() => {
-    if (searchQuery) {
-      setIsSearching(true);
-      const timer = setTimeout(() => {
-        setIsSearching(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    } else {
-      setIsSearching(false);
-    }
-  }, [searchQuery]);
-
   // Calculate category statistics
   const categoryStats = useMemo(() => {
     return calculateStats(events);
@@ -282,7 +255,7 @@ function DashboardContent() {
   }, [playClick]);
 
   const handleFocusSearch = useCallback(() => {
-    searchInputRef.current?.focus();
+    // Focus is now handled by FilterPanel internally
     playClick();
   }, [playClick]);
 
@@ -298,7 +271,6 @@ function DashboardContent() {
 
   const handleClearFilters = useCallback(() => {
     clearFilters();
-    setSearchQuery('');
     playClick();
   }, [clearFilters, playClick]);
 
@@ -523,62 +495,17 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Filters & Search - Terminal style */}
-        <Card
-          className="mb-6 border-2 border-neon-magenta bg-terminal-black animate-in fade-in-0 slide-in-from-top-4"
+        {/* Filters Panel - Collapsible */}
+        <div
+          className="mb-6 animate-in fade-in-0 slide-in-from-top-4"
           style={{ animationDelay: '300ms' }}
         >
-          {/* Terminal header */}
-          <div className="flex items-center justify-between border-b-2 border-neon-magenta bg-neon-magenta/10 px-4 py-2">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-neon-magenta" />
-              <span className="font-mono text-xs text-neon-magenta">FILTERS::PANEL</span>
-            </div>
-          </div>
-          <CardContent className="p-4 sm:p-6">
-            <div className="space-y-6">
-              {/* Service Filter */}
-              <ServiceFilter serviceStats={serviceStats} />
-
-              {/* Category Filter */}
-              <CategoryFilter categoryStats={categoryStats} />
-
-              {/* Search - Terminal style */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 font-mono text-xs text-neon-cyan">
-                  <Search className="h-3 w-3" />
-                  <span>SEARCH::QUERY</span>
-                </div>
-                <div className="relative w-full sm:max-w-md">
-                  {isSearching ? (
-                    <Loader2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform animate-spin text-neon-cyan" />
-                  ) : (
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-neon-cyan" />
-                  )}
-                  <Input
-                    ref={searchInputRef}
-                    placeholder={isLoading ? 'LOADING...' : 'SEARCH_EVENTS... (press / to focus)'}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-10 font-mono"
-                    disabled={isLoading}
-                  />
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 transform p-0 text-neon-orange hover:bg-neon-orange/10"
-                      disabled={isSearching || isLoading}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          <FilterPanel
+            categoryStats={categoryStats}
+            serviceStats={serviceStats}
+            defaultOpen={false}
+          />
+        </div>
 
         {/* Events Section */}
         <div className="space-y-6">
@@ -672,18 +599,7 @@ function DashboardContent() {
                   </div>
                 ) : filteredEvents.length === 0 ? (
                   <div className="p-4">
-                    <EmptyState
-                      type="no-matches"
-                      onAction={() => {
-                        setSearchQuery('');
-                        setFilter({
-                          selectedCategory: null,
-                          selectedService: null,
-                          searchQuery: '',
-                        });
-                      }}
-                      className="border-0"
-                    />
+                    <EmptyState type="no-matches" onAction={clearAllFilters} className="border-0" />
                   </div>
                 ) : showTimeline ? (
                   <div className="p-4 sm:p-6">
@@ -764,13 +680,11 @@ function DashboardContent() {
       <FloatingActionButton
         isOpen={isMobileFilterOpen}
         onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
-        hasActiveFilters={!!(filter.selectedCategory || filter.selectedService || searchQuery)}
+        hasActiveFilters={hasActiveFilters()}
       />
       <MobileFilterSheet
         open={isMobileFilterOpen}
         onOpenChange={setIsMobileFilterOpen}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
         categoryStats={categoryStats}
         serviceStats={serviceStats}
       />

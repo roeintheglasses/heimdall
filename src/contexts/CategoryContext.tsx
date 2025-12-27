@@ -8,12 +8,24 @@ import {
   CategoryFilter,
   ServiceType,
   ServiceStats,
+  TimeRangePreset,
+  EventStatus,
+  DateRange,
   DEFAULT_CATEGORIES,
   DEFAULT_SERVICES,
   classifyEvent,
   extractService,
   getServiceById,
+  extractEventStatus,
+  extractRepository,
+  isEventInTimeRange,
 } from '@/types/categories';
+
+interface ActiveFilter {
+  type: 'category' | 'service' | 'search' | 'time' | 'status' | 'repository';
+  label: string;
+  value: string;
+}
 
 interface CategoryContextType {
   // Category data
@@ -27,6 +39,7 @@ interface CategoryContextType {
   // Filter state
   filter: CategoryFilter;
   setFilter: (filter: Partial<CategoryFilter>) => void;
+  clearAllFilters: () => void;
 
   // Helper functions
   getEventCategory: (event: DashboardEvent) => EventCategory;
@@ -34,6 +47,12 @@ interface CategoryContextType {
   calculateStats: (events: DashboardEvent[]) => CategoryStats;
   calculateServiceStats: (events: DashboardEvent[]) => ServiceStats;
   filterEvents: (events: DashboardEvent[]) => DashboardEvent[];
+
+  // Active filter helpers
+  getActiveFilters: () => ActiveFilter[];
+  getActiveFilterCount: () => number;
+  hasActiveFilters: () => boolean;
+  removeFilter: (type: ActiveFilter['type'], value?: string) => void;
 
   // Loading states
   isLoading: boolean;
@@ -52,6 +71,10 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     selectedCategory: null,
     selectedService: null,
     searchQuery: '',
+    timeRange: 'all',
+    customDateRange: null,
+    selectedStatuses: [],
+    repositoryFilter: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +164,30 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
       );
     }
 
+    // Filter by time range
+    if (filter.timeRange !== 'all') {
+      filtered = filtered.filter((event) =>
+        isEventInTimeRange(event, filter.timeRange, filter.customDateRange)
+      );
+    }
+
+    // Filter by status
+    if (filter.selectedStatuses.length > 0) {
+      filtered = filtered.filter((event) => {
+        const eventStatus = extractEventStatus(event);
+        return eventStatus !== null && filter.selectedStatuses.includes(eventStatus);
+      });
+    }
+
+    // Filter by repository
+    if (filter.repositoryFilter) {
+      const repoQuery = filter.repositoryFilter.toLowerCase();
+      filtered = filtered.filter((event) => {
+        const repo = extractRepository(event);
+        return repo !== null && repo.toLowerCase().includes(repoQuery);
+      });
+    }
+
     return filtered;
   };
 
@@ -152,6 +199,130 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // Clear all filters
+  const clearAllFilters = useCallback(() => {
+    setFilterState({
+      selectedCategory: null,
+      selectedService: null,
+      searchQuery: '',
+      timeRange: 'all',
+      customDateRange: null,
+      selectedStatuses: [],
+      repositoryFilter: '',
+    });
+  }, []);
+
+  // Get list of active filters for chip display
+  const getActiveFilters = useCallback((): ActiveFilter[] => {
+    const active: ActiveFilter[] = [];
+
+    if (filter.selectedCategory && filter.selectedCategory !== 'all') {
+      const cat = categories.find((c) => c.id === filter.selectedCategory);
+      active.push({
+        type: 'category',
+        label: cat?.name || filter.selectedCategory,
+        value: filter.selectedCategory,
+      });
+    }
+
+    if (filter.selectedService && filter.selectedService !== 'all') {
+      const svc = services.find((s) => s.id === filter.selectedService);
+      active.push({
+        type: 'service',
+        label: svc?.name || filter.selectedService,
+        value: filter.selectedService,
+      });
+    }
+
+    if (filter.searchQuery) {
+      active.push({
+        type: 'search',
+        label: `"${filter.searchQuery}"`,
+        value: filter.searchQuery,
+      });
+    }
+
+    if (filter.timeRange !== 'all') {
+      const labels: Record<string, string> = {
+        '1h': 'Last Hour',
+        '24h': 'Last 24h',
+        week: 'Last Week',
+        custom: 'Custom Range',
+      };
+      active.push({
+        type: 'time',
+        label: labels[filter.timeRange] || filter.timeRange,
+        value: filter.timeRange,
+      });
+    }
+
+    filter.selectedStatuses.forEach((status) => {
+      const labels: Record<string, string> = {
+        success: 'Success',
+        failure: 'Failed',
+        pending: 'Pending',
+      };
+      active.push({
+        type: 'status',
+        label: labels[status] || status,
+        value: status,
+      });
+    });
+
+    if (filter.repositoryFilter) {
+      active.push({
+        type: 'repository',
+        label: filter.repositoryFilter,
+        value: filter.repositoryFilter,
+      });
+    }
+
+    return active;
+  }, [filter, categories, services]);
+
+  // Get count of active filters
+  const getActiveFilterCount = useCallback((): number => {
+    return getActiveFilters().length;
+  }, [getActiveFilters]);
+
+  // Check if any filters are active
+  const hasActiveFilters = useCallback((): boolean => {
+    return getActiveFilterCount() > 0;
+  }, [getActiveFilterCount]);
+
+  // Remove a specific filter
+  const removeFilter = useCallback(
+    (type: ActiveFilter['type'], value?: string) => {
+      switch (type) {
+        case 'category':
+          setFilter({ selectedCategory: null });
+          break;
+        case 'service':
+          setFilter({ selectedService: null });
+          break;
+        case 'search':
+          setFilter({ searchQuery: '' });
+          break;
+        case 'time':
+          setFilter({ timeRange: 'all', customDateRange: null });
+          break;
+        case 'status':
+          if (value) {
+            setFilter({
+              selectedStatuses: filter.selectedStatuses.filter((s) => s !== value),
+            });
+          } else {
+            setFilter({ selectedStatuses: [] });
+          }
+          break;
+        case 'repository':
+          setFilter({ repositoryFilter: '' });
+          break;
+      }
+    },
+    [filter.selectedStatuses, setFilter]
+  );
+
   // Context value
   const value: CategoryContextType = {
     categories,
@@ -160,11 +331,16 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     serviceStats,
     filter,
     setFilter,
+    clearAllFilters,
     getEventCategory,
     getEventService,
     calculateStats,
     calculateServiceStats,
     filterEvents,
+    getActiveFilters,
+    getActiveFilterCount,
+    hasActiveFilters,
+    removeFilter,
     isLoading,
     error,
   };
@@ -202,8 +378,7 @@ export function useCategoryOperations() {
       context.setFilter({ selectedCategory: categoryId }),
 
     // Clear all filters
-    clearFilters: () =>
-      context.setFilter({ selectedCategory: null, selectedService: null, searchQuery: '' }),
+    clearFilters: () => context.clearAllFilters(),
 
     // Set search query
     setSearch: (query: string) => context.setFilter({ searchQuery: query }),
@@ -213,5 +388,23 @@ export function useCategoryOperations() {
 
     // Check if service is selected
     isServiceSelected: (serviceId: string) => context.filter.selectedService === serviceId,
+
+    // Time range operations
+    setTimeRange: (timeRange: TimeRangePreset) => context.setFilter({ timeRange }),
+
+    // Status operations
+    toggleStatus: (status: EventStatus) => {
+      const current = context.filter.selectedStatuses;
+      const updated = current.includes(status)
+        ? current.filter((s) => s !== status)
+        : [...current, status];
+      context.setFilter({ selectedStatuses: updated });
+    },
+
+    // Repository filter
+    setRepositoryFilter: (repo: string) => context.setFilter({ repositoryFilter: repo }),
   };
 }
+
+// Export ActiveFilter type for use in components
+export type { ActiveFilter };

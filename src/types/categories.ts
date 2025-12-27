@@ -33,10 +33,27 @@ export interface ServiceType {
   pattern: string; // regex pattern to match event_type
 }
 
+// Time range filter presets
+export type TimeRangePreset = 'all' | '1h' | '24h' | 'week' | 'custom';
+
+// Date range for custom time filtering
+export interface DateRange {
+  start: Date | null;
+  end: Date | null;
+}
+
+// Event status for filtering by outcome
+export type EventStatus = 'success' | 'failure' | 'pending';
+
 export interface CategoryFilter {
   selectedCategory: string | null;
   selectedService: string | null;
   searchQuery: string;
+  // New filter fields
+  timeRange: TimeRangePreset;
+  customDateRange: DateRange | null;
+  selectedStatuses: EventStatus[];
+  repositoryFilter: string;
 }
 
 export interface ServiceStats {
@@ -253,4 +270,103 @@ export function getCategoryColorClasses(color: string) {
 // Helper function to get service color classes (same pattern as categories)
 export function getServiceColorClasses(color: string) {
   return getCategoryColorClasses(color);
+}
+
+// Helper function to extract event status from metadata
+export function extractEventStatus(event: DashboardEvent): EventStatus | null {
+  const metadata = event.metadata;
+
+  // Check common status fields
+  if (metadata.status) {
+    const status = String(metadata.status).toLowerCase();
+    if (
+      status === 'success' ||
+      status === 'succeeded' ||
+      status === 'completed' ||
+      status === 'ready'
+    ) {
+      return 'success';
+    }
+    if (
+      status === 'failure' ||
+      status === 'failed' ||
+      status === 'error' ||
+      status === 'cancelled'
+    ) {
+      return 'failure';
+    }
+    if (
+      status === 'pending' ||
+      status === 'queued' ||
+      status === 'building' ||
+      status === 'in_progress'
+    ) {
+      return 'pending';
+    }
+  }
+
+  // Check state field (used by some providers)
+  if (metadata.state) {
+    const state = String(metadata.state).toLowerCase();
+    if (state === 'success' || state === 'ready') return 'success';
+    if (state === 'failure' || state === 'error') return 'failure';
+    if (state === 'pending' || state === 'building') return 'pending';
+  }
+
+  // Infer from event type
+  if (event.event_type.includes('error') || event.event_type.includes('fail')) {
+    return 'failure';
+  }
+
+  return null; // Unknown status
+}
+
+// Helper function to extract repository name from event
+export function extractRepository(event: DashboardEvent): string | null {
+  const metadata = event.metadata;
+
+  // Common repository field names
+  if (metadata.repository) {
+    return typeof metadata.repository === 'string'
+      ? metadata.repository
+      : metadata.repository.name || metadata.repository.full_name || null;
+  }
+  if (metadata.repo) {
+    return typeof metadata.repo === 'string' ? metadata.repo : metadata.repo.name || null;
+  }
+  if (metadata.project) {
+    return typeof metadata.project === 'string' ? metadata.project : metadata.project.name || null;
+  }
+  if (metadata.projectName) return metadata.projectName;
+  if (metadata.repoName) return metadata.repoName;
+
+  return null;
+}
+
+// Helper function to check if event falls within time range
+export function isEventInTimeRange(
+  event: DashboardEvent,
+  timeRange: TimeRangePreset,
+  customRange: DateRange | null
+): boolean {
+  if (timeRange === 'all') return true;
+
+  const eventDate = new Date(event.created_at);
+  const now = new Date();
+
+  switch (timeRange) {
+    case '1h':
+      return now.getTime() - eventDate.getTime() <= 60 * 60 * 1000;
+    case '24h':
+      return now.getTime() - eventDate.getTime() <= 24 * 60 * 60 * 1000;
+    case 'week':
+      return now.getTime() - eventDate.getTime() <= 7 * 24 * 60 * 60 * 1000;
+    case 'custom':
+      if (!customRange) return true;
+      const afterStart = !customRange.start || eventDate >= customRange.start;
+      const beforeEnd = !customRange.end || eventDate <= customRange.end;
+      return afterStart && beforeEnd;
+    default:
+      return true;
+  }
 }

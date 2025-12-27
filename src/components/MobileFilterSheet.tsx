@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -13,52 +13,94 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useCategories } from '@/contexts/CategoryContext';
 import { cn } from '@/lib/utils';
-import { Terminal, Search, X, Filter, RotateCcw, Check } from 'lucide-react';
+import { Terminal, Search, X, Filter, RotateCcw, Check, Globe } from 'lucide-react';
+import DateRangeFilter from '@/components/filters/DateRangeFilter';
+import StatusFilter from '@/components/filters/StatusFilter';
+import RepositoryFilter from '@/components/filters/RepositoryFilter';
+import ActiveFilterChips from '@/components/ActiveFilterChips';
 
 interface MobileFilterSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
   categoryStats: Record<string, number>;
   serviceStats: Record<string, number>;
+  // Legacy props - kept for backwards compatibility but not used
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
 export default function MobileFilterSheet({
   open,
   onOpenChange,
-  searchQuery,
-  onSearchChange,
   categoryStats,
   serviceStats,
 }: MobileFilterSheetProps) {
-  const { categories, filter, setFilter } = useCategories();
+  const { categories, filter, setFilter, clearAllFilters, getActiveFilterCount, hasActiveFilters } =
+    useCategories();
 
-  // Count active filters
-  const activeFilterCount = [filter.selectedCategory, filter.selectedService, searchQuery].filter(
-    Boolean
-  ).length;
+  const [localSearchValue, setLocalSearchValue] = useState(filter.searchQuery);
 
-  const clearAllFilters = () => {
-    setFilter({
-      selectedCategory: null,
-      selectedService: null,
-      searchQuery: '',
-    });
-    onSearchChange('');
-  };
+  // Sync local value with context
+  useEffect(() => {
+    setLocalSearchValue(filter.searchQuery);
+  }, [filter.searchQuery]);
+
+  // Debounced update to context
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localSearchValue !== filter.searchQuery) {
+        setFilter({ searchQuery: localSearchValue });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localSearchValue, filter.searchQuery, setFilter]);
+
+  const handleClearSearch = useCallback(() => {
+    setLocalSearchValue('');
+    setFilter({ searchQuery: '' });
+  }, [setFilter]);
+
+  const activeFilterCount = getActiveFilterCount();
 
   const services = [
-    { id: 'github', name: 'GitHub', color: 'neon-cyan' },
-    { id: 'vercel', name: 'Vercel', color: 'neon-magenta' },
-    { id: 'railway', name: 'Railway', color: 'neon-green' },
+    {
+      id: 'github',
+      name: 'GitHub',
+      border: 'border-neon-cyan',
+      bg: 'bg-neon-cyan/20',
+      text: 'text-neon-cyan',
+    },
+    {
+      id: 'vercel',
+      name: 'Vercel',
+      border: 'border-neon-magenta',
+      bg: 'bg-neon-magenta/20',
+      text: 'text-neon-magenta',
+    },
+    {
+      id: 'railway',
+      name: 'Railway',
+      border: 'border-neon-green',
+      bg: 'bg-neon-green/20',
+      text: 'text-neon-green',
+    },
   ];
+
+  const handleServiceClick = (serviceId: string) => {
+    const isSelected = filter.selectedService === serviceId;
+    setFilter({ selectedService: isSelected ? null : serviceId });
+  };
+
+  const handleCategoryClick = (categoryId: string) => {
+    const isSelected = filter.selectedCategory === categoryId;
+    setFilter({ selectedCategory: isSelected ? null : categoryId });
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="h-[85vh] rounded-t-2xl border-t-2 border-neon-cyan p-0"
+        className="h-[90vh] rounded-t-2xl border-t-2 border-neon-cyan p-0"
       >
         {/* Header */}
         <SheetHeader className="flex-row items-center justify-between border-b border-neon-cyan/30 px-4 py-3">
@@ -72,7 +114,7 @@ export default function MobileFilterSheet({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {activeFilterCount > 0 && (
+            {hasActiveFilters() && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -94,10 +136,18 @@ export default function MobileFilterSheet({
           </div>
         </SheetHeader>
         <SheetDescription className="sr-only">
-          Filter events by category, service, or search query
+          Filter events by category, service, time range, status, or search query
         </SheetDescription>
 
-        <div className="max-h-[calc(85vh-60px)] space-y-6 overflow-y-auto p-4">
+        <div className="max-h-[calc(90vh-60px)] space-y-6 overflow-y-auto p-4">
+          {/* Active Filter Chips */}
+          {hasActiveFilters() && (
+            <div className="space-y-2">
+              <label className="font-mono text-xs text-muted-foreground">ACTIVE::FILTERS</label>
+              <ActiveFilterChips />
+            </div>
+          )}
+
           {/* Search */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 font-mono text-xs text-neon-cyan">
@@ -107,16 +157,21 @@ export default function MobileFilterSheet({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neon-cyan" />
               <Input
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Search events..."
-                className="pl-10 pr-10 font-mono"
+                value={localSearchValue}
+                onChange={(e) => setLocalSearchValue(e.target.value)}
+                placeholder="SEARCH_EVENTS..."
+                className={cn(
+                  'h-10 border-2 bg-terminal-black pl-10 pr-10 font-mono text-sm',
+                  localSearchValue
+                    ? 'border-neon-green text-neon-green'
+                    : 'border-muted-foreground/30'
+                )}
               />
-              {searchQuery && (
+              {localSearchValue && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onSearchChange('')}
+                  onClick={handleClearSearch}
                   className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 p-0"
                 >
                   <X className="h-4 w-4" />
@@ -131,7 +186,25 @@ export default function MobileFilterSheet({
               <Terminal className="h-3 w-3" />
               SERVICES
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              {/* All Services Button */}
+              <Button
+                variant="outline"
+                onClick={() => setFilter({ selectedService: null })}
+                className={cn(
+                  'h-auto flex-col gap-1 py-3 font-mono text-xs',
+                  'border-2 transition-all',
+                  !filter.selectedService
+                    ? 'border-neon-cyan bg-neon-cyan/20 text-neon-cyan'
+                    : 'border-muted hover:border-neon-cyan/50'
+                )}
+              >
+                <span className="flex items-center gap-1">
+                  {!filter.selectedService && <Check className="h-3 w-3" />}
+                  <Globe className="h-3 w-3" />
+                  ALL
+                </span>
+              </Button>
               {services.map((service) => {
                 const isSelected = filter.selectedService === service.id;
                 const count = serviceStats[service.id] || 0;
@@ -140,17 +213,12 @@ export default function MobileFilterSheet({
                   <Button
                     key={service.id}
                     variant="outline"
-                    onClick={() =>
-                      setFilter({
-                        ...filter,
-                        selectedService: isSelected ? null : service.id,
-                      })
-                    }
+                    onClick={() => handleServiceClick(service.id)}
                     className={cn(
                       'h-auto flex-col gap-1 py-3 font-mono text-xs',
                       'border-2 transition-all',
                       isSelected
-                        ? `border-${service.color} bg-${service.color}/20 text-${service.color}`
+                        ? `${service.border} ${service.bg} ${service.text}`
                         : 'border-muted hover:border-neon-cyan/50'
                     )}
                   >
@@ -182,12 +250,7 @@ export default function MobileFilterSheet({
                   <Button
                     key={category.id}
                     variant="outline"
-                    onClick={() =>
-                      setFilter({
-                        ...filter,
-                        selectedCategory: isSelected ? null : category.id,
-                      })
-                    }
+                    onClick={() => handleCategoryClick(category.id)}
                     className={cn(
                       'h-auto flex-col gap-1 py-3 font-mono text-xs',
                       'justify-start border-2 transition-all',
@@ -208,6 +271,15 @@ export default function MobileFilterSheet({
               })}
             </div>
           </div>
+
+          {/* Time Range Filter */}
+          <DateRangeFilter />
+
+          {/* Status Filter */}
+          <StatusFilter />
+
+          {/* Repository Filter */}
+          <RepositoryFilter />
 
           {/* Apply Button */}
           <Button
