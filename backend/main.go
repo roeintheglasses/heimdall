@@ -181,6 +181,15 @@ func (app *App) processWebhookHandler(w http.ResponseWriter, r *http.Request) {
 	case "github.push":
 		log.Printf("Processing GitHub push event")
 		dashboardEvent, err = transformGitHubPush(payload.Event)
+	case "github.pr":
+		log.Printf("Processing GitHub pull request event")
+		dashboardEvent, err = transformGitHubPR(payload.Event)
+	case "github.issue":
+		log.Printf("Processing GitHub issue event")
+		dashboardEvent, err = transformGitHubIssue(payload.Event)
+	case "github.release":
+		log.Printf("Processing GitHub release event")
+		dashboardEvent, err = transformGitHubRelease(payload.Event)
 	case "vercel.deploy":
 		log.Printf("Processing Vercel deploy event")
 		dashboardEvent, err = transformVercelDeploy(payload.Event)
@@ -249,6 +258,121 @@ func transformGitHubPush(eventData json.RawMessage) (DashboardEvent, error) {
 			"repo":    pushEvent.Repository.Name,
 			"message": pushEvent.HeadCommit.Message,
 			"author":  pushEvent.HeadCommit.Author.Name,
+		},
+		CreatedAt: time.Now().UTC(),
+	}, nil
+}
+
+func transformGitHubPR(eventData json.RawMessage) (DashboardEvent, error) {
+	var prEvent struct {
+		Action      string `json:"action"`
+		Number      int    `json:"number"`
+		PullRequest struct {
+			Title   string `json:"title"`
+			User    struct {
+				Login string `json:"login"`
+			} `json:"user"`
+			State   string `json:"state"`
+			HTMLURL string `json:"html_url"`
+			Merged  bool   `json:"merged"`
+		} `json:"pull_request"`
+		Repository struct {
+			Name string `json:"name"`
+		} `json:"repository"`
+	}
+
+	if err := json.Unmarshal(eventData, &prEvent); err != nil {
+		return DashboardEvent{}, err
+	}
+
+	return DashboardEvent{
+		EventType: "github.pr",
+		Title:     fmt.Sprintf("PR #%d %s: %s", prEvent.Number, prEvent.Action, prEvent.PullRequest.Title),
+		Metadata: map[string]interface{}{
+			"repo":    prEvent.Repository.Name,
+			"action":  prEvent.Action,
+			"author":  prEvent.PullRequest.User.Login,
+			"state":   prEvent.PullRequest.State,
+			"pr_url":  prEvent.PullRequest.HTMLURL,
+			"number":  prEvent.Number,
+			"merged":  prEvent.PullRequest.Merged,
+		},
+		CreatedAt: time.Now().UTC(),
+	}, nil
+}
+
+func transformGitHubIssue(eventData json.RawMessage) (DashboardEvent, error) {
+	var issueEvent struct {
+		Action string `json:"action"`
+		Issue  struct {
+			Number  int    `json:"number"`
+			Title   string `json:"title"`
+			User    struct {
+				Login string `json:"login"`
+			} `json:"user"`
+			State   string `json:"state"`
+			HTMLURL string `json:"html_url"`
+		} `json:"issue"`
+		Repository struct {
+			Name string `json:"name"`
+		} `json:"repository"`
+	}
+
+	if err := json.Unmarshal(eventData, &issueEvent); err != nil {
+		return DashboardEvent{}, err
+	}
+
+	return DashboardEvent{
+		EventType: "github.issue",
+		Title:     fmt.Sprintf("Issue #%d %s: %s", issueEvent.Issue.Number, issueEvent.Action, issueEvent.Issue.Title),
+		Metadata: map[string]interface{}{
+			"repo":      issueEvent.Repository.Name,
+			"action":    issueEvent.Action,
+			"author":    issueEvent.Issue.User.Login,
+			"state":     issueEvent.Issue.State,
+			"issue_url": issueEvent.Issue.HTMLURL,
+			"number":    issueEvent.Issue.Number,
+		},
+		CreatedAt: time.Now().UTC(),
+	}, nil
+}
+
+func transformGitHubRelease(eventData json.RawMessage) (DashboardEvent, error) {
+	var releaseEvent struct {
+		Action  string `json:"action"`
+		Release struct {
+			TagName string `json:"tag_name"`
+			Name    string `json:"name"`
+			Author  struct {
+				Login string `json:"login"`
+			} `json:"author"`
+			HTMLURL string `json:"html_url"`
+			Draft   bool   `json:"draft"`
+		} `json:"release"`
+		Repository struct {
+			Name string `json:"name"`
+		} `json:"repository"`
+	}
+
+	if err := json.Unmarshal(eventData, &releaseEvent); err != nil {
+		return DashboardEvent{}, err
+	}
+
+	title := releaseEvent.Release.Name
+	if title == "" {
+		title = releaseEvent.Release.TagName
+	}
+
+	return DashboardEvent{
+		EventType: "github.release",
+		Title:     fmt.Sprintf("Release %s: %s", releaseEvent.Release.TagName, title),
+		Metadata: map[string]interface{}{
+			"repo":        releaseEvent.Repository.Name,
+			"action":      releaseEvent.Action,
+			"tag":         releaseEvent.Release.TagName,
+			"author":      releaseEvent.Release.Author.Login,
+			"release_url": releaseEvent.Release.HTMLURL,
+			"draft":       releaseEvent.Release.Draft,
 		},
 		CreatedAt: time.Now().UTC(),
 	}, nil

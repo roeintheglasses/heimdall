@@ -105,6 +105,21 @@ export async function POST(req: NextRequest) {
         type: 'github.push',
         event: payload
       }
+    } else if (githubEvent === 'pull_request') {
+      qstashPayload = {
+        type: 'github.pr',
+        event: payload
+      }
+    } else if (githubEvent === 'issues') {
+      qstashPayload = {
+        type: 'github.issue',
+        event: payload
+      }
+    } else if (githubEvent === 'release') {
+      qstashPayload = {
+        type: 'github.release',
+        event: payload
+      }
     } else if (
       // Comprehensive Railway detection - check multiple possible formats
       (payload && payload.type === 'DEPLOY') ||  // Format: {"type": "DEPLOY", ...}

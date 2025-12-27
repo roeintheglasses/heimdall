@@ -5,38 +5,18 @@ import {
   GitBranch,
   Zap,
   Train,
-  Globe,
-  Package,
-  Cloud,
-  Server,
-  CreditCard,
-  MessageCircle,
-  Hash,
-  Wrench,
-  RotateCw,
   Monitor,
-  HelpCircle,
-  Activity
+  HelpCircle
 } from 'lucide-react';
 import { getServiceFromEventType, getServiceColorClasses, ServiceInfo } from '@/types/services';
 
-// Icon mapping for services
+// Icon mapping for services (only includes icons for supported services)
 const SERVICE_ICONS = {
-  GitBranch,
-  Zap,
-  Train,
-  Globe,
-  Package,
-  Cloud,
-  Server,
-  CreditCard,
-  MessageCircle,
-  Hash,
-  Wrench,
-  RotateCw,
-  Monitor,
-  HelpCircle,
-  Activity
+  GitBranch,   // GitHub
+  Zap,         // Vercel
+  Train,       // Railway
+  Monitor,     // System
+  HelpCircle   // Unknown/fallback
 } as const;
 
 interface ServiceIconProps {

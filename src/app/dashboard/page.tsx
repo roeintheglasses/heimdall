@@ -27,7 +27,6 @@ function DashboardContent() {
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedFilter, setSelectedFilter] = useState<string>('all')
   const [isLoading, setIsLoading] = useState(true)
   const [isSearching, setIsSearching] = useState(false)
 
@@ -152,12 +151,6 @@ function DashboardContent() {
   }
 
   const { pushEvents, deployEvents } = getEventStats()
-
-  // Get available event types for filter buttons
-  const availableEventTypes = useMemo(() => {
-    const types = [...new Set(events.map(e => e.event_type).filter(Boolean))]
-    return types.sort()
-  }, [events])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">

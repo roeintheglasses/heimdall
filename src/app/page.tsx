@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Shield, Activity, Zap, ArrowRight, CheckCircle } from 'lucide-react'
+import { ActivityHeatmap } from '@/components/ActivityHeatmap'
 
 export default function Home() {
   return (
@@ -64,9 +65,7 @@ export default function Home() {
           
           <Card className="mx-auto max-w-5xl shadow-lg border-2 bg-card">
             <CardContent className="p-6">
-              <p className="text-center text-muted-foreground">
-                Connect your webhooks to see real-time activity here
-              </p>
+              <ActivityHeatmap />
             </CardContent>
           </Card>
           

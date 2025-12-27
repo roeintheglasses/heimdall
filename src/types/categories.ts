@@ -37,10 +37,6 @@ export interface CategoryFilter {
   selectedCategory: string | null
   selectedService: string | null
   searchQuery: string
-  dateRange?: {
-    start: Date
-    end: Date
-  }
 }
 
 export interface ServiceStats {

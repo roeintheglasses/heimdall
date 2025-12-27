@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback } from 'react'
 import { 
   EventCategory, 
   DashboardEvent, 
@@ -142,14 +142,6 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
       )
     }
     
-    // Filter by date range (if implemented)
-    if (filter.dateRange) {
-      filtered = filtered.filter(event => {
-        const eventDate = new Date(event.created_at)
-        return eventDate >= filter.dateRange!.start && eventDate <= filter.dateRange!.end
-      })
-    }
-    
     return filtered
   }
 
@@ -159,34 +151,6 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       ...newFilter
     }))
-  }, [])
-
-  // Fetch categories from backend (when available)
-  const fetchCategories = async () => {
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      const response = await fetch('/api/categories')
-      
-      if (response.ok) {
-        const backendCategories = await response.json()
-        setCategories(backendCategories)
-      } else {
-        // Use default categories if backend not available
-        console.log('Using default categories (backend not available)')
-      }
-    } catch (err) {
-      console.log('Using default categories (network error)')
-      setError(null) // Don't show error for missing backend categories
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Initialize categories on mount
-  useEffect(() => {
-    fetchCategories()
   }, [])
 
   // Context value

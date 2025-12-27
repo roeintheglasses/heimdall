@@ -9,156 +9,64 @@ export interface ServiceInfo {
 }
 
 // Service definitions with appropriate Lucide icons
+// Only includes services that have backend support
 export const SERVICES: ServiceInfo[] = [
   {
     id: 'github',
     name: 'GitHub',
-    icon: 'GitBranch',           // Git branch icon for GitHub
+    icon: 'GitBranch',
     color: 'gray',
     description: 'Git repository and collaboration platform'
   },
   {
     id: 'vercel',
     name: 'Vercel',
-    icon: 'Zap',                 // Lightning bolt for fast deployments
+    icon: 'Zap',
     color: 'black',
     description: 'Frontend deployment and hosting platform'
   },
   {
     id: 'railway',
     name: 'Railway',
-    icon: 'Train',               // Train icon for Railway
+    icon: 'Train',
     color: 'purple',
     description: 'Infrastructure deployment platform'
   },
   {
-    id: 'netlify',
-    name: 'Netlify',
-    icon: 'Globe',               // Globe for web hosting
-    color: 'teal',
-    description: 'Web hosting and serverless platform'
-  },
-  {
-    id: 'docker',
-    name: 'Docker',
-    icon: 'Package',             // Package for containers
-    color: 'blue',
-    description: 'Container platform'
-  },
-  {
-    id: 'aws',
-    name: 'AWS',
-    icon: 'Cloud',               // Cloud for AWS
-    color: 'orange',
-    description: 'Amazon Web Services'
-  },
-  {
-    id: 'heroku',
-    name: 'Heroku',
-    icon: 'Server',              // Server for hosting
-    color: 'purple',
-    description: 'Cloud application platform'
-  },
-  {
-    id: 'stripe',
-    name: 'Stripe',
-    icon: 'CreditCard',          // Credit card for payments
-    color: 'indigo',
-    description: 'Payment processing platform'
-  },
-  {
-    id: 'discord',
-    name: 'Discord',
-    icon: 'MessageCircle',       // Message for chat platform
-    color: 'indigo',
-    description: 'Communication platform'
-  },
-  {
-    id: 'slack',
-    name: 'Slack',
-    icon: 'Hash',                // Hash for Slack channels
-    color: 'purple',
-    description: 'Business communication platform'
-  },
-  {
-    id: 'jenkins',
-    name: 'Jenkins',
-    icon: 'Wrench',              // Wrench for build tools
-    color: 'red',
-    description: 'Automation and CI/CD platform'
-  },
-  {
-    id: 'circleci',
-    name: 'CircleCI',
-    icon: 'RotateCw',            // Rotate for continuous integration
-    color: 'green',
-    description: 'Continuous integration platform'
-  },
-  {
     id: 'system',
     name: 'System',
-    icon: 'Monitor',             // Monitor for system events
+    icon: 'Monitor',
     color: 'gray',
     description: 'System and infrastructure events'
   },
   {
     id: 'unknown',
     name: 'Unknown',
-    icon: 'HelpCircle',          // Help circle for unknown services
+    icon: 'HelpCircle',
     color: 'gray',
     description: 'Unknown service or event source'
   }
 ]
 
 // Event type to service mapping
+// Only includes event types that have backend support
 export const EVENT_TYPE_SERVICE_MAP: Record<string, string> = {
   // GitHub events
   'github.push': 'github',
   'github.pr': 'github',
   'github.issue': 'github',
   'github.release': 'github',
-  'github.star': 'github',
-  'github.fork': 'github',
-  'github.watch': 'github',
-  
+
   // Vercel events
   'vercel.deploy': 'vercel',
   'vercel.build': 'vercel',
   'vercel.error': 'vercel',
-  
+
   // Railway events
   'railway.deploy': 'railway',
   'railway.build': 'railway',
   'railway.error': 'railway',
-  
-  // Netlify events
-  'netlify.deploy': 'netlify',
-  'netlify.build': 'netlify',
-  
-  // Docker events
-  'docker.build': 'docker',
-  'docker.push': 'docker',
-  'docker.pull': 'docker',
-  
-  // AWS events
-  'aws.deploy': 'aws',
-  'aws.lambda': 'aws',
-  'aws.s3': 'aws',
-  
-  // CI/CD events
-  'jenkins.build': 'jenkins',
-  'jenkins.deploy': 'jenkins',
-  'circleci.build': 'circleci',
-  'circleci.deploy': 'circleci',
-  
-  // Payment events
-  'stripe.payment': 'stripe',
-  'stripe.subscription': 'stripe',
-  
-  // Communication events
-  'discord.message': 'discord',
-  'slack.message': 'slack',
-  
+
   // System events
   'system.error': 'system',
   'system.alert': 'system',
