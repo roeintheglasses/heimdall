@@ -62,6 +62,15 @@ function DashboardContent() {
   const [hasMore, setHasMore] = useState(false);
   const [totalEvents, setTotalEvents] = useState(0);
 
+  // API stats state - fetched from /api/stats for aggregate counts
+  const [apiStats, setApiStats] = useState<{
+    total_events: number;
+    category_counts: Record<string, number>;
+    service_counts: Record<string, number>;
+    last_24_hours: number;
+    last_week: number;
+  } | null>(null);
+
   // New state for Phase 2 features
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
@@ -115,7 +124,23 @@ function DashboardContent() {
   }, [events.length, goServiceUrl, hasMore, isLoadingMore]);
 
   useEffect(() => {
-    // Fetch initial events with higher limit
+    // Fetch aggregate stats from dedicated endpoint (all events)
+    // Falls back gracefully to local calculation if endpoint unavailable
+    const fetchStats = async () => {
+      try {
+        const response = await fetch(`${goServiceUrl}/api/stats`);
+        if (response.ok) {
+          const stats = await response.json();
+          setApiStats(stats);
+        }
+        // If not ok, silently fall back to local stats calculation
+      } catch {
+        // Stats endpoint may not be deployed yet - fall back to local calculation
+        // No console error needed as this is expected during transition
+      }
+    };
+
+    // Fetch initial events with higher limit (for display)
     const fetchEvents = async () => {
       setIsLoading(true);
       try {
@@ -151,6 +176,8 @@ function DashboardContent() {
       }
     };
 
+    // Fetch both stats and events in parallel
+    fetchStats();
     fetchEvents();
 
     // Set up Server-Sent Events for real-time updates
@@ -212,15 +239,21 @@ function DashboardContent() {
     };
   }, [playSuccess, playError, playNotification]);
 
-  // Calculate category statistics
+  // Use API stats for category counts (all events) with fallback to local calculation
   const categoryStats = useMemo(() => {
+    if (apiStats?.category_counts) {
+      return apiStats.category_counts;
+    }
     return calculateStats(events);
-  }, [events, calculateStats]);
+  }, [apiStats, events, calculateStats]);
 
-  // Calculate service statistics
+  // Use API stats for service counts (all events) with fallback to local calculation
   const serviceStats = useMemo(() => {
+    if (apiStats?.service_counts) {
+      return apiStats.service_counts;
+    }
     return calculateServiceStats(events);
-  }, [events, calculateServiceStats]);
+  }, [apiStats, events, calculateServiceStats]);
 
   // Filter events using category context
   const filteredEvents = useMemo(() => {

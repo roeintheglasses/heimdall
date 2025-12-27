@@ -236,3 +236,12 @@ func (m *mockStoreWithTotal) GetRecentEvents(limit int) ([]models.DashboardEvent
 func (m *mockStoreWithTotal) GetEventsWithFilters(filter models.EventsFilter) ([]models.DashboardEvent, int, error) {
 	return m.events, m.total, nil
 }
+
+func (m *mockStoreWithTotal) GetStats() (models.EventStats, error) {
+	return models.EventStats{
+		TotalEvents:    m.total,
+		CategoryCounts: make(map[string]int),
+		ServiceCounts:  make(map[string]int),
+		EventsPerDay:   []models.DailyCount{},
+	}, nil
+}

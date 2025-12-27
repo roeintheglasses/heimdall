@@ -7,6 +7,7 @@ type EventStore interface {
 	InsertEvent(event models.DashboardEvent) error
 	GetRecentEvents(limit int) ([]models.DashboardEvent, error)
 	GetEventsWithFilters(filter models.EventsFilter) ([]models.DashboardEvent, int, error)
+	GetStats() (models.EventStats, error)
 }
 
 // Ensure EventRepository implements EventStore

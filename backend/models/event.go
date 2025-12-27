@@ -28,3 +28,19 @@ type EventsFilter struct {
 	EventType string    // Filter by event type (optional)
 	Since     time.Time // Filter events after this time (optional)
 }
+
+// EventStats contains aggregate statistics for events
+type EventStats struct {
+	TotalEvents     int            `json:"total_events"`
+	CategoryCounts  map[string]int `json:"category_counts"`
+	ServiceCounts   map[string]int `json:"service_counts"`
+	Last24Hours     int            `json:"last_24_hours"`
+	LastWeek        int            `json:"last_week"`
+	EventsPerDay    []DailyCount   `json:"events_per_day"`
+}
+
+// DailyCount represents event count for a specific date
+type DailyCount struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
+}

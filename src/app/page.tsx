@@ -2,23 +2,12 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  Shield,
-  Activity,
-  Zap,
-  ArrowRight,
-  CheckCircle,
-  Terminal,
-  Cpu,
-  Database,
-} from 'lucide-react';
+import { Shield, Activity, ArrowRight, CheckCircle, Terminal } from 'lucide-react';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { SoundToggle } from '@/components/SoundToggle';
-import { TerminalText, TerminalPrompt, AsciiHeader } from '@/components/TerminalText';
-import { RetroBorder } from '@/components/ScanlineOverlay';
-import { cn } from '@/lib/utils';
+import { TerminalPrompt } from '@/components/TerminalText';
 
 // ASCII Art Logo
 const HEIMDALL_ASCII = `
@@ -34,13 +23,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-terminal-black">
       {/* Header - Terminal style */}
-      <header className="sticky top-0 z-50 border-b-2 border-neon-cyan bg-terminal-black/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 border-b-2 border-neon-magenta bg-terminal-black/95 backdrop-blur-sm">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="border-2 border-neon-cyan bg-neon-cyan/10 p-2">
-              <Shield className="h-5 w-5 text-neon-cyan" />
+            <div className="border-2 border-neon-magenta bg-neon-cyan/10 p-2">
+              <Shield className="h-5 w-5 text-neon-magenta" />
             </div>
-            <span className="text-glow-cyan font-mono text-xl font-bold text-neon-cyan">
+            <span className="text-glow-magenta font-mono text-xl font-bold text-neon-magenta">
               HEIMDALL
             </span>
           </div>
@@ -49,11 +38,11 @@ export default function Home() {
       </header>
 
       {/* Hero Section - Terminal boot sequence */}
-      <section className="container px-4 py-16 sm:px-6 sm:py-24 md:py-32">
+      <section className="container px-4 py-16 sm:px-6 sm:py-24 md:pt-32">
         <div className="mx-auto max-w-4xl text-center">
           {/* ASCII Art Logo */}
           <div className="mb-8 overflow-x-auto">
-            <pre className="text-glow-cyan inline-block text-left font-mono text-[8px] leading-tight text-neon-cyan sm:text-xs md:text-sm">
+            <pre className="text-glow-magenta inline-block text-left font-mono text-[8px] leading-tight text-neon-magenta sm:text-xs md:text-sm">
               {HEIMDALL_ASCII}
             </pre>
           </div>
@@ -154,86 +143,6 @@ export default function Home() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section - Terminal cards */}
-      <section className="container px-4 py-12 sm:px-6 sm:py-16">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-8 text-center sm:mb-12">
-            <div className="mb-2 flex items-center justify-center gap-2 font-mono text-sm text-neon-green">
-              <Cpu className="h-4 w-4" />
-              <span>SYSTEM::ARCHITECTURE</span>
-            </div>
-            <h2 className="text-glow-cyan font-mono text-2xl font-bold text-neon-cyan sm:text-3xl">
-              EDGE PIPELINE
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3">
-            {/* Feature 1 */}
-            <Card className="group border-2 border-neon-cyan bg-terminal-black transition-all duration-200 hover:-translate-x-1 hover:-translate-y-1 hover:shadow-retro">
-              <div className="flex items-center justify-between border-b-2 border-neon-cyan bg-neon-cyan/10 px-4 py-2">
-                <span className="font-mono text-xs text-neon-cyan">EDGE.EXE</span>
-              </div>
-              <CardContent className="p-4">
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="border-2 border-neon-cyan bg-neon-cyan/10 p-3">
-                    <Zap className="h-5 w-5 text-neon-cyan" />
-                  </div>
-                  <h3 className="font-mono font-bold text-neon-cyan">VERCEL EDGE</h3>
-                </div>
-                <p className="font-mono text-sm text-muted-foreground">
-                  <span className="text-neon-magenta">&gt;</span> Sub-100ms webhook ingestion
-                </p>
-                <p className="font-mono text-sm text-muted-foreground">
-                  <span className="text-neon-magenta">&gt;</span> Global edge deployment
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 2 */}
-            <Card className="group border-2 border-neon-green bg-terminal-black transition-all duration-200 hover:-translate-x-1 hover:-translate-y-1 hover:shadow-retro-green">
-              <div className="flex items-center justify-between border-b-2 border-neon-green bg-neon-green/10 px-4 py-2">
-                <span className="font-mono text-xs text-neon-green">BACKEND.GO</span>
-              </div>
-              <CardContent className="p-4">
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="border-2 border-neon-green bg-neon-green/10 p-3">
-                    <Activity className="h-5 w-5 text-neon-green" />
-                  </div>
-                  <h3 className="font-mono font-bold text-neon-green">RAILWAY GO</h3>
-                </div>
-                <p className="font-mono text-sm text-muted-foreground">
-                  <span className="text-neon-magenta">&gt;</span> High-performance processing
-                </p>
-                <p className="font-mono text-sm text-muted-foreground">
-                  <span className="text-neon-magenta">&gt;</span> Sub-80ms transform time
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 3 */}
-            <Card className="group border-2 border-neon-magenta bg-terminal-black transition-all duration-200 hover:-translate-x-1 hover:-translate-y-1 hover:shadow-retro-magenta">
-              <div className="flex items-center justify-between border-b-2 border-neon-magenta bg-neon-magenta/10 px-4 py-2">
-                <span className="font-mono text-xs text-neon-magenta">STREAM.SSE</span>
-              </div>
-              <CardContent className="p-4">
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="border-2 border-neon-magenta bg-neon-magenta/10 p-3">
-                    <Database className="h-5 w-5 text-neon-magenta" />
-                  </div>
-                  <h3 className="font-mono font-bold text-neon-magenta">REAL-TIME</h3>
-                </div>
-                <p className="font-mono text-sm text-muted-foreground">
-                  <span className="text-neon-magenta">&gt;</span> Server-Sent Events
-                </p>
-                <p className="font-mono text-sm text-muted-foreground">
-                  <span className="text-neon-magenta">&gt;</span> Sub-400ms e2e latency
-                </p>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </section>

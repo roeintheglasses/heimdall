@@ -44,6 +44,18 @@ func (m *mockEventStore) GetEventsWithFilters(filter models.EventsFilter) ([]mod
 	return m.events, len(m.events), nil
 }
 
+func (m *mockEventStore) GetStats() (models.EventStats, error) {
+	if m.getErr != nil {
+		return models.EventStats{}, m.getErr
+	}
+	return models.EventStats{
+		TotalEvents:    len(m.events),
+		CategoryCounts: make(map[string]int),
+		ServiceCounts:  make(map[string]int),
+		EventsPerDay:   []models.DailyCount{},
+	}, nil
+}
+
 func TestWebhookHandler_ValidPayload(t *testing.T) {
 	mockRepo := &mockEventStore{}
 	registry := transformers.NewRegistry()

@@ -59,6 +59,7 @@ func main() {
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cfg)
 	eventsHandler := handlers.NewEventsHandler(eventRepo)
+	statsHandler := handlers.NewStatsHandler(eventRepo)
 	webhookHandler := handlers.NewWebhookHandler(eventRepo, transformerRegistry)
 
 	// Create rate limiter for webhook endpoint
@@ -76,6 +77,7 @@ func main() {
 	api := r.PathPrefix("/api").Subrouter()
 	api.Handle("/health", healthHandler).Methods("GET", "OPTIONS")
 	api.Handle("/events", eventsHandler).Methods("GET", "OPTIONS")
+	api.Handle("/stats", statsHandler).Methods("GET", "OPTIONS")
 	// Apply rate limiting only to webhook endpoint
 	api.Handle("/webhook", rateLimiter.Limit(webhookHandler)).Methods("POST", "OPTIONS")
 
