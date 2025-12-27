@@ -9,11 +9,13 @@ Heimdall is a real-time webhook monitoring dashboard that aggregates events from
 ## Architecture
 
 **Three-tier architecture:**
+
 1. **Frontend (Next.js 15 + React 19)** - Deployed on Vercel, handles webhook ingestion via Edge Functions and serves the dashboard UI
 2. **Backend (Go)** - Deployed on Railway, processes webhooks and stores events in PostgreSQL
 3. **Database (PostgreSQL)** - Hosted on Neon
 
 **Data flow:**
+
 ```
 Webhook Source → /api/webhook (Edge) → QStash (optional) → Go Backend → PostgreSQL
                                                                             ↓
@@ -21,6 +23,7 @@ Dashboard UI ← SSE /api/events/stream ← Polling ← Go Backend /api/events �
 ```
 
 **Key patterns:**
+
 - Edge Runtime webhook handler (`src/app/api/webhook/route.ts`) detects event source (GitHub/Vercel/Railway) and forwards to Go backend
 - Go backend (`backend/main.go`) transforms provider-specific payloads into unified `DashboardEvent` format
 - SSE stream (`src/app/api/events/stream/route.ts`) polls Go backend and broadcasts to connected clients
@@ -55,18 +58,21 @@ npm run check-webhooks       # Verify webhook URLs
 ## Environment Variables
 
 **Frontend (Vercel):**
+
 - `GITHUB_WEBHOOK_SECRET` - GitHub webhook signature verification
 - `GO_SERVICE_URL` - Backend URL for server-side calls
 - `NEXT_PUBLIC_GO_SERVICE_URL` - Backend URL for client-side calls
 - `QSTASH_TOKEN` - Optional, for reliable message queuing
 
 **Backend (Railway):**
+
 - `DATABASE_URL` - PostgreSQL connection string
 - `PORT` - Server port (default: 8080)
 
 ## Event Types
 
 Events are categorized by source prefix:
+
 - `github.push`, `github.pr`, `github.issue` → Development category
 - `vercel.deploy`, `railway.deploy` → Deployments category
 - `error.*` → Issues category
@@ -100,6 +106,7 @@ curl -X POST http://localhost:8080/api/webhook \
 ## Key Data Structures
 
 **DashboardEvent** (Go backend output, stored in PostgreSQL):
+
 ```go
 type DashboardEvent struct {
     ID        string                 // UUID
@@ -111,6 +118,7 @@ type DashboardEvent struct {
 ```
 
 **QStashPayload** (Input to Go backend from Edge Function):
+
 ```go
 type QStashPayload struct {
     Event     json.RawMessage // Raw provider webhook payload

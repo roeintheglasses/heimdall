@@ -52,7 +52,7 @@ UPDATE events SET category = 'development' WHERE event_type LIKE 'github.%';
 
 async function createMigrationEvent() {
   console.log('🔄 Creating migration via webhook event...');
-  
+
   // We'll send a special webhook event that triggers migration
   const migrationPayload = {
     type: 'system.migration',
@@ -60,40 +60,44 @@ async function createMigrationEvent() {
       migration_id: '001_add_categories',
       sql: MIGRATION_SQL,
       description: 'Add event categorization support',
-      timestamp: new Date().toISOString()
-    }
+      timestamp: new Date().toISOString(),
+    },
   };
 
   return new Promise((resolve, reject) => {
     const payloadString = JSON.stringify(migrationPayload);
-    
+
     const options = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payloadString),
-        'X-Migration-Key': 'heimdall-migration-2024' // Security key
-      }
+        'X-Migration-Key': 'heimdall-migration-2024', // Security key
+      },
     };
 
-    const req = https.request('https://heimdall-backend-prod.up.railway.app/api/migrate', options, (res) => {
-      let body = '';
-      res.on('data', chunk => body += chunk);
-      res.on('end', () => {
-        console.log('Migration response:', {
-          status: res.statusCode,
-          body: body
+    const req = https.request(
+      'https://heimdall-backend-prod.up.railway.app/api/migrate',
+      options,
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => (body += chunk));
+        res.on('end', () => {
+          console.log('Migration response:', {
+            status: res.statusCode,
+            body: body,
+          });
+
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            console.log('✅ Migration triggered successfully!');
+            resolve({ status: res.statusCode, body });
+          } else {
+            console.log('❌ Migration failed!');
+            reject(new Error(`HTTP ${res.statusCode}: ${body}`));
+          }
         });
-        
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          console.log('✅ Migration triggered successfully!');
-          resolve({ status: res.statusCode, body });
-        } else {
-          console.log('❌ Migration failed!');
-          reject(new Error(`HTTP ${res.statusCode}: ${body}`));
-        }
-      });
-    });
+      }
+    );
 
     req.on('error', (err) => {
       console.error('❌ Request error:', err);
@@ -107,39 +111,37 @@ async function createMigrationEvent() {
 
 async function verifyMigration() {
   console.log('\n🔍 Verifying migration results...');
-  
+
   try {
     // Check if events now have category field
     const response = await fetch('https://heimdall-backend-prod.up.railway.app/api/events');
-    
+
     if (response.ok) {
       const events = await response.json();
-      
+
       if (events.length > 0) {
         const sampleEvent = events[0];
         console.log('Event structure after migration:');
         console.log('Keys:', Object.keys(sampleEvent));
-        
+
         if (sampleEvent.category) {
           console.log('✅ Category field added successfully!');
-          
+
           // Count events by category
           const categoryCount = {};
-          events.forEach(event => {
+          events.forEach((event) => {
             categoryCount[event.category] = (categoryCount[event.category] || 0) + 1;
           });
-          
+
           console.log('\n📊 Event distribution:');
           Object.entries(categoryCount).forEach(([category, count]) => {
             console.log(`  • ${category}: ${count} events`);
           });
-          
         } else {
           console.log('❌ Category field still missing');
         }
       }
     }
-    
   } catch (error) {
     console.error('Failed to verify migration:', error.message);
   }
@@ -147,29 +149,37 @@ async function verifyMigration() {
 
 async function testCategoryEndpoints() {
   console.log('\n🧪 Testing new category endpoints...');
-  
+
   try {
     // Test categories endpoint
-    const categoriesResponse = await fetch('https://heimdall-backend-prod.up.railway.app/api/categories');
-    
+    const categoriesResponse = await fetch(
+      'https://heimdall-backend-prod.up.railway.app/api/categories'
+    );
+
     if (categoriesResponse.ok) {
       const categories = await categoriesResponse.json();
       console.log('✅ Categories endpoint working!');
-      console.log(`Found ${categories.length} categories:`, categories.map(c => c.name));
+      console.log(
+        `Found ${categories.length} categories:`,
+        categories.map((c) => c.name)
+      );
     } else {
       console.log('❌ Categories endpoint not available yet');
     }
-    
+
     // Test filtered events endpoint
-    const filteredResponse = await fetch('https://heimdall-backend-prod.up.railway.app/api/events?category=development');
-    
+    const filteredResponse = await fetch(
+      'https://heimdall-backend-prod.up.railway.app/api/events?category=development'
+    );
+
     if (filteredResponse.ok) {
       const filteredEvents = await filteredResponse.json();
-      console.log(`✅ Filtered events endpoint working! Found ${filteredEvents.length} development events`);
+      console.log(
+        `✅ Filtered events endpoint working! Found ${filteredEvents.length} development events`
+      );
     } else {
       console.log('❌ Filtered events endpoint not available yet');
     }
-    
   } catch (error) {
     console.error('Error testing endpoints:', error.message);
   }
@@ -177,22 +187,21 @@ async function testCategoryEndpoints() {
 
 async function main() {
   console.log('🚀 Database Migration via API\n');
-  
+
   try {
     // For now, let's skip the migration API and proceed with frontend implementation
     // The Go service would need to be updated to support migration endpoints
-    
+
     console.log('⚠️  Migration via API requires Go service updates.');
     console.log('Proceeding with frontend implementation that will work with existing data.\n');
-    
+
     // Verify current state
     await verifyMigration();
-    
+
     console.log('\n📝 Migration Status:');
     console.log('✅ Can proceed with frontend category implementation');
     console.log('✅ Will map existing event_type to categories in frontend');
     console.log('⏳ Backend migration can be done later when Go service is updated');
-    
   } catch (error) {
     console.error('💥 Error:', error.message);
   }

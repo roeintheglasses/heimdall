@@ -2,18 +2,18 @@
 
 /**
  * Vercel Webhook Automation Script
- * 
+ *
  * This script automatically adds the Heimdall webhook to all your Vercel projects.
  * It uses the Vercel API to list your projects and configure deployment webhooks for each one.
- * 
+ *
  * Prerequisites:
  * - Vercel CLI installed: npm i -g vercel
  * - Vercel authentication: vercel login
  * - Or Vercel API token with appropriate scopes
- * 
+ *
  * Usage:
  *   node scripts/add-vercel-webhooks.js
- * 
+ *
  * Environment Variables:
  *   VERCEL_TOKEN - Your Vercel API Token (optional if using vercel CLI)
  *   WEBHOOK_URL - Your Heimdall webhook URL (optional, defaults to production)
@@ -36,7 +36,7 @@ const colors = {
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
   magenta: '\x1b[35m',
-  cyan: '\x1b[36m'
+  cyan: '\x1b[36m',
 };
 
 class VercelWebhookManager {
@@ -47,7 +47,7 @@ class VercelWebhookManager {
       total: 0,
       added: 0,
       skipped: 0,
-      errors: 0
+      errors: 0,
     };
   }
 
@@ -61,14 +61,14 @@ class VercelWebhookManager {
       const options = {
         method,
         headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
       };
 
       const req = https.request(url, options, (res) => {
         let body = '';
-        res.on('data', chunk => body += chunk);
+        res.on('data', (chunk) => (body += chunk));
         res.on('end', () => {
           try {
             const parsed = body ? JSON.parse(body) : {};
@@ -88,18 +88,18 @@ class VercelWebhookManager {
       if (data) {
         req.write(JSON.stringify(data));
       }
-      
+
       req.end();
     });
   }
 
   async getProjects() {
     this.log('\n🔍 Fetching your Vercel projects...', 'cyan');
-    
+
     try {
       const response = await this.makeRequest('GET', '/v9/projects?limit=100');
       const projects = response.data.projects || [];
-      
+
       this.log(`📚 Found ${projects.length} Vercel projects`, 'green');
       return projects;
     } catch (error) {
@@ -123,7 +123,7 @@ class VercelWebhookManager {
     const webhookPayload = {
       url: this.webhookUrl,
       events: WEBHOOK_EVENTS,
-      projectIds: [project.id]
+      projectIds: [project.id],
     };
 
     try {
@@ -136,14 +136,13 @@ class VercelWebhookManager {
 
   async processProject(project) {
     this.stats.total++;
-    
+
     try {
       // Check if webhook already exists for this project
       const existingHooks = await this.getExistingWebhooks();
-      const heimdallHook = existingHooks.find(hook => 
-        hook.url === this.webhookUrl && 
-        hook.projectIds && 
-        hook.projectIds.includes(project.id)
+      const heimdallHook = existingHooks.find(
+        (hook) =>
+          hook.url === this.webhookUrl && hook.projectIds && hook.projectIds.includes(project.id)
       );
 
       if (heimdallHook) {
@@ -157,7 +156,6 @@ class VercelWebhookManager {
       this.log(`  ✅ Added webhook to ${project.name}`, 'green');
       this.stats.added++;
       return { project: project.name, status: 'added' };
-
     } catch (error) {
       this.log(`  ❌ Failed to add webhook to ${project.name}: ${error.message}`, 'red');
       this.stats.errors++;
@@ -173,7 +171,7 @@ class VercelWebhookManager {
 
       // Get all projects
       const projects = await this.getProjects();
-      
+
       if (projects.length === 0) {
         this.log('📭 No Vercel projects found to process.', 'yellow');
         return;
@@ -182,21 +180,24 @@ class VercelWebhookManager {
       // Check for existing webhook that covers all projects
       this.log('\n🔍 Checking for existing webhook...', 'cyan');
       const existingHooks = await this.getExistingWebhooks();
-      const existingHook = existingHooks.find(hook => hook.url === this.webhookUrl);
-      
+      const existingHook = existingHooks.find((hook) => hook.url === this.webhookUrl);
+
       if (existingHook) {
         this.log(`✅ Found existing webhook (ID: ${existingHook.id})`, 'green');
-        
+
         // Check which projects are already covered
-        const coveredProjects = projects.filter(project => 
-          existingHook.projectIds && existingHook.projectIds.includes(project.id)
+        const coveredProjects = projects.filter(
+          (project) => existingHook.projectIds && existingHook.projectIds.includes(project.id)
         );
-        const uncoveredProjects = projects.filter(project => 
-          !existingHook.projectIds || !existingHook.projectIds.includes(project.id)
+        const uncoveredProjects = projects.filter(
+          (project) => !existingHook.projectIds || !existingHook.projectIds.includes(project.id)
         );
-        
-        this.log(`📊 Projects already covered: ${coveredProjects.length}/${projects.length}`, 'blue');
-        
+
+        this.log(
+          `📊 Projects already covered: ${coveredProjects.length}/${projects.length}`,
+          'blue'
+        );
+
         if (uncoveredProjects.length === 0) {
           this.log('🎉 All projects are already covered by the existing webhook!', 'green');
           this.stats.skipped = projects.length;
@@ -204,29 +205,31 @@ class VercelWebhookManager {
           this.printSummary();
           return;
         }
-        
-        this.log(`🔧 Need to add ${uncoveredProjects.length} projects to existing webhook`, 'yellow');
+
+        this.log(
+          `🔧 Need to add ${uncoveredProjects.length} projects to existing webhook`,
+          'yellow'
+        );
         // For now, we'll create a new webhook. In the future, we could update the existing one.
       }
 
       // Create webhook for all projects
       this.log('\n🔧 Creating webhook for all projects...', 'cyan');
-      const projectIds = projects.map(project => project.id);
-      
+      const projectIds = projects.map((project) => project.id);
+
       const webhookPayload = {
         url: this.webhookUrl,
         events: WEBHOOK_EVENTS,
-        projectIds: projectIds
+        projectIds: projectIds,
       };
 
       try {
         const webhook = await this.makeRequest('POST', '/v1/webhooks', webhookPayload);
         this.log(`✅ Created webhook for all ${projects.length} projects!`, 'green');
         this.log(`🆔 Webhook ID: ${webhook.data.id}`, 'blue');
-        
+
         this.stats.added = projects.length;
         this.stats.total = projects.length;
-        
       } catch (error) {
         this.log(`❌ Failed to create webhook: ${error.message}`, 'red');
         this.stats.errors = projects.length;
@@ -235,7 +238,6 @@ class VercelWebhookManager {
 
       // Print summary
       this.printSummary();
-
     } catch (error) {
       this.log(`\n💥 Fatal error: ${error.message}`, 'red');
       process.exit(1);
@@ -248,7 +250,7 @@ class VercelWebhookManager {
     this.log(`  ✅ Webhooks added: ${this.stats.added}`, 'green');
     this.log(`  ⏭️  Already existed: ${this.stats.skipped}`, 'yellow');
     this.log(`  ❌ Errors: ${this.stats.errors}`, 'red');
-    
+
     if (this.stats.errors === 0) {
       this.log('\n🎉 All done! Your Vercel projects are now connected to Heimdall.', 'green');
     } else {
@@ -260,9 +262,11 @@ class VercelWebhookManager {
 // Get Vercel token from environment
 function getVercelToken() {
   const token = process.env.VERCEL_TOKEN;
-  
+
   if (!token) {
-    console.error(`${colors.red}❌ Error: VERCEL_TOKEN environment variable is required.${colors.reset}`);
+    console.error(
+      `${colors.red}❌ Error: VERCEL_TOKEN environment variable is required.${colors.reset}`
+    );
     console.error(`${colors.yellow}
 Please create a Vercel API token and set it as an environment variable:
 
@@ -276,7 +280,7 @@ Or add it to your .env file:
 ${colors.reset}`);
     process.exit(1);
   }
-  
+
   return token;
 }
 
@@ -286,9 +290,11 @@ async function main() {
   try {
     const dotenv = require('dotenv');
     const result = dotenv.config();
-    
+
     if (result.parsed) {
-      console.log(`${colors.green}✅ Loaded .env file with ${Object.keys(result.parsed).length} variables${colors.reset}`);
+      console.log(
+        `${colors.green}✅ Loaded .env file with ${Object.keys(result.parsed).length} variables${colors.reset}`
+      );
     }
   } catch (err) {
     // dotenv not available, continue without it
@@ -296,7 +302,7 @@ async function main() {
 
   const token = getVercelToken();
   const webhookUrl = process.env.WEBHOOK_URL || DEFAULT_WEBHOOK_URL;
-  
+
   const manager = new VercelWebhookManager(token, webhookUrl);
   await manager.run();
 }
@@ -336,7 +342,7 @@ ${colors.cyan}Examples:${colors.reset}
 
 // Run the script
 if (require.main === module) {
-  main().catch(error => {
+  main().catch((error) => {
     console.error(`${colors.red}💥 Unhandled error: ${error.message}${colors.reset}`);
     process.exit(1);
   });

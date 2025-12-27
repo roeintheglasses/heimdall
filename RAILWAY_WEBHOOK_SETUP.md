@@ -7,6 +7,7 @@ Railway webhooks allow Heimdall to automatically track your Railway deployments 
 ### 1. Configure Railway Project Webhooks
 
 **Navigate to your Railway project:**
+
 1. Go to [railway.app](https://railway.app)
 2. Select your project (e.g., `heimdall`)
 3. Go to **Settings** → **Webhooks**
@@ -14,14 +15,16 @@ Railway webhooks allow Heimdall to automatically track your Railway deployments 
 ### 2. Add Webhook Endpoint
 
 **Create a new webhook:**
+
 - **URL**: `https://your-heimdall-app.vercel.app/api/webhook`
 - **Events to subscribe to**:
-  - ✅ `deployment.completed` 
+  - ✅ `deployment.completed`
   - ✅ `deployment.failed`
   - ✅ `deployment.created`
   - ✅ `service.deploy`
 
 **Headers** (optional but recommended):
+
 - `X-Railway-Event`: `deployment.completed` (or relevant event)
 - `X-Railway-Project`: `your-project-id`
 - `X-Railway-Service`: `your-service-id`
@@ -29,11 +32,13 @@ Railway webhooks allow Heimdall to automatically track your Railway deployments 
 ### 3. Test Your Configuration
 
 **Option A: Use the test script**
+
 ```bash
 node scripts/test-railway-webhook.js
 ```
 
 **Option B: Manual deployment test**
+
 1. Deploy your Railway service: `railway up` or push to connected branch
 2. Check your Heimdall dashboard for the Railway deployment event
 3. Verify the event shows proper metadata (service name, status, URLs, etc.)
@@ -77,12 +82,14 @@ Heimdall expects Railway webhooks in this format:
 ### 5. Environment Variables
 
 **Required in your Railway service** (if not already set):
+
 ```bash
 railway variables set WEBHOOK_URL="https://your-heimdall-app.vercel.app/api/webhook"
 railway variables set HEIMDALL_WEBHOOK_SECRET="your-optional-secret-key"
 ```
 
 **Required in your Vercel/Heimdall app**:
+
 ```env
 GO_SERVICE_URL=https://your-railway-backend.railway.app
 NEXT_PUBLIC_GO_SERVICE_URL=https://your-railway-backend.railway.app
@@ -93,6 +100,7 @@ NEXT_PUBLIC_GO_SERVICE_URL=https://your-railway-backend.railway.app
 Once configured, you'll see Railway deployment events in Heimdall with:
 
 ### ✨ Enhanced Railway Event Display
+
 - **🚀 Deployment Status**: SUCCESS, BUILDING, FAILED with color-coded badges
 - **⚙️ Service Information**: Service name, project name, environment
 - **🔗 Direct Links**: Links to deployed service and Railway logs
@@ -101,6 +109,7 @@ Once configured, you'll see Railway deployment events in Heimdall with:
 - **⏱️ Build Metrics**: Deployment duration and timestamps
 
 ### 📱 Mobile-Friendly Display
+
 - Expandable details with "Details" button
 - Copy-to-clipboard for IDs and URLs
 - Responsive design for all screen sizes
@@ -125,6 +134,7 @@ Railway webhook formats may vary. If events aren't displaying correctly:
 ### Headers Not Working?
 
 Railway may send different headers. Common alternatives:
+
 - `X-Railway-Signature` (if signature verification is enabled)
 - `X-Webhook-Source: railway`
 - `Content-Type: application/json`
@@ -146,6 +156,7 @@ func transformRailwayDeploy(eventData json.RawMessage) (DashboardEvent, error) {
 ### Multiple Railway Services
 
 To track multiple Railway services:
+
 1. Add separate webhooks for each service
 2. Use different Railway project/service headers
 3. Customize the event title format in the transform function

@@ -5,6 +5,7 @@ This guide walks you through deploying your Heimdall real-time dashboard to prod
 ## Overview
 
 The deployment involves three main components:
+
 1. **Frontend + Edge Functions** → Vercel
 2. **Go Service** → Railway/Fly.io/Render
 3. **Database** → Neon/Supabase
@@ -16,11 +17,13 @@ You need to deploy the backend service first to get its URL for the frontend.
 ### Option A: Railway (Recommended)
 
 1. **Install Railway CLI**:
+
    ```bash
    npm install -g @railway/cli
    ```
 
 2. **Deploy the Go service**:
+
    ```bash
    cd backend
    railway login
@@ -78,12 +81,14 @@ You need to deploy the backend service first to get its URL for the frontend.
 ### Connect Repository
 
 **Option A: Vercel CLI**
+
 ```bash
 npm i -g vercel
 vercel
 ```
 
 **Option B: Vercel Dashboard**
+
 1. Go to [vercel.com](https://vercel.com)
 2. Click "Import Project"
 3. Connect your GitHub repository
@@ -116,13 +121,16 @@ QSTASH_TOKEN=your_qstash_token_here
 Add environment variables to your Go service deployment:
 
 ### Railway
+
 ```bash
 railway variables set DATABASE_URL="your_database_url_here"
 railway variables set PORT="8080"
 ```
 
 ### Fly.io
+
 Add to `fly.toml`:
+
 ```toml
 [env]
   PORT = "8080"
@@ -132,6 +140,7 @@ Add to `fly.toml`:
 ```
 
 ### Render
+
 Add in Render dashboard under Environment Variables.
 
 ## Step 5: Configure GitHub Webhooks
@@ -200,21 +209,25 @@ For production-grade message queuing:
 ### Common Issues
 
 **❌ "Go service not reachable"**
+
 - ✅ Verify `GO_SERVICE_URL` in Vercel environment variables
 - ✅ Check Go service is running: `curl https://your-go-service.railway.app/api/health`
 - ✅ Check Go service logs for errors
 
 **❌ "Database connection failed"**
+
 - ✅ Verify `DATABASE_URL` format is correct
 - ✅ Check database schema was applied (tables exist)
 - ✅ Test database connection from Go service logs
 
 **❌ "Webhooks not working"**
+
 - ✅ Check GitHub webhook delivery tab (Settings → Webhooks → Recent Deliveries)
 - ✅ Verify webhook secret matches in both GitHub and Vercel
 - ✅ Check Vercel function logs: `vercel logs`
 
 **❌ "Dashboard shows disconnected"**
+
 - ✅ Check browser console for SSE connection errors
 - ✅ Verify `NEXT_PUBLIC_GO_SERVICE_URL` is set correctly
 - ✅ Test SSE endpoint: `curl https://your-app.vercel.app/api/events/stream`
@@ -222,11 +235,13 @@ For production-grade message queuing:
 ### Checking Logs
 
 **Vercel Function Logs**:
+
 ```bash
 vercel logs
 ```
 
 **Railway Logs**:
+
 ```bash
 railway logs
 ```
@@ -239,6 +254,7 @@ Go to your repo → Settings → Webhooks → Click on your webhook → Recent D
 Here's a complete list of all environment variables you need:
 
 ### Vercel (Frontend)
+
 ```env
 GITHUB_WEBHOOK_SECRET=your_random_secret_123
 GO_SERVICE_URL=https://your-go-service.railway.app
@@ -248,12 +264,14 @@ QSTASH_TOKEN=your_qstash_token_here  # Optional
 ```
 
 ### Go Service (Railway/Fly.io/Render)
+
 ```env
 DATABASE_URL=postgresql://user:password@host:port/database?sslmode=require
 PORT=8080
 ```
 
 ### GitHub Webhook
+
 ```env
 Secret: your_random_secret_123  # Same as GITHUB_WEBHOOK_SECRET
 ```

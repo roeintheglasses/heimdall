@@ -2,11 +2,11 @@
 
 /**
  * Railway Webhook Setup Script
- * 
+ *
  * This script sets up webhooks for Railway deployment events.
  * Railway doesn't have a direct webhook API like GitHub, so this script
  * provides instructions and utilities for manual setup.
- * 
+ *
  * Usage: node scripts/setup-railway-webhooks.js
  */
 
@@ -14,11 +14,11 @@ const readline = require('readline');
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 function question(query) {
-  return new Promise(resolve => rl.question(query, resolve));
+  return new Promise((resolve) => rl.question(query, resolve));
 }
 
 async function main() {
@@ -29,17 +29,19 @@ async function main() {
   // Get configuration
   const projectName = await question('Enter your Railway project name: ');
   const serviceName = await question('Enter your Railway service name (e.g., heimdall-backend): ');
-  const webhookUrl = await question('Enter your webhook URL (e.g., https://your-app.vercel.app/api/webhook): ');
-  
+  const webhookUrl = await question(
+    'Enter your webhook URL (e.g., https://your-app.vercel.app/api/webhook): '
+  );
+
   console.log('\n📋 Railway Webhook Configuration Instructions:\n');
-  
+
   console.log('1. Go to your Railway dashboard:');
   console.log(`   https://railway.app/project/${projectName || 'your-project'}\n`);
-  
+
   console.log('2. Navigate to your service settings:');
   console.log(`   → Select "${serviceName || 'your-service'}" service`);
   console.log('   → Go to "Settings" tab\n');
-  
+
   console.log('3. Configure Webhooks:');
   console.log('   → Scroll to "Webhooks" section');
   console.log('   → Click "Add Webhook"');
@@ -49,11 +51,11 @@ async function main() {
   console.log('     ✓ deployment.completed');
   console.log('     ✓ deployment.failed');
   console.log('     ✓ service.updated\n');
-  
+
   console.log('4. Test Configuration:');
   console.log('   → Deploy your service to trigger a webhook');
   console.log('   → Check Heimdall dashboard for Railway events\n');
-  
+
   console.log('5. Environment Variables (if needed):');
   console.log('   Set these in your Railway service:');
   console.log('   → WEBHOOK_URL=' + webhookUrl);
@@ -71,28 +73,28 @@ async function main() {
         meta: {
           branch: 'main',
           commitSha: '7f343de0a1b2c3d4e5f6789012345678901234ab',
-          commitMessage: 'Update backend service configuration'
-        }
+          commitMessage: 'Update backend service configuration',
+        },
       },
       service: {
         id: 'svc_987654321',
         name: serviceName,
-        url: `https://${serviceName}-production.up.railway.app`
+        url: `https://${serviceName}-production.up.railway.app`,
       },
       project: {
         id: 'prj_123456789',
-        name: projectName
+        name: projectName,
       },
       environment: {
-        name: 'production'
-      }
-    }
+        name: 'production',
+      },
+    },
   };
 
   // Write sample payload for testing
   const fs = require('fs');
   const testPayloadPath = './scripts/railway-test-payload.json';
-  
+
   fs.writeFileSync(testPayloadPath, JSON.stringify(samplePayload, null, 2));
   console.log(`📝 Sample Railway webhook payload saved to: ${testPayloadPath}`);
   console.log('   Use this for testing your webhook endpoint\n');
@@ -131,7 +133,9 @@ fetch('${webhookUrl}', {
   console.log('   Run: node scripts/test-railway-webhook.js\n');
 
   console.log('🎉 Setup guide complete!');
-  console.log('After configuring webhooks in Railway, your deployment events will appear in Heimdall.\n');
+  console.log(
+    'After configuring webhooks in Railway, your deployment events will appear in Heimdall.\n'
+  );
 
   rl.close();
 }

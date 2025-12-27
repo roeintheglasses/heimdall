@@ -2,10 +2,10 @@
 
 /**
  * Railway Webhook Test Script
- * 
+ *
  * This script sends a test Railway webhook payload to your Heimdall webhook endpoint
  * to verify that Railway deployment events are properly processed and displayed.
- * 
+ *
  * Usage: node scripts/test-railway-webhook.js
  */
 
@@ -13,51 +13,53 @@ const readline = require('readline');
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 function question(query) {
-  return new Promise(resolve => rl.question(query, resolve));
+  return new Promise((resolve) => rl.question(query, resolve));
 }
 
 async function main() {
   console.log('\n🚂 Testing Railway Webhook Integration\n');
-  
+
   // Get webhook URL from user
-  const webhookUrl = await question('Enter your webhook URL (default: http://localhost:3000/api/webhook): ') 
-    || 'http://localhost:3000/api/webhook';
+  const webhookUrl =
+    (await question('Enter your webhook URL (default: http://localhost:3000/api/webhook): ')) ||
+    'http://localhost:3000/api/webhook';
 
   console.log(`\nTesting webhook: ${webhookUrl}\n`);
 
   // Test Railway deployment webhook payload
   const railwayPayload = {
-    event: "deployment.completed",
+    event: 'deployment.completed',
     data: {
       deployment: {
-        id: "dep_123456789",
-        status: "DEPLOYED",
+        id: 'dep_123456789',
+        status: 'DEPLOYED',
         createdAt: new Date().toISOString(),
-        url: "https://heimdall-backend-production.up.railway.app",
+        url: 'https://heimdall-backend-production.up.railway.app',
         meta: {
-          branch: "main",
-          commitSha: "7f343de0a1b2c3d4e5f6789012345678901234ab",
-          commitMessage: "Add Railway webhook support to Heimdall\n\nThis deployment includes:\n- Railway event processing in Go backend\n- Enhanced Railway event display components\n- Webhook configuration scripts",
-          author: "Roe Choi"
-        }
+          branch: 'main',
+          commitSha: '7f343de0a1b2c3d4e5f6789012345678901234ab',
+          commitMessage:
+            'Add Railway webhook support to Heimdall\n\nThis deployment includes:\n- Railway event processing in Go backend\n- Enhanced Railway event display components\n- Webhook configuration scripts',
+          author: 'Roe Choi',
+        },
       },
       service: {
-        id: "svc_987654321",
-        name: "heimdall-backend",
-        url: "https://heimdall-backend-production.up.railway.app"
+        id: 'svc_987654321',
+        name: 'heimdall-backend',
+        url: 'https://heimdall-backend-production.up.railway.app',
       },
       project: {
-        id: "prj_123456789",
-        name: "heimdall"
+        id: 'prj_123456789',
+        name: 'heimdall',
       },
       environment: {
-        name: "production"
-      }
-    }
+        name: 'production',
+      },
+    },
   };
 
   console.log('📤 Sending Railway webhook payload...');
@@ -71,13 +73,13 @@ async function main() {
         'X-Railway-Event': 'deployment.completed',
         'X-Railway-Project': railwayPayload.data.project.id,
         'X-Railway-Service': railwayPayload.data.service.id,
-        'User-Agent': 'Railway-Webhook/1.0'
+        'User-Agent': 'Railway-Webhook/1.0',
       },
-      body: JSON.stringify(railwayPayload)
+      body: JSON.stringify(railwayPayload),
     });
 
     console.log(`\n📨 Response: ${response.status} ${response.statusText}`);
-    
+
     if (response.ok) {
       const responseData = await response.text();
       console.log('✅ Railway webhook test successful!');
@@ -95,7 +97,7 @@ async function main() {
       const errorText = await response.text();
       console.error('❌ Railway webhook test failed');
       console.error('Error:', errorText);
-      
+
       // Provide troubleshooting tips
       console.log('\n🔧 Troubleshooting:');
       console.log('1. Make sure your Heimdall app is running (npm run dev)');
@@ -104,7 +106,6 @@ async function main() {
       console.log('4. Check the backend Go service is running and accessible');
       console.log('5. Look at the application logs for detailed error information');
     }
-    
   } catch (error) {
     console.error('❌ Network error sending Railway webhook:', error.message);
     console.log('\n🔧 Troubleshooting:');
@@ -115,25 +116,25 @@ async function main() {
 
   // Test additional Railway event types
   const testAdditionalEvents = await question('\nTest additional Railway event types? (y/N): ');
-  
+
   if (testAdditionalEvents.toLowerCase() === 'y') {
     console.log('\n🧪 Testing deployment.failed event...');
-    
+
     const failedPayload = {
       ...railwayPayload,
-      event: "deployment.failed",
+      event: 'deployment.failed',
       data: {
         ...railwayPayload.data,
         deployment: {
           ...railwayPayload.data.deployment,
-          status: "DEPLOY_FAILED",
+          status: 'DEPLOY_FAILED',
           meta: {
             ...railwayPayload.data.deployment.meta,
-            commitMessage: "Fix Railway deployment configuration",
-            error: "Build failed: missing environment variable"
-          }
-        }
-      }
+            commitMessage: 'Fix Railway deployment configuration',
+            error: 'Build failed: missing environment variable',
+          },
+        },
+      },
     };
 
     try {
@@ -143,9 +144,9 @@ async function main() {
           'Content-Type': 'application/json',
           'X-Railway-Event': 'deployment.failed',
           'X-Railway-Project': failedPayload.data.project.id,
-          'X-Railway-Service': failedPayload.data.service.id
+          'X-Railway-Service': failedPayload.data.service.id,
         },
-        body: JSON.stringify(failedPayload)
+        body: JSON.stringify(failedPayload),
       });
 
       if (failedResponse.ok) {

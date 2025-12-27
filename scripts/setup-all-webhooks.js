@@ -2,12 +2,12 @@
 
 /**
  * Universal Webhook Setup Script
- * 
+ *
  * This script sets up webhooks for all supported platforms:
  * - GitHub repositories (pushes, releases)
  * - Vercel projects (deployments)
  * - Railway services (deployments)
- * 
+ *
  * Usage:
  *   node scripts/setup-all-webhooks.js [--platform=github,vercel,railway]
  *   node scripts/setup-all-webhooks.js --help
@@ -25,7 +25,7 @@ const colors = {
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
   magenta: '\x1b[35m',
-  cyan: '\x1b[36m'
+  cyan: '\x1b[36m',
 };
 
 class UniversalWebhookManager {
@@ -41,17 +41,16 @@ class UniversalWebhookManager {
   async runScript(scriptName, platform) {
     const scriptPath = path.join(__dirname, scriptName);
     this.log(`\n🚀 Running ${platform} webhook setup...`, 'cyan');
-    
+
     try {
-      const output = execSync(`node "${scriptPath}"`, { 
+      const output = execSync(`node "${scriptPath}"`, {
         encoding: 'utf8',
-        stdio: 'pipe'
+        stdio: 'pipe',
       });
-      
+
       console.log(output);
       this.results[platform] = { status: 'success', output };
       this.log(`✅ ${platform} webhook setup completed successfully!`, 'green');
-      
     } catch (error) {
       const errorOutput = error.stdout || error.stderr || error.message;
       console.error(errorOutput);
@@ -76,7 +75,7 @@ class UniversalWebhookManager {
 
     if (issues.length > 0) {
       this.log('\n❌ Prerequisites not met:', 'red');
-      issues.forEach(issue => this.log(`  • ${issue}`, 'red'));
+      issues.forEach((issue) => this.log(`  • ${issue}`, 'red'));
       this.log('\nPlease resolve these issues and try again.', 'yellow');
       this.log('Run with --help for setup instructions.', 'blue');
       return false;
@@ -85,7 +84,6 @@ class UniversalWebhookManager {
     this.log('✅ All prerequisites met!', 'green');
     return true;
   }
-
 
   async run() {
     this.log(`${colors.bright}🌐 Universal Webhook Manager${colors.reset}`, 'magenta');
@@ -108,7 +106,10 @@ class UniversalWebhookManager {
 
     if (this.platforms.includes('railway')) {
       this.log('\n🚂 Railway webhook setup...', 'cyan');
-      this.log('ℹ️  Railway webhooks need to be configured manually in the Railway dashboard.', 'yellow');
+      this.log(
+        'ℹ️  Railway webhooks need to be configured manually in the Railway dashboard.',
+        'yellow'
+      );
       this.log('📖 See RAILWAY_WEBHOOK_SETUP.md for detailed instructions.', 'blue');
     }
 
@@ -127,11 +128,11 @@ class UniversalWebhookManager {
       this.log(`${status} ${platform}: ${result.status}`, color);
     }
 
-    const successCount = Object.values(this.results).filter(r => r.status === 'success').length;
+    const successCount = Object.values(this.results).filter((r) => r.status === 'success').length;
     const totalCount = Object.keys(this.results).length;
 
     this.log('\n🎯 Next Steps:', 'cyan');
-    
+
     if (successCount === totalCount && totalCount > 0) {
       this.log('✅ All webhook setups completed successfully!', 'green');
       this.log('🔥 Your projects will now send deployment events to Heimdall.', 'green');
@@ -158,16 +159,21 @@ function parseArgs() {
 
   for (const arg of args) {
     if (arg.startsWith('--platform=')) {
-      platforms = arg.split('=')[1].split(',').map(p => p.trim().toLowerCase());
+      platforms = arg
+        .split('=')[1]
+        .split(',')
+        .map((p) => p.trim().toLowerCase());
     }
   }
 
   // Validate platforms
   const validPlatforms = ['github', 'vercel', 'railway'];
-  const invalidPlatforms = platforms.filter(p => !validPlatforms.includes(p));
-  
+  const invalidPlatforms = platforms.filter((p) => !validPlatforms.includes(p));
+
   if (invalidPlatforms.length > 0) {
-    console.error(`${colors.red}❌ Invalid platforms: ${invalidPlatforms.join(', ')}${colors.reset}`);
+    console.error(
+      `${colors.red}❌ Invalid platforms: ${invalidPlatforms.join(', ')}${colors.reset}`
+    );
     console.error(`${colors.yellow}Valid platforms: ${validPlatforms.join(', ')}${colors.reset}`);
     process.exit(1);
   }
@@ -233,7 +239,7 @@ ${colors.cyan}Environment Variables:${colors.reset}
 // Main execution
 async function main() {
   const { platforms } = parseArgs();
-  
+
   const manager = new UniversalWebhookManager(platforms);
   await manager.run();
 }
@@ -246,7 +252,7 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
 
 // Run the script
 if (require.main === module) {
-  main().catch(error => {
+  main().catch((error) => {
     console.error(`${colors.red}💥 Unhandled error: ${error.message}${colors.reset}`);
     process.exit(1);
   });

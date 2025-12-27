@@ -2,17 +2,17 @@
 
 /**
  * Heimdall Webhook Automation Script
- * 
+ *
  * This script automatically adds the Heimdall webhook to all your GitHub repositories.
  * It uses the GitHub API to list your repos and configure webhooks for each one.
- * 
+ *
  * Prerequisites:
  * - GitHub Personal Access Token with 'repo' and 'admin:repo_hook' scopes
  * - Node.js environment
- * 
+ *
  * Usage:
  *   node scripts/add-webhooks.js
- * 
+ *
  * Environment Variables:
  *   GITHUB_TOKEN - Your GitHub Personal Access Token
  *   WEBHOOK_URL - Your Heimdall webhook URL (optional, defaults to production)
@@ -36,7 +36,7 @@ const colors = {
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
   magenta: '\x1b[35m',
-  cyan: '\x1b[36m'
+  cyan: '\x1b[36m',
 };
 
 class GitHubWebhookManager {
@@ -48,7 +48,7 @@ class GitHubWebhookManager {
       total: 0,
       added: 0,
       skipped: 0,
-      errors: 0
+      errors: 0,
     };
   }
 
@@ -62,16 +62,16 @@ class GitHubWebhookManager {
       const options = {
         method,
         headers: {
-          'Authorization': `token ${this.token}`,
+          Authorization: `token ${this.token}`,
           'User-Agent': 'Heimdall-Webhook-Manager/1.0',
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json'
-        }
+          Accept: 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
       };
 
       const req = https.request(url, options, (res) => {
         let body = '';
-        res.on('data', chunk => body += chunk);
+        res.on('data', (chunk) => (body += chunk));
         res.on('end', () => {
           try {
             const parsed = body ? JSON.parse(body) : {};
@@ -91,23 +91,26 @@ class GitHubWebhookManager {
       if (data) {
         req.write(JSON.stringify(data));
       }
-      
+
       req.end();
     });
   }
 
   async getUserRepos() {
     this.log('\n🔍 Fetching your repositories...', 'cyan');
-    
+
     let allRepos = [];
     let page = 1;
     let hasMore = true;
 
     while (hasMore) {
       try {
-        const response = await this.makeRequest('GET', `/user/repos?per_page=100&page=${page}&sort=updated`);
+        const response = await this.makeRequest(
+          'GET',
+          `/user/repos?per_page=100&page=${page}&sort=updated`
+        );
         const repos = response.data;
-        
+
         if (repos.length === 0) {
           hasMore = false;
         } else {
@@ -120,9 +123,12 @@ class GitHubWebhookManager {
     }
 
     // Filter out forks unless you want to include them
-    const ownRepos = allRepos.filter(repo => !repo.fork);
-    
-    this.log(`📚 Found ${ownRepos.length} repositories (${allRepos.length - ownRepos.length} forks excluded)`, 'green');
+    const ownRepos = allRepos.filter((repo) => !repo.fork);
+
+    this.log(
+      `📚 Found ${ownRepos.length} repositories (${allRepos.length - ownRepos.length} forks excluded)`,
+      'green'
+    );
     return ownRepos;
   }
 
@@ -147,12 +153,16 @@ class GitHubWebhookManager {
         url: this.webhookUrl,
         content_type: 'json',
         secret: this.webhookSecret,
-        insecure_ssl: '0'
-      }
+        insecure_ssl: '0',
+      },
     };
 
     try {
-      const response = await this.makeRequest('POST', `/repos/${repo.full_name}/hooks`, webhookPayload);
+      const response = await this.makeRequest(
+        'POST',
+        `/repos/${repo.full_name}/hooks`,
+        webhookPayload
+      );
       return response.data;
     } catch (error) {
       throw error;
@@ -161,12 +171,12 @@ class GitHubWebhookManager {
 
   async processRepository(repo) {
     this.stats.total++;
-    
+
     try {
       // Check if webhook already exists
       const existingHooks = await this.getExistingWebhooks(repo);
-      const heimdallHook = existingHooks.find(hook => 
-        hook.config && hook.config.url === this.webhookUrl
+      const heimdallHook = existingHooks.find(
+        (hook) => hook.config && hook.config.url === this.webhookUrl
       );
 
       if (heimdallHook) {
@@ -180,7 +190,6 @@ class GitHubWebhookManager {
       this.log(`  ✅ Added webhook to ${repo.name}`, 'green');
       this.stats.added++;
       return { repo: repo.name, status: 'added' };
-
     } catch (error) {
       this.log(`  ❌ Failed to add webhook to ${repo.name}: ${error.message}`, 'red');
       this.stats.errors++;
@@ -197,7 +206,7 @@ class GitHubWebhookManager {
 
       // Get all repositories
       const repos = await this.getUserRepos();
-      
+
       if (repos.length === 0) {
         this.log('📭 No repositories found to process.', 'yellow');
         return;
@@ -206,27 +215,26 @@ class GitHubWebhookManager {
       // Process each repository
       this.log('\n🔧 Processing repositories...', 'cyan');
       const results = [];
-      
+
       for (const repo of repos) {
         const result = await this.processRepository(repo);
         results.push(result);
-        
+
         // Add a small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       // Print summary
       this.printSummary();
-      
+
       // Print detailed results if there were errors
-      const errors = results.filter(r => r.status === 'error');
+      const errors = results.filter((r) => r.status === 'error');
       if (errors.length > 0) {
         this.log('\n❌ Repositories with errors:', 'red');
-        errors.forEach(error => {
+        errors.forEach((error) => {
           this.log(`  • ${error.repo}: ${error.error}`, 'red');
         });
       }
-
     } catch (error) {
       this.log(`\n💥 Fatal error: ${error.message}`, 'red');
       process.exit(1);
@@ -239,7 +247,7 @@ class GitHubWebhookManager {
     this.log(`  ✅ Webhooks added: ${this.stats.added}`, 'green');
     this.log(`  ⏭️  Already existed: ${this.stats.skipped}`, 'yellow');
     this.log(`  ❌ Errors: ${this.stats.errors}`, 'red');
-    
+
     if (this.stats.errors === 0) {
       this.log('\n🎉 All done! Your repositories are now connected to Heimdall.', 'green');
     } else {
@@ -252,7 +260,9 @@ class GitHubWebhookManager {
 function validateEnvironment() {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
-    console.error(`${colors.red}❌ Error: GITHUB_TOKEN environment variable is required.${colors.reset}`);
+    console.error(
+      `${colors.red}❌ Error: GITHUB_TOKEN environment variable is required.${colors.reset}`
+    );
     console.error(`${colors.yellow}
 Please create a GitHub Personal Access Token with the following scopes:
   • repo (Full control of private repositories)  
@@ -280,23 +290,29 @@ async function main() {
   try {
     const dotenv = require('dotenv');
     const result = dotenv.config();
-    
+
     if (result.parsed) {
-      console.log(`${colors.green}✅ Loaded .env file with ${Object.keys(result.parsed).length} variables${colors.reset}`);
+      console.log(
+        `${colors.green}✅ Loaded .env file with ${Object.keys(result.parsed).length} variables${colors.reset}`
+      );
     }
   } catch (err) {
     // dotenv not available, continue without it
-    console.log(`${colors.yellow}⚠️  .env file support not available: ${err.message}${colors.reset}`);
+    console.log(
+      `${colors.yellow}⚠️  .env file support not available: ${err.message}${colors.reset}`
+    );
   }
 
   const token = validateEnvironment();
   const webhookUrl = process.env.WEBHOOK_URL || DEFAULT_WEBHOOK_URL;
   const webhookSecret = process.env.WEBHOOK_SECRET || DEFAULT_WEBHOOK_SECRET;
-  
+
   if (webhookSecret === DEFAULT_WEBHOOK_SECRET) {
-    console.log(`${colors.yellow}⚠️  Using default webhook secret. For production, set a custom WEBHOOK_SECRET environment variable.${colors.reset}`);
+    console.log(
+      `${colors.yellow}⚠️  Using default webhook secret. For production, set a custom WEBHOOK_SECRET environment variable.${colors.reset}`
+    );
   }
-  
+
   const manager = new GitHubWebhookManager(token, webhookUrl, webhookSecret);
   await manager.run();
 }
@@ -334,7 +350,7 @@ ${colors.cyan}Examples:${colors.reset}
 
 // Run the script
 if (require.main === module) {
-  main().catch(error => {
+  main().catch((error) => {
     console.error(`${colors.red}💥 Unhandled error: ${error.message}${colors.reset}`);
     process.exit(1);
   });

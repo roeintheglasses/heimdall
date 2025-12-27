@@ -5,18 +5,22 @@ This directory contains automation scripts for managing Heimdall webhooks across
 ## 🚀 Quick Start
 
 ### 1. Get a GitHub Token
+
 Create a GitHub Personal Access Token at: https://github.com/settings/tokens
 
 **Required scopes:**
+
 - `repo` (Full control of private repositories)
 - `admin:repo_hook` (Full control of repository hooks)
 
 ### 2. Set Environment Variable
+
 ```bash
 export GITHUB_TOKEN="ghp_your_token_here"
 ```
 
 Or create a `.env` file in the project root:
+
 ```env
 GITHUB_TOKEN=ghp_your_token_here
 WEBHOOK_URL=https://your-custom-url.com/api/webhook    # optional
@@ -24,6 +28,7 @@ WEBHOOK_SECRET=your-secure-webhook-secret-here         # recommended
 ```
 
 ### 3. Run the Script
+
 ```bash
 # From the project root
 node scripts/add-webhooks.js
@@ -46,33 +51,37 @@ npm run add-webhooks
 
 ### Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GITHUB_TOKEN` | ✅ Yes | - | GitHub Personal Access Token |
-| `WEBHOOK_URL` | ❌ No | Production URL | Custom webhook endpoint |
-| `WEBHOOK_SECRET` | ❌ No | Built-in default | Secret for webhook payload verification |
+| Variable         | Required | Default          | Description                             |
+| ---------------- | -------- | ---------------- | --------------------------------------- |
+| `GITHUB_TOKEN`   | ✅ Yes   | -                | GitHub Personal Access Token            |
+| `WEBHOOK_URL`    | ❌ No    | Production URL   | Custom webhook endpoint                 |
+| `WEBHOOK_SECRET` | ❌ No    | Built-in default | Secret for webhook payload verification |
 
 ### Webhook Events
 
 The script configures webhooks to listen for these events:
+
 - `push` - Code pushes to any branch
 - `create` - Branch/tag creation
-- `delete` - Branch/tag deletion  
+- `delete` - Branch/tag deletion
 - `release` - Release creation/updates
 
 ## 📖 Usage Examples
 
 ### Basic Usage
+
 ```bash
 GITHUB_TOKEN="ghp_..." node scripts/add-webhooks.js
 ```
 
 ### With Custom Webhook URL and Secret
+
 ```bash
 GITHUB_TOKEN="ghp_..." WEBHOOK_URL="https://my-domain.com/webhook" WEBHOOK_SECRET="my-secret" node scripts/add-webhooks.js
 ```
 
 ### Using .env File
+
 ```bash
 # Create .env file with your token
 echo "GITHUB_TOKEN=ghp_your_token_here" > .env
@@ -110,6 +119,7 @@ node scripts/add-webhooks.js
 ## ❓ Help & Troubleshooting
 
 ### Get Help
+
 ```bash
 node scripts/add-webhooks.js --help
 ```
@@ -117,17 +127,21 @@ node scripts/add-webhooks.js --help
 ### Common Issues
 
 **"GITHUB_TOKEN environment variable is required"**
+
 - Make sure you've set the `GITHUB_TOKEN` environment variable with a valid GitHub Personal Access Token
 
 **"No admin access to repository"**
+
 - The token needs `admin:repo_hook` scope and admin access to the repository
 - For organization repos, you may need organization owner permissions
 
 **"HTTP 403: Forbidden"**
+
 - Check that your token has the correct scopes (`repo` and `admin:repo_hook`)
 - Verify the token hasn't expired
 
 **"HTTP 422: Validation Failed"**
+
 - The webhook URL might be invalid or unreachable
 - Check that your webhook endpoint is accessible from GitHub
 
@@ -149,6 +163,7 @@ The webhook secret is used to verify that webhook payloads are actually coming f
 3. **Reject requests** with invalid signatures
 
 Example verification (Node.js):
+
 ```javascript
 const crypto = require('crypto');
 
@@ -157,7 +172,7 @@ function verifyWebhookSignature(payload, signature, secret) {
     .createHmac('sha256', secret)
     .update(payload, 'utf8')
     .digest('hex');
-  
+
   return signature === `sha256=${expectedSignature}`;
 }
 ```
@@ -165,10 +180,13 @@ function verifyWebhookSignature(payload, signature, secret) {
 ## 🛠️ Advanced Usage
 
 ### Dry Run Mode
+
 To see what would happen without making changes, you can modify the script to log actions without executing them.
 
 ### Custom Events
+
 Edit the `WEBHOOK_EVENTS` array in the script to customize which events trigger the webhook.
 
 ### Include Forks
+
 To include forked repositories, remove or modify the fork filter in the `getUserRepos()` method.

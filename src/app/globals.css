@@ -98,7 +98,9 @@
 
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
     /* CRT screen effect */
     background: linear-gradient(180deg, hsl(220 15% 8%) 0%, hsl(0 0% 5%) 50%, hsl(220 15% 8%) 100%);
     min-height: 100vh;
@@ -118,23 +120,38 @@
 
   /* Neon text glow effects */
   .text-glow-cyan {
-    text-shadow: 0 0 5px hsl(180 100% 50%), 0 0 10px hsl(180 100% 50%), 0 0 20px hsl(180 100% 50%);
+    text-shadow:
+      0 0 5px hsl(180 100% 50%),
+      0 0 10px hsl(180 100% 50%),
+      0 0 20px hsl(180 100% 50%);
   }
 
   .text-glow-magenta {
-    text-shadow: 0 0 5px hsl(300 100% 50%), 0 0 10px hsl(300 100% 50%), 0 0 20px hsl(300 100% 50%);
+    text-shadow:
+      0 0 5px hsl(300 100% 50%),
+      0 0 10px hsl(300 100% 50%),
+      0 0 20px hsl(300 100% 50%);
   }
 
   .text-glow-green {
-    text-shadow: 0 0 5px hsl(120 100% 50%), 0 0 10px hsl(120 100% 50%), 0 0 20px hsl(120 100% 50%);
+    text-shadow:
+      0 0 5px hsl(120 100% 50%),
+      0 0 10px hsl(120 100% 50%),
+      0 0 20px hsl(120 100% 50%);
   }
 
   .text-glow-pink {
-    text-shadow: 0 0 5px hsl(330 100% 60%), 0 0 10px hsl(330 100% 60%), 0 0 20px hsl(330 100% 60%);
+    text-shadow:
+      0 0 5px hsl(330 100% 60%),
+      0 0 10px hsl(330 100% 60%),
+      0 0 20px hsl(330 100% 60%);
   }
 
   .text-glow-orange {
-    text-shadow: 0 0 5px hsl(30 100% 50%), 0 0 10px hsl(30 100% 50%), 0 0 20px hsl(30 100% 50%);
+    text-shadow:
+      0 0 5px hsl(30 100% 50%),
+      0 0 10px hsl(30 100% 50%),
+      0 0 20px hsl(30 100% 50%);
   }
 
   /* Retro boxy shadows */
@@ -166,11 +183,15 @@
 
   /* Neon border glow */
   .border-glow-cyan {
-    box-shadow: 0 0 5px hsl(180 100% 50%), inset 0 0 5px hsl(180 100% 50% / 0.1);
+    box-shadow:
+      0 0 5px hsl(180 100% 50%),
+      inset 0 0 5px hsl(180 100% 50% / 0.1);
   }
 
   .border-glow-magenta {
-    box-shadow: 0 0 5px hsl(300 100% 50%), inset 0 0 5px hsl(300 100% 50% / 0.1);
+    box-shadow:
+      0 0 5px hsl(300 100% 50%),
+      inset 0 0 5px hsl(300 100% 50% / 0.1);
   }
 
   /* Terminal font */
@@ -192,7 +213,8 @@
 
 /* Neon glow pulse */
 @keyframes glow-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     filter: brightness(1);
   }
@@ -204,82 +226,159 @@
 
 /* Slow pulse for indicators */
 @keyframes pulse-slow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* Float animation */
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-4px); }
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
 /* Box shadow glow */
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 5px hsl(180 100% 50%), 0 0 10px hsl(180 100% 50%); }
-  50% { box-shadow: 0 0 10px hsl(180 100% 50%), 0 0 20px hsl(180 100% 50%), 0 0 30px hsl(180 100% 50%); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 5px hsl(180 100% 50%),
+      0 0 10px hsl(180 100% 50%);
+  }
+  50% {
+    box-shadow:
+      0 0 10px hsl(180 100% 50%),
+      0 0 20px hsl(180 100% 50%),
+      0 0 30px hsl(180 100% 50%);
+  }
 }
 
 /* CRT Flicker (subtle) */
 @keyframes flicker {
-  0%, 100% { opacity: 1; }
-  92% { opacity: 1; }
-  93% { opacity: 0.9; }
-  94% { opacity: 1; }
-  97% { opacity: 0.95; }
-  98% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0.9;
+  }
+  94% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.95;
+  }
+  98% {
+    opacity: 1;
+  }
 }
 
 /* Scanline sweep */
 @keyframes scanline-sweep {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
 }
 
 /* Terminal cursor blink */
 @keyframes blink-cursor {
-  0%, 50% { border-color: hsl(180 100% 50%); }
-  51%, 100% { border-color: transparent; }
+  0%,
+  50% {
+    border-color: hsl(180 100% 50%);
+  }
+  51%,
+  100% {
+    border-color: transparent;
+  }
 }
 
 /* Glitch effect */
 @keyframes glitch {
-  0%, 100% { transform: translate(0); }
-  20% { transform: translate(-2px, 2px); }
-  40% { transform: translate(2px, -2px); }
-  60% { transform: translate(-1px, -1px); }
-  80% { transform: translate(1px, 1px); }
+  0%,
+  100% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 2px);
+  }
+  40% {
+    transform: translate(2px, -2px);
+  }
+  60% {
+    transform: translate(-1px, -1px);
+  }
+  80% {
+    transform: translate(1px, 1px);
+  }
 }
 
 /* Text reveal / typing effect */
 @keyframes text-reveal {
-  0% { clip-path: inset(0 100% 0 0); }
-  100% { clip-path: inset(0 0 0 0); }
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
 }
 
 /* Boot line animation */
 @keyframes boot-line {
-  from { width: 0; }
-  to { width: 100%; }
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
 }
 
 /* Neon flicker for text */
 @keyframes neon-flicker {
-  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+  0%,
+  19%,
+  21%,
+  23%,
+  25%,
+  54%,
+  56%,
+  100% {
     text-shadow:
       0 0 5px currentColor,
       0 0 10px currentColor,
       0 0 20px currentColor;
   }
-  20%, 24%, 55% {
+  20%,
+  24%,
+  55% {
     text-shadow: none;
   }
 }
 
 /* Phosphor fade (for heatmap cells) */
 @keyframes phosphor-fade {
-  0% { opacity: 0; transform: scale(0.8); }
-  100% { opacity: 1; transform: scale(1); }
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* === ANIMATION UTILITY CLASSES === */
@@ -366,12 +465,16 @@
 .card-terminal {
   background: linear-gradient(180deg, hsl(220 15% 12%) 0%, hsl(0 0% 5%) 100%);
   border: 2px solid hsl(180 100% 50% / 0.5);
-  box-shadow: 4px 4px 0 hsl(180 100% 50% / 0.3), inset 0 0 20px rgba(0, 255, 255, 0.02);
+  box-shadow:
+    4px 4px 0 hsl(180 100% 50% / 0.3),
+    inset 0 0 20px rgba(0, 255, 255, 0.02);
 }
 
 .card-terminal:hover {
   border-color: hsl(180 100% 50%);
-  box-shadow: 6px 6px 0 hsl(180 100% 50% / 0.5), inset 0 0 30px rgba(0, 255, 255, 0.05);
+  box-shadow:
+    6px 6px 0 hsl(180 100% 50% / 0.5),
+    inset 0 0 30px rgba(0, 255, 255, 0.05);
 }
 
 /* Terminal button base */
@@ -410,30 +513,62 @@
 
 .input-terminal:focus {
   border-color: hsl(180 100% 50%);
-  box-shadow: 0 0 10px hsl(180 100% 50% / 0.3), inset 0 0 10px rgba(0, 255, 255, 0.05);
+  box-shadow:
+    0 0 10px hsl(180 100% 50% / 0.3),
+    inset 0 0 10px rgba(0, 255, 255, 0.05);
   outline: none;
 }
 
 /* Category color classes for borders */
-.border-cat-development { border-color: hsl(180 100% 50%); }
-.border-cat-deployments { border-color: hsl(300 100% 50%); }
-.border-cat-infrastructure { border-color: hsl(120 100% 50%); }
-.border-cat-issues { border-color: hsl(30 100% 50%); }
-.border-cat-security { border-color: hsl(330 100% 60%); }
+.border-cat-development {
+  border-color: hsl(180 100% 50%);
+}
+.border-cat-deployments {
+  border-color: hsl(300 100% 50%);
+}
+.border-cat-infrastructure {
+  border-color: hsl(120 100% 50%);
+}
+.border-cat-issues {
+  border-color: hsl(30 100% 50%);
+}
+.border-cat-security {
+  border-color: hsl(330 100% 60%);
+}
 
 /* Category color classes for backgrounds */
-.bg-cat-development { background-color: hsl(180 100% 50% / 0.1); }
-.bg-cat-deployments { background-color: hsl(300 100% 50% / 0.1); }
-.bg-cat-infrastructure { background-color: hsl(120 100% 50% / 0.1); }
-.bg-cat-issues { background-color: hsl(30 100% 50% / 0.1); }
-.bg-cat-security { background-color: hsl(330 100% 60% / 0.1); }
+.bg-cat-development {
+  background-color: hsl(180 100% 50% / 0.1);
+}
+.bg-cat-deployments {
+  background-color: hsl(300 100% 50% / 0.1);
+}
+.bg-cat-infrastructure {
+  background-color: hsl(120 100% 50% / 0.1);
+}
+.bg-cat-issues {
+  background-color: hsl(30 100% 50% / 0.1);
+}
+.bg-cat-security {
+  background-color: hsl(330 100% 60% / 0.1);
+}
 
 /* Category color classes for text */
-.text-cat-development { color: hsl(180 100% 50%); }
-.text-cat-deployments { color: hsl(300 100% 50%); }
-.text-cat-infrastructure { color: hsl(120 100% 50%); }
-.text-cat-issues { color: hsl(30 100% 50%); }
-.text-cat-security { color: hsl(330 100% 60%); }
+.text-cat-development {
+  color: hsl(180 100% 50%);
+}
+.text-cat-deployments {
+  color: hsl(300 100% 50%);
+}
+.text-cat-infrastructure {
+  color: hsl(120 100% 50%);
+}
+.text-cat-issues {
+  color: hsl(30 100% 50%);
+}
+.text-cat-security {
+  color: hsl(330 100% 60%);
+}
 
 /* Retro progress bar */
 .progress-retro {
@@ -461,13 +596,13 @@
   background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
   border: 4px solid #333;
   box-shadow:
-    inset 0 0 20px rgba(0,0,0,0.5),
-    0 10px 30px rgba(0,0,0,0.5);
+    inset 0 0 20px rgba(0, 0, 0, 0.5),
+    0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .crt-screen-glass {
   border-radius: 8px;
-  box-shadow: inset 0 0 30px rgba(0,255,255,0.05);
+  box-shadow: inset 0 0 30px rgba(0, 255, 255, 0.05);
   background: linear-gradient(180deg, hsl(220 15% 8%) 0%, hsl(0 0% 5%) 50%, hsl(220 15% 8%) 100%);
 }
 
@@ -477,13 +612,13 @@
   border-radius: 4px;
   padding: 2px;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.1),
-    0 2px 4px rgba(0,0,0,0.3);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .crt-button:active {
   background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* === EVENT TYPE ANIMATION KEYFRAMES === */
@@ -520,15 +655,23 @@
 
 /* Shake with glitch effect */
 @keyframes shake-glitch {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateX(0);
     filter: none;
   }
-  10%, 30%, 50%, 70%, 90% {
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
     transform: translateX(-2px);
     filter: hue-rotate(90deg);
   }
-  20%, 40%, 60%, 80% {
+  20%,
+  40%,
+  60%,
+  80% {
     transform: translateX(2px);
     filter: hue-rotate(-90deg);
   }
@@ -536,7 +679,8 @@
 
 /* Shield pulse for security events */
 @keyframes shield-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     filter: brightness(1);
   }
@@ -558,7 +702,8 @@
 
 /* Timeline pulse for event dots */
 @keyframes timeline-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
@@ -570,14 +715,23 @@
 
 /* Typing cursor animation */
 @keyframes typing-cursor {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* Progress bar fill animation */
 @keyframes progress-fill {
-  from { width: 0%; }
-  to { width: var(--progress-width, 100%); }
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--progress-width, 100%);
+  }
 }
 
 /* Boot check appear animation */
@@ -636,11 +790,21 @@
 }
 
 /* Event glow color variants */
-.glow-cyan { --glow-color: hsl(180 100% 50%); }
-.glow-magenta { --glow-color: hsl(300 100% 50%); }
-.glow-green { --glow-color: hsl(120 100% 50%); }
-.glow-orange { --glow-color: hsl(30 100% 50%); }
-.glow-pink { --glow-color: hsl(330 100% 60%); }
+.glow-cyan {
+  --glow-color: hsl(180 100% 50%);
+}
+.glow-magenta {
+  --glow-color: hsl(300 100% 50%);
+}
+.glow-green {
+  --glow-color: hsl(120 100% 50%);
+}
+.glow-orange {
+  --glow-color: hsl(30 100% 50%);
+}
+.glow-pink {
+  --glow-color: hsl(330 100% 60%);
+}
 
 /* === KEYBOARD SELECTION STYLES === */
 
@@ -656,8 +820,14 @@
 
 /* Flash effect for shortcut feedback */
 @keyframes shortcut-flash {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; background-color: hsl(180 100% 50% / 0.2); }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+    background-color: hsl(180 100% 50% / 0.2);
+  }
 }
 
 .animate-shortcut-flash {

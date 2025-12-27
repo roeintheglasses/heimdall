@@ -9,12 +9,12 @@ services:
       POSTGRES_USER: heimdall_user
       POSTGRES_PASSWORD: heimdall_password
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U heimdall_user -d heimdall"]
+      test: ['CMD-SHELL', 'pg_isready -U heimdall_user -d heimdall']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,7 +25,7 @@ services:
       dockerfile: Dockerfile
     container_name: heimdall-go-service
     ports:
-      - "8080:8080"
+      - '8080:8080'
     environment:
       DATABASE_URL: postgres://heimdall_user:heimdall_password@postgres:5432/heimdall?sslmode=disable
       PORT: 8080

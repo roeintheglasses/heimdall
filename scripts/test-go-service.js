@@ -12,46 +12,48 @@ const GO_SERVICE_URL = process.env.GO_SERVICE_URL || 'https://heimdall-backend-p
 const testPayload = {
   type: 'github.push',
   event: {
-    "ref": "refs/heads/main",
-    "before": "0000000000000000000000000000000000000000",
-    "after": "1234567890abcdef1234567890abcdef12345678",
-    "repository": {
-      "id": 123456789,
-      "name": "test-go-service",
-      "full_name": "roeintheglasses/test-go-service",
-      "html_url": "https://github.com/roeintheglasses/test-go-service"
+    ref: 'refs/heads/main',
+    before: '0000000000000000000000000000000000000000',
+    after: '1234567890abcdef1234567890abcdef12345678',
+    repository: {
+      id: 123456789,
+      name: 'test-go-service',
+      full_name: 'roeintheglasses/test-go-service',
+      html_url: 'https://github.com/roeintheglasses/test-go-service',
     },
-    "commits": [{
-      "id": "1234567890abcdef1234567890abcdef12345678",
-      "message": "Test Go service direct webhook",
-      "timestamp": new Date().toISOString(),
-      "author": {
-        "name": "Test User",
-        "email": "test@example.com"
-      }
-    }],
-    "head_commit": {
-      "id": "1234567890abcdef1234567890abcdef12345678",
-      "message": "Test Go service direct webhook",
-      "timestamp": new Date().toISOString(),
-      "author": {
-        "name": "Test User", 
-        "email": "test@example.com"
-      }
+    commits: [
+      {
+        id: '1234567890abcdef1234567890abcdef12345678',
+        message: 'Test Go service direct webhook',
+        timestamp: new Date().toISOString(),
+        author: {
+          name: 'Test User',
+          email: 'test@example.com',
+        },
+      },
+    ],
+    head_commit: {
+      id: '1234567890abcdef1234567890abcdef12345678',
+      message: 'Test Go service direct webhook',
+      timestamp: new Date().toISOString(),
+      author: {
+        name: 'Test User',
+        email: 'test@example.com',
+      },
     },
-    "pusher": {
-      "name": "Test User",
-      "email": "test@example.com"
-    }
-  }
+    pusher: {
+      name: 'Test User',
+      email: 'test@example.com',
+    },
+  },
 };
 
 async function testGoService() {
   console.log('🧪 Testing Go service webhook endpoint directly...');
   console.log('📡 URL:', `${GO_SERVICE_URL}/api/webhook`);
-  
+
   const payloadString = JSON.stringify(testPayload);
-  
+
   return new Promise((resolve, reject) => {
     const url = new URL(`${GO_SERVICE_URL}/api/webhook`);
     const options = {
@@ -59,20 +61,20 @@ async function testGoService() {
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payloadString),
-      }
+      },
     };
 
     const req = https.request(url, options, (res) => {
       let body = '';
-      res.on('data', chunk => body += chunk);
+      res.on('data', (chunk) => (body += chunk));
       res.on('end', () => {
         console.log('📊 Response:', {
           status: res.statusCode,
           statusMessage: res.statusMessage,
           headers: res.headers,
-          body: body
+          body: body,
         });
-        
+
         if (res.statusCode >= 200 && res.statusCode < 300) {
           console.log('✅ Go service webhook test successful!');
           resolve({ status: res.statusCode, body });
@@ -96,26 +98,26 @@ async function testGoService() {
 // Test the events endpoint too
 async function testEventsEndpoint() {
   console.log('\n🔍 Testing events endpoint...');
-  
+
   return new Promise((resolve, reject) => {
     const url = new URL(`${GO_SERVICE_URL}/api/events`);
     const options = {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-      }
+      },
     };
 
     const req = https.request(url, options, (res) => {
       let body = '';
-      res.on('data', chunk => body += chunk);
+      res.on('data', (chunk) => (body += chunk));
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           const events = JSON.parse(body);
           console.log('✅ Events endpoint working!');
           console.log(`📊 Found ${events.length} events in database`);
           console.log('📋 Latest events:');
-          events.slice(0, 3).forEach(event => {
+          events.slice(0, 3).forEach((event) => {
             console.log(`  - ${event.title} (${event.created_at})`);
           });
           resolve(events);
@@ -140,14 +142,14 @@ async function main() {
   try {
     // Test events endpoint first
     await testEventsEndpoint();
-    
+
     // Test webhook endpoint
     await testGoService();
-    
+
     // Check events again to see if new event was added
     console.log('\n🔄 Checking for new events...');
     await testEventsEndpoint();
-    
+
     console.log('\n🎉 Go service is working correctly!');
   } catch (error) {
     console.error('\n💥 Go service test failed:', error.message);
