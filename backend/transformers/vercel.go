@@ -63,20 +63,37 @@ func TransformVercelDeploy(eventData json.RawMessage) (models.DashboardEvent, er
 		projectName = "Unknown Project"
 	}
 
+	// Get environment/target
+	environment := deployEvent.Payload.Target
+	if environment == "" {
+		environment = "preview"
+	}
+
 	log.Printf("Processing Vercel event - Type: %s, Project: %s, Status: %s", deployEvent.Type, projectName, status)
+
+	// Build richer title with project, status, and environment
+	title := fmt.Sprintf("%s: %s to %s", projectName, status, environment)
+
+	// Get deployment URL
+	deployURL := ""
+	if deployEvent.Payload.Deployment.URL != "" {
+		deployURL = "https://" + deployEvent.Payload.Deployment.URL
+	}
 
 	return models.DashboardEvent{
 		EventType: "vercel.deploy",
-		Title:     fmt.Sprintf("Deployment of %s", projectName),
+		Title:     title,
 		Metadata: map[string]interface{}{
-			"project":       projectName,
-			"status":        status,
-			"url":           deployEvent.Payload.Deployment.URL,
-			"deployment_id": deployEvent.Payload.Deployment.ID,
-			"target":        deployEvent.Payload.Target,
-			"plan":          deployEvent.Payload.Plan,
-			"regions":       deployEvent.Payload.Regions,
-			"event_type":    deployEvent.Type,
+			"project":        projectName,
+			"status":         status,
+			"url":            deployEvent.Payload.Deployment.URL,
+			"deployment_url": deployURL,
+			"deployment_id":  deployEvent.Payload.Deployment.ID,
+			"target":         deployEvent.Payload.Target,
+			"environment":    environment,
+			"plan":           deployEvent.Payload.Plan,
+			"regions":        deployEvent.Payload.Regions,
+			"event_type":     deployEvent.Type,
 		},
 		CreatedAt: time.Now().UTC(),
 	}, nil

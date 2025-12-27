@@ -56,11 +56,18 @@ func TransformRailwayDeploy(eventData json.RawMessage) (models.DashboardEvent, e
 		status = "DEPLOY"
 	}
 
-	// Build title
-	title := fmt.Sprintf("Railway deployment of %s", railwayEvent.Project.Name)
-	if railwayEvent.Environment.Name != "" {
-		title = fmt.Sprintf("Railway deployment of %s to %s", railwayEvent.Project.Name, railwayEvent.Environment.Name)
+	// Build richer title with project, status, and environment
+	projectName := railwayEvent.Project.Name
+	if projectName == "" {
+		projectName = "Unknown Project"
 	}
+
+	environment := railwayEvent.Environment.Name
+	if environment == "" {
+		environment = "production"
+	}
+
+	title := fmt.Sprintf("%s: %s to %s", projectName, status, environment)
 
 	metadata := map[string]interface{}{
 		"project_name":   railwayEvent.Project.Name,

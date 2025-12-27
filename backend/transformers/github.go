@@ -11,28 +11,69 @@ import (
 // TransformGitHubPush transforms a GitHub push event
 func TransformGitHubPush(eventData json.RawMessage) (models.DashboardEvent, error) {
 	var pushEvent struct {
+		Ref        string `json:"ref"`
 		Repository struct {
-			Name string `json:"name"`
+			Name    string `json:"name"`
+			HTMLURL string `json:"html_url"`
 		} `json:"repository"`
 		HeadCommit struct {
+			ID      string `json:"id"`
+			Message string `json:"message"`
+			URL     string `json:"url"`
+			Author  struct {
+				Name  string `json:"name"`
+				Email string `json:"email"`
+			} `json:"author"`
+		} `json:"head_commit"`
+		Commits []struct {
+			ID      string `json:"id"`
 			Message string `json:"message"`
 			Author  struct {
 				Name string `json:"name"`
 			} `json:"author"`
-		} `json:"head_commit"`
+		} `json:"commits"`
+		Pusher struct {
+			Name  string `json:"name"`
+			Email string `json:"email"`
+		} `json:"pusher"`
 	}
 
 	if err := json.Unmarshal(eventData, &pushEvent); err != nil {
 		return models.DashboardEvent{}, fmt.Errorf("failed to unmarshal push event: %w", err)
 	}
 
+	// Extract branch name from ref (refs/heads/main -> main)
+	branch := pushEvent.Ref
+	if len(branch) > 11 && branch[:11] == "refs/heads/" {
+		branch = branch[11:]
+	}
+
+	// Count commits
+	commitCount := len(pushEvent.Commits)
+	if commitCount == 0 {
+		commitCount = 1
+	}
+
+	// Build richer title
+	commitWord := "commit"
+	if commitCount > 1 {
+		commitWord = "commits"
+	}
+	title := fmt.Sprintf("%d %s pushed to %s/%s", commitCount, commitWord, pushEvent.Repository.Name, branch)
+
 	return models.DashboardEvent{
 		EventType: "github.push",
-		Title:     fmt.Sprintf("Push to %s", pushEvent.Repository.Name),
+		Title:     title,
 		Metadata: map[string]interface{}{
-			"repo":    pushEvent.Repository.Name,
-			"message": pushEvent.HeadCommit.Message,
-			"author":  pushEvent.HeadCommit.Author.Name,
+			"repo":           pushEvent.Repository.Name,
+			"branch":         pushEvent.Ref,
+			"message":        pushEvent.HeadCommit.Message,
+			"author":         pushEvent.HeadCommit.Author.Name,
+			"commit_sha":     pushEvent.HeadCommit.ID,
+			"commit_url":     pushEvent.HeadCommit.URL,
+			"repository_url": pushEvent.Repository.HTMLURL,
+			"commit_count":   commitCount,
+			"pusher":         pushEvent.Pusher.Name,
 		},
 		CreatedAt: time.Now().UTC(),
 	}, nil
@@ -51,9 +92,16 @@ func TransformGitHubPR(eventData json.RawMessage) (models.DashboardEvent, error)
 			State   string `json:"state"`
 			HTMLURL string `json:"html_url"`
 			Merged  bool   `json:"merged"`
+			Head    struct {
+				Ref string `json:"ref"`
+			} `json:"head"`
+			Base struct {
+				Ref string `json:"ref"`
+			} `json:"base"`
 		} `json:"pull_request"`
 		Repository struct {
-			Name string `json:"name"`
+			Name    string `json:"name"`
+			HTMLURL string `json:"html_url"`
 		} `json:"repository"`
 	}
 
@@ -61,17 +109,29 @@ func TransformGitHubPR(eventData json.RawMessage) (models.DashboardEvent, error)
 		return models.DashboardEvent{}, fmt.Errorf("failed to unmarshal PR event: %w", err)
 	}
 
+	// Build richer title with branch info
+	title := fmt.Sprintf("PR #%d %s: %s [%s -> %s]",
+		prEvent.Number,
+		prEvent.Action,
+		prEvent.PullRequest.Title,
+		prEvent.PullRequest.Head.Ref,
+		prEvent.PullRequest.Base.Ref,
+	)
+
 	return models.DashboardEvent{
 		EventType: "github.pr",
-		Title:     fmt.Sprintf("PR #%d %s: %s", prEvent.Number, prEvent.Action, prEvent.PullRequest.Title),
+		Title:     title,
 		Metadata: map[string]interface{}{
-			"repo":   prEvent.Repository.Name,
-			"action": prEvent.Action,
-			"author": prEvent.PullRequest.User.Login,
-			"state":  prEvent.PullRequest.State,
-			"pr_url": prEvent.PullRequest.HTMLURL,
-			"number": prEvent.Number,
-			"merged": prEvent.PullRequest.Merged,
+			"repo":           prEvent.Repository.Name,
+			"repository_url": prEvent.Repository.HTMLURL,
+			"action":         prEvent.Action,
+			"author":         prEvent.PullRequest.User.Login,
+			"state":          prEvent.PullRequest.State,
+			"pr_url":         prEvent.PullRequest.HTMLURL,
+			"number":         prEvent.Number,
+			"merged":         prEvent.PullRequest.Merged,
+			"head_branch":    prEvent.PullRequest.Head.Ref,
+			"base_branch":    prEvent.PullRequest.Base.Ref,
 		},
 		CreatedAt: time.Now().UTC(),
 	}, nil
