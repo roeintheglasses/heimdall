@@ -1,192 +1,75 @@
-# Heimdall Webhook Automation
+# Heimdall Webhook Scripts
 
-This directory contains automation scripts for managing Heimdall webhooks across your GitHub repositories.
+Scripts for managing webhooks across GitHub, Vercel, and Railway.
 
-## 🚀 Quick Start
+## Available Scripts
 
-### 1. Get a GitHub Token
+| Script                    | npm Command                    | Description                             |
+| ------------------------- | ------------------------------ | --------------------------------------- |
+| `add-webhooks.js`         | `npm run add-webhooks`         | Add webhooks to all GitHub repositories |
+| `add-vercel-webhooks.js`  | `npm run add-vercel-webhooks`  | Add webhooks to all Vercel projects     |
+| `test-webhook.js`         | `npm run test-webhook`         | Test the webhook endpoint               |
+| `test-railway-webhook.js` | `npm run test-railway-webhook` | Test Railway webhook integration        |
 
-Create a GitHub Personal Access Token at: https://github.com/settings/tokens
+## Quick Start
 
-**Required scopes:**
-
-- `repo` (Full control of private repositories)
-- `admin:repo_hook` (Full control of repository hooks)
-
-### 2. Set Environment Variable
+### 1. Set Environment Variables
 
 ```bash
+# GitHub webhooks
 export GITHUB_TOKEN="ghp_your_token_here"
+
+# Vercel webhooks
+export VERCEL_TOKEN="your_vercel_token_here"
+
+# Optional overrides
+export WEBHOOK_URL="https://your-custom-url.com/api/webhook"
+export WEBHOOK_SECRET="your-secure-webhook-secret"
 ```
 
 Or create a `.env` file in the project root:
 
 ```env
 GITHUB_TOKEN=ghp_your_token_here
-WEBHOOK_URL=https://your-custom-url.com/api/webhook    # optional
-WEBHOOK_SECRET=your-secure-webhook-secret-here         # recommended
+VERCEL_TOKEN=your_vercel_token_here
+WEBHOOK_SECRET=your-webhook-secret
 ```
 
-### 3. Run the Script
+### 2. Run Scripts
 
 ```bash
-# From the project root
-node scripts/add-webhooks.js
-
-# Or using npm script
+# Add webhooks to all GitHub repos
 npm run add-webhooks
+
+# Add webhooks to all Vercel projects
+npm run add-vercel-webhooks
+
+# Test webhook endpoint
+npm run test-webhook
+
+# Test Railway webhook
+npm run test-railway-webhook
 ```
 
-## 📋 Features
+## GitHub Token Setup
 
-- **🔍 Auto-discovery**: Finds all your GitHub repositories
-- **🛡️ Smart filtering**: Excludes forks by default
-- **✅ Duplicate detection**: Skips repos that already have the webhook
-- **📊 Progress tracking**: Shows detailed status for each repository
-- **🎯 Event configuration**: Configures webhooks for push, create, delete, and release events
-- **⚡ Rate limiting**: Includes delays to respect GitHub API limits
-- **🎨 Colored output**: Easy-to-read console output with status indicators
+1. Go to https://github.com/settings/tokens
+2. Create a token with scopes:
+   - `repo` (Full control of private repositories)
+   - `admin:repo_hook` (Full control of repository hooks)
 
-## 🔧 Configuration
+## Vercel Token Setup
 
-### Environment Variables
+1. Go to https://vercel.com/account/tokens
+2. Create a new token
 
-| Variable         | Required | Default          | Description                             |
-| ---------------- | -------- | ---------------- | --------------------------------------- |
-| `GITHUB_TOKEN`   | ✅ Yes   | -                | GitHub Personal Access Token            |
-| `WEBHOOK_URL`    | ❌ No    | Production URL   | Custom webhook endpoint                 |
-| `WEBHOOK_SECRET` | ❌ No    | Built-in default | Secret for webhook payload verification |
+## Railway Webhooks
 
-### Webhook Events
+Railway requires manual webhook configuration:
 
-The script configures webhooks to listen for these events:
+1. Go to your Railway dashboard
+2. Navigate to your service settings
+3. Add webhook URL in the Webhooks section
+4. Select deployment events to monitor
 
-- `push` - Code pushes to any branch
-- `create` - Branch/tag creation
-- `delete` - Branch/tag deletion
-- `release` - Release creation/updates
-
-## 📖 Usage Examples
-
-### Basic Usage
-
-```bash
-GITHUB_TOKEN="ghp_..." node scripts/add-webhooks.js
-```
-
-### With Custom Webhook URL and Secret
-
-```bash
-GITHUB_TOKEN="ghp_..." WEBHOOK_URL="https://my-domain.com/webhook" WEBHOOK_SECRET="my-secret" node scripts/add-webhooks.js
-```
-
-### Using .env File
-
-```bash
-# Create .env file with your token
-echo "GITHUB_TOKEN=ghp_your_token_here" > .env
-
-# Run the script
-node scripts/add-webhooks.js
-```
-
-## 📊 Sample Output
-
-```
-🚀 Heimdall Webhook Manager
-📡 Webhook URL: https://heimdall-roeintheglasses.vercel.app/api/webhook
-🔐 Webhook Secret: ****************************
-🎯 Events: push, create, delete, release
-
-🔍 Fetching your repositories...
-📚 Found 25 repositories (3 forks excluded)
-
-🔧 Processing repositories...
-  ✅ Added webhook to my-awesome-project
-  ⏭️  Webhook already exists for old-project
-  ✅ Added webhook to new-experiment
-  ❌ Failed to add webhook to private-repo: No admin access
-
-📊 Summary:
-  Total repositories: 25
-  ✅ Webhooks added: 20
-  ⏭️  Already existed: 3
-  ❌ Errors: 2
-
-🎉 All done! Your repositories are now connected to Heimdall.
-```
-
-## ❓ Help & Troubleshooting
-
-### Get Help
-
-```bash
-node scripts/add-webhooks.js --help
-```
-
-### Common Issues
-
-**"GITHUB_TOKEN environment variable is required"**
-
-- Make sure you've set the `GITHUB_TOKEN` environment variable with a valid GitHub Personal Access Token
-
-**"No admin access to repository"**
-
-- The token needs `admin:repo_hook` scope and admin access to the repository
-- For organization repos, you may need organization owner permissions
-
-**"HTTP 403: Forbidden"**
-
-- Check that your token has the correct scopes (`repo` and `admin:repo_hook`)
-- Verify the token hasn't expired
-
-**"HTTP 422: Validation Failed"**
-
-- The webhook URL might be invalid or unreachable
-- Check that your webhook endpoint is accessible from GitHub
-
-## 🔒 Security Notes
-
-- **Keep your GitHub token secure** and never commit it to version control
-- **Use environment variables** or `.env` files (add `.env` to `.gitignore`)
-- **Set a custom webhook secret** for production use instead of the default
-- **Verify webhook signatures** in your webhook endpoint using the secret
-- The script only adds webhooks, it doesn't modify repository code
-- Webhooks are configured with SSL verification enabled (`insecure_ssl: '0'`)
-
-### Webhook Secret Security
-
-The webhook secret is used to verify that webhook payloads are actually coming from GitHub and not from malicious sources. Your webhook endpoint should:
-
-1. **Verify the signature** using the `X-Hub-Signature-256` header
-2. **Use the same secret** that was configured in the webhook
-3. **Reject requests** with invalid signatures
-
-Example verification (Node.js):
-
-```javascript
-const crypto = require('crypto');
-
-function verifyWebhookSignature(payload, signature, secret) {
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payload, 'utf8')
-    .digest('hex');
-
-  return signature === `sha256=${expectedSignature}`;
-}
-```
-
-## 🛠️ Advanced Usage
-
-### Dry Run Mode
-
-To see what would happen without making changes, you can modify the script to log actions without executing them.
-
-### Custom Events
-
-Edit the `WEBHOOK_EVENTS` array in the script to customize which events trigger the webhook.
-
-### Include Forks
-
-To include forked repositories, remove or modify the fork filter in the `getUserRepos()` method.
+Use `npm run test-railway-webhook` to verify your configuration.

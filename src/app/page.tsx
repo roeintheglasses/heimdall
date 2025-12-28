@@ -89,17 +89,6 @@ export default function Home() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-
-            <Link href="/api/health" className="w-full sm:w-auto">
-              <Button
-                variant="outline"
-                size="lg"
-                className="w-full gap-2 border-2 border-neon-green font-mono text-neon-green hover:bg-neon-green/10 sm:w-auto"
-              >
-                <CheckCircle className="h-4 w-4" />
-                API_HEALTH_CHECK
-              </Button>
-            </Link>
           </div>
         </div>
       </section>
@@ -115,9 +104,6 @@ export default function Home() {
             <h2 className="text-glow-cyan mb-2 font-mono text-2xl font-bold text-neon-cyan sm:text-3xl">
               DEVELOPMENT PATTERNS
             </h2>
-            <p className="font-mono text-sm text-muted-foreground">
-              GitHub-style activity visualization // 12 week history
-            </p>
           </div>
 
           <Card className="mx-auto max-w-5xl border-2 border-neon-cyan bg-terminal-black shadow-retro">

@@ -17,9 +17,8 @@
     "prepare": "husky",
     "add-webhooks": "node scripts/add-webhooks.js",
     "add-vercel-webhooks": "node scripts/add-vercel-webhooks.js",
-    "setup-all-webhooks": "node scripts/setup-all-webhooks.js",
     "test-webhook": "node scripts/test-webhook.js",
-    "check-webhooks": "node scripts/check-webhook-urls.js"
+    "test-railway-webhook": "node scripts/test-railway-webhook.js"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
