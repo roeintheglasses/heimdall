@@ -58,7 +58,7 @@ export default function ConnectionStatus({
   const StatusIcon = config.icon;
 
   return (
-    <div className="flex items-center gap-2 font-mono sm:gap-3">
+    <div className="flex flex-wrap items-center gap-1.5 font-mono xs:gap-2 sm:gap-3">
       {/* Connection Status */}
       <div
         className={cn(
@@ -85,7 +85,7 @@ export default function ConnectionStatus({
         </div>
 
         <StatusIcon className={cn('h-3 w-3', config.textColor)} />
-        <span className={cn('text-xs uppercase tracking-wider', config.textColor)}>
+        <span className={cn('text-[10px] uppercase tracking-wider xs:text-xs', config.textColor)}>
           {config.label}
         </span>
       </div>
@@ -98,7 +98,7 @@ export default function ConnectionStatus({
         )}
       >
         <Database className="h-3 w-3 text-neon-cyan" />
-        <span className="text-xs font-bold tabular-nums text-neon-cyan">
+        <span className="text-[10px] font-bold tabular-nums text-neon-cyan xs:text-xs">
           {String(eventCount).padStart(4, '0')}
         </span>
         <span className="hidden text-xs text-muted-foreground xs:inline">REC</span>

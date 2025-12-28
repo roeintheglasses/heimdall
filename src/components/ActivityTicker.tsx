@@ -112,7 +112,7 @@ export function ActivityTicker({
       {/* Scrolling content */}
       <div
         className={cn(
-          'flex items-center whitespace-nowrap py-2 pl-16',
+          'flex items-center whitespace-nowrap py-2.5 pl-14 xs:py-2 xs:pl-16',
           pauseOnHover && 'hover:animation-play-state-paused'
         )}
       >
@@ -163,7 +163,7 @@ function TickerItem({ enrichedEvent, onClick, isFirst }: TickerItemProps) {
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2 font-mono text-xs transition-opacity',
+        'flex min-h-[32px] items-center gap-1.5 px-1 font-mono text-[10px] transition-opacity xs:gap-2 xs:px-0 xs:text-xs',
         'group cursor-pointer hover:opacity-80'
       )}
     >

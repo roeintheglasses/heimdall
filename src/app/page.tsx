@@ -38,11 +38,11 @@ export default function Home() {
       </header>
 
       {/* Hero Section - Terminal boot sequence */}
-      <section className="container px-4 py-16 sm:px-6 sm:py-24 md:pt-32">
+      <section className="container px-4 py-10 sm:px-6 sm:py-24 md:pt-32">
         <div className="mx-auto max-w-4xl text-center">
           {/* ASCII Art Logo */}
-          <div className="mb-8 overflow-x-auto">
-            <pre className="text-glow-magenta inline-block text-left font-mono text-[8px] leading-tight text-neon-magenta sm:text-xs md:text-sm">
+          <div className="-mx-4 mb-6 overflow-x-auto px-4 xs:mb-8">
+            <pre className="text-glow-magenta inline-block text-left font-mono text-[5px] leading-tight text-neon-magenta xs:text-[7px] sm:text-xs md:text-sm">
               {HEIMDALL_ASCII}
             </pre>
           </div>
@@ -55,13 +55,13 @@ export default function Home() {
             REAL-TIME MONITORING v2.0
           </Badge>
 
-          <div className="mx-auto mb-8 max-w-2xl border-2 border-neon-cyan/50 bg-terminal-black p-4 text-left font-mono">
+          <div className="mx-auto mb-6 max-w-2xl border-2 border-neon-cyan/50 bg-terminal-black p-3 text-left font-mono xs:mb-8 xs:p-4">
             <TerminalPrompt prefix="$ ">
               <span className="text-neon-green">system</span>
               <span className="text-muted-foreground">::</span>
               <span className="text-neon-cyan">init</span>
             </TerminalPrompt>
-            <div className="mt-2 text-sm text-muted-foreground">
+            <div className="mt-2 text-xs text-muted-foreground xs:text-sm">
               <p>
                 <span className="text-neon-magenta">&gt;</span> Real-time dashboard with
                 over-engineered edge pipeline
@@ -130,7 +130,7 @@ export default function Home() {
               </div>
               <span className="font-mono text-xs text-neon-cyan">HEATMAP.EXE</span>
             </div>
-            <CardContent className="p-6">
+            <CardContent className="p-4 xs:p-6">
               <ActivityHeatmap />
             </CardContent>
           </Card>

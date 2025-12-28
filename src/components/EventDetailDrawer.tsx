@@ -199,7 +199,11 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-lg" hideCloseButton>
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col p-0 xs:w-[90vw] sm:max-w-lg"
+        hideCloseButton
+      >
         {/* Terminal-style header */}
         <SheetHeader className="flex-row items-center justify-between pr-4">
           <SheetTitle className="flex items-center gap-2">
@@ -220,7 +224,7 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
         <SheetDescription className="sr-only">Detailed view of {event.title}</SheetDescription>
 
         {/* Event Header */}
-        <div className="border-b border-neon-cyan/30 px-4 py-3">
+        <div className="border-b border-neon-cyan/30 px-3 py-2 xs:px-4 xs:py-3">
           <div className="flex items-start gap-3">
             <div
               className={cn(
@@ -258,32 +262,32 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
 
         {/* Tabs Content */}
         <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
-          <TabsList className="mx-4 mt-4 grid w-auto grid-cols-3 border border-neon-cyan/30 bg-terminal-black">
+          <TabsList className="mx-3 mt-3 grid w-auto grid-cols-3 border border-neon-cyan/30 bg-terminal-black xs:mx-4 xs:mt-4">
             <TabsTrigger
               value="overview"
-              className="text-xs data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan"
+              className="text-[10px] data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan xs:text-xs"
             >
-              <Info className="mr-1 h-3 w-3" />
-              Overview
+              <Info className="h-3 w-3 xs:mr-1" />
+              <span className="hidden xs:inline">Overview</span>
             </TabsTrigger>
             <TabsTrigger
               value="details"
-              className="text-xs data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan"
+              className="text-[10px] data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan xs:text-xs"
             >
-              <List className="mr-1 h-3 w-3" />
-              Details
+              <List className="h-3 w-3 xs:mr-1" />
+              <span className="hidden xs:inline">Details</span>
             </TabsTrigger>
             <TabsTrigger
               value="raw"
-              className="text-xs data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan"
+              className="text-[10px] data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan xs:text-xs"
             >
-              <FileJson className="mr-1 h-3 w-3" />
-              Raw
+              <FileJson className="h-3 w-3 xs:mr-1" />
+              <span className="hidden xs:inline">Raw</span>
             </TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-y-auto">
-            <TabsContent value="overview" className="m-0 space-y-4 p-4">
+            <TabsContent value="overview" className="m-0 space-y-3 p-3 xs:space-y-4 xs:p-4">
               {/* Quick Actions */}
               {(directLinks.length > 0 || copyableFields.length > 0) && (
                 <div className="space-y-3">

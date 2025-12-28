@@ -100,7 +100,7 @@ export default function MobileFilterSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="h-[90vh] rounded-t-2xl border-t-2 border-neon-cyan p-0"
+        className="h-[90dvh] rounded-t-2xl border-t-2 border-neon-cyan p-0"
       >
         {/* Header */}
         <SheetHeader className="flex-row items-center justify-between border-b border-neon-cyan/30 px-4 py-3">
@@ -139,159 +139,163 @@ export default function MobileFilterSheet({
           Filter events by category, service, time range, status, or search query
         </SheetDescription>
 
-        <div className="max-h-[calc(90vh-60px)] space-y-6 overflow-y-auto p-4">
-          {/* Active Filter Chips */}
-          {hasActiveFilters() && (
-            <div className="space-y-2">
-              <label className="font-mono text-xs text-muted-foreground">ACTIVE::FILTERS</label>
-              <ActiveFilterChips />
-            </div>
-          )}
-
-          {/* Search */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 font-mono text-xs text-neon-cyan">
-              <Search className="h-3 w-3" />
-              SEARCH
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neon-cyan" />
-              <Input
-                value={localSearchValue}
-                onChange={(e) => setLocalSearchValue(e.target.value)}
-                placeholder="SEARCH_EVENTS..."
-                className={cn(
-                  'h-10 border-2 bg-terminal-black pl-10 pr-10 font-mono text-sm',
-                  localSearchValue
-                    ? 'border-neon-green text-neon-green'
-                    : 'border-muted-foreground/30'
-                )}
-              />
-              {localSearchValue && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClearSearch}
-                  className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 p-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Services */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 font-mono text-xs text-neon-magenta">
-              <Terminal className="h-3 w-3" />
-              SERVICES
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {/* All Services Button */}
-              <Button
-                variant="outline"
-                onClick={() => setFilter({ selectedService: null })}
-                className={cn(
-                  'h-auto flex-col gap-1 py-3 font-mono text-xs',
-                  'border-2 transition-all',
-                  !filter.selectedService
-                    ? 'border-neon-cyan bg-neon-cyan/20 text-neon-cyan'
-                    : 'border-muted hover:border-neon-cyan/50'
-                )}
-              >
-                <span className="flex items-center gap-1">
-                  {!filter.selectedService && <Check className="h-3 w-3" />}
-                  <Globe className="h-3 w-3" />
-                  ALL
-                </span>
-              </Button>
-              {services.map((service) => {
-                const isSelected = filter.selectedService === service.id;
-                const count = serviceStats[service.id] || 0;
-
-                return (
-                  <Button
-                    key={service.id}
-                    variant="outline"
-                    onClick={() => handleServiceClick(service.id)}
-                    className={cn(
-                      'h-auto flex-col gap-1 py-3 font-mono text-xs',
-                      'border-2 transition-all',
-                      isSelected
-                        ? `${service.border} ${service.bg} ${service.text}`
-                        : 'border-muted hover:border-neon-cyan/50'
-                    )}
-                  >
-                    <span className="flex items-center gap-1">
-                      {isSelected && <Check className="h-3 w-3" />}
-                      {service.name.toUpperCase()}
-                    </span>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {count}
-                    </Badge>
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Categories */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 font-mono text-xs text-neon-green">
-              <Filter className="h-3 w-3" />
-              CATEGORIES
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {categories.map((category) => {
-                const isSelected = filter.selectedCategory === category.id;
-                const count = categoryStats[category.id] || 0;
-
-                return (
-                  <Button
-                    key={category.id}
-                    variant="outline"
-                    onClick={() => handleCategoryClick(category.id)}
-                    className={cn(
-                      'h-auto flex-col gap-1 py-3 font-mono text-xs',
-                      'justify-start border-2 transition-all',
-                      isSelected
-                        ? 'border-neon-cyan bg-neon-cyan/20 text-neon-cyan'
-                        : 'border-muted hover:border-neon-cyan/50'
-                    )}
-                  >
-                    <span className="flex items-center gap-1">
-                      {isSelected && <Check className="h-3 w-3" />}
-                      {category.name.toUpperCase()}
-                    </span>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {count}
-                    </Badge>
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Time Range Filter */}
-          <DateRangeFilter />
-
-          {/* Status Filter */}
-          <StatusFilter />
-
-          {/* Repository Filter */}
-          <RepositoryFilter />
-
-          {/* Apply Button */}
-          <Button
-            onClick={() => onOpenChange(false)}
-            className={cn(
-              'h-12 w-full font-mono text-sm',
-              'border-2 border-neon-cyan bg-neon-cyan/20',
-              'text-neon-cyan hover:bg-neon-cyan/30'
+        <div className="flex max-h-[calc(90dvh-60px)] flex-col overflow-y-auto p-4">
+          <div className="flex-1 space-y-6">
+            {/* Active Filter Chips */}
+            {hasActiveFilters() && (
+              <div className="space-y-2">
+                <label className="font-mono text-xs text-muted-foreground">ACTIVE::FILTERS</label>
+                <ActiveFilterChips />
+              </div>
             )}
-          >
-            APPLY FILTERS
-          </Button>
+
+            {/* Search */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 font-mono text-xs text-neon-cyan">
+                <Search className="h-3 w-3" />
+                SEARCH
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neon-cyan" />
+                <Input
+                  value={localSearchValue}
+                  onChange={(e) => setLocalSearchValue(e.target.value)}
+                  placeholder="SEARCH_EVENTS..."
+                  className={cn(
+                    'h-12 border-2 bg-terminal-black pl-10 pr-10 font-mono text-base',
+                    localSearchValue
+                      ? 'border-neon-green text-neon-green'
+                      : 'border-muted-foreground/30'
+                  )}
+                />
+                {localSearchValue && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearSearch}
+                    className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 p-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Services */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 font-mono text-xs text-neon-magenta">
+                <Terminal className="h-3 w-3" />
+                SERVICES
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {/* All Services Button */}
+                <Button
+                  variant="outline"
+                  onClick={() => setFilter({ selectedService: null })}
+                  className={cn(
+                    'h-auto flex-col gap-1 py-3 font-mono text-xs',
+                    'border-2 transition-all',
+                    !filter.selectedService
+                      ? 'border-neon-cyan bg-neon-cyan/20 text-neon-cyan'
+                      : 'border-muted hover:border-neon-cyan/50'
+                  )}
+                >
+                  <span className="flex items-center gap-1">
+                    {!filter.selectedService && <Check className="h-3 w-3" />}
+                    <Globe className="h-3 w-3" />
+                    ALL
+                  </span>
+                </Button>
+                {services.map((service) => {
+                  const isSelected = filter.selectedService === service.id;
+                  const count = serviceStats[service.id] || 0;
+
+                  return (
+                    <Button
+                      key={service.id}
+                      variant="outline"
+                      onClick={() => handleServiceClick(service.id)}
+                      className={cn(
+                        'h-auto flex-col gap-1 py-3 font-mono text-xs',
+                        'border-2 transition-all',
+                        isSelected
+                          ? `${service.border} ${service.bg} ${service.text}`
+                          : 'border-muted hover:border-neon-cyan/50'
+                      )}
+                    >
+                      <span className="flex items-center gap-1">
+                        {isSelected && <Check className="h-3 w-3" />}
+                        {service.name.toUpperCase()}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {count}
+                      </Badge>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Categories */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 font-mono text-xs text-neon-green">
+                <Filter className="h-3 w-3" />
+                CATEGORIES
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {categories.map((category) => {
+                  const isSelected = filter.selectedCategory === category.id;
+                  const count = categoryStats[category.id] || 0;
+
+                  return (
+                    <Button
+                      key={category.id}
+                      variant="outline"
+                      onClick={() => handleCategoryClick(category.id)}
+                      className={cn(
+                        'h-auto flex-col gap-1 py-3 font-mono text-xs',
+                        'justify-start border-2 transition-all',
+                        isSelected
+                          ? 'border-neon-cyan bg-neon-cyan/20 text-neon-cyan'
+                          : 'border-muted hover:border-neon-cyan/50'
+                      )}
+                    >
+                      <span className="flex items-center gap-1">
+                        {isSelected && <Check className="h-3 w-3" />}
+                        {category.name.toUpperCase()}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {count}
+                      </Badge>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Time Range Filter */}
+            <DateRangeFilter />
+
+            {/* Status Filter */}
+            <StatusFilter />
+
+            {/* Repository Filter */}
+            <RepositoryFilter />
+          </div>
+
+          {/* Apply Button - Sticky at bottom */}
+          <div className="sticky bottom-0 mt-4 bg-terminal-black pb-[env(safe-area-inset-bottom)] pt-4">
+            <Button
+              onClick={() => onOpenChange(false)}
+              className={cn(
+                'h-14 w-full font-mono text-base',
+                'border-2 border-neon-cyan bg-neon-cyan/20',
+                'text-neon-cyan hover:bg-neon-cyan/30'
+              )}
+            >
+              APPLY FILTERS
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

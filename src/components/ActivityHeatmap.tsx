@@ -121,9 +121,9 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
   }
 
   return (
-    <div className={cn('space-y-4', className)}>
+    <div className={cn('space-y-3 xs:space-y-4', className)}>
       {/* Stats summary - Terminal style */}
-      <div className="flex items-center justify-between font-mono text-xs">
+      <div className="flex flex-col gap-2 font-mono text-[10px] xs:flex-row xs:items-center xs:justify-between xs:text-xs">
         <div className="flex items-center gap-2 text-neon-cyan">
           <Activity className="h-3 w-3" />
           <span>{String(totalEvents).padStart(4, '0')} EVENTS // 12 WEEKS</span>
@@ -134,7 +134,10 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
             {[0, 1, 2, 3, 4].map((level) => (
               <div
                 key={level}
-                className={cn('h-3 w-3 border', getLevelStyles(level as 0 | 1 | 2 | 3 | 4))}
+                className={cn(
+                  'h-2.5 w-2.5 border xs:h-3 xs:w-3',
+                  getLevelStyles(level as 0 | 1 | 2 | 3 | 4)
+                )}
               />
             ))}
           </div>
@@ -143,8 +146,8 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
       </div>
 
       {/* Heatmap grid - 12 columns (weeks) x 7 rows (days) - Pixelated style */}
-      <div className="overflow-x-auto">
-        <div className="grid min-w-[300px] grid-cols-12 gap-1">
+      <div className="-mx-1 overflow-x-auto px-1 pb-2">
+        <div className="grid min-w-[280px] grid-cols-12 gap-0.5 xs:min-w-[300px] xs:gap-1">
           {activity.map((day, index) => {
             const weekIndex = Math.floor(index / 7);
             const dayIndex = index % 7;

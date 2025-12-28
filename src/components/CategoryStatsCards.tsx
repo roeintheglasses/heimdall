@@ -112,7 +112,9 @@ export default function CategoryStatsCards({
 
   if (compact) {
     return (
-      <div className={cn('grid grid-cols-5 gap-2 sm:gap-4', className)}>
+      <div
+        className={cn('grid grid-cols-2 gap-2 xs:grid-cols-3 sm:grid-cols-5 sm:gap-4', className)}
+      >
         {sortedCategories.map((category) => {
           const count = categoryStats[category.id] || 0;
           const isSelected = isCategorySelected(category.id);
@@ -154,7 +156,7 @@ export default function CategoryStatsCards({
   }
 
   return (
-    <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5', className)}>
+    <div className={cn('grid grid-cols-1 gap-3 xs:gap-4 sm:grid-cols-2 lg:grid-cols-5', className)}>
       {sortedCategories.map((category) => {
         const count = categoryStats[category.id] || 0;
         const percentage = getCategoryPercentage(count);
@@ -197,7 +199,7 @@ export default function CategoryStatsCards({
               )}
             </div>
 
-            <div className="relative overflow-hidden p-4">
+            <div className="relative overflow-hidden p-3 xs:p-4">
               {/* Icon and count */}
               <div className="mb-4 flex items-start justify-between">
                 <div
@@ -218,19 +220,21 @@ export default function CategoryStatsCards({
                 <div className="text-right">
                   <p
                     className={cn(
-                      'font-mono text-3xl font-bold tabular-nums sm:text-4xl',
+                      'font-mono text-2xl font-bold tabular-nums xs:text-3xl sm:text-4xl',
                       neonColors.text,
                       'text-glow-cyan'
                     )}
                   >
                     {String(count).padStart(2, '0')}
                   </p>
-                  <p className="font-mono text-xs text-muted-foreground">{percentage}%</p>
+                  <p className="font-mono text-[10px] text-muted-foreground xs:text-xs">
+                    {percentage}%
+                  </p>
                 </div>
               </div>
 
               {/* Description */}
-              <p className="mb-3 font-mono text-xs leading-tight text-muted-foreground">
+              <p className="mb-3 line-clamp-2 font-mono text-[10px] leading-tight text-muted-foreground xs:text-xs">
                 {category.description}
               </p>
 

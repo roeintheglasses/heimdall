@@ -141,7 +141,7 @@ export default function NotificationCenter() {
         <div
           className={cn(
             'absolute right-0 top-full z-50 mt-2',
-            'w-80 sm:w-96',
+            'w-[calc(100vw-2rem)] max-w-80 sm:max-w-96',
             'border-2 border-neon-cyan bg-terminal-black',
             'font-mono shadow-retro',
             'duration-200 animate-in fade-in-0 slide-in-from-top-2'
@@ -166,7 +166,7 @@ export default function NotificationCenter() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
-                className="h-6 w-6 p-0 hover:bg-neon-cyan/20"
+                className="h-8 w-8 p-0 hover:bg-neon-cyan/20"
               >
                 <Filter className={cn('h-3 w-3', showFilters && 'text-neon-cyan')} />
               </Button>
@@ -175,7 +175,7 @@ export default function NotificationCenter() {
                   variant="ghost"
                   size="sm"
                   onClick={markAllAsRead}
-                  className="h-6 px-2 text-xs hover:bg-neon-cyan/20"
+                  className="h-8 px-2 text-xs hover:bg-neon-cyan/20"
                   title="Mark all as read"
                 >
                   <CheckCheck className="h-3 w-3" />
@@ -186,7 +186,7 @@ export default function NotificationCenter() {
                   variant="ghost"
                   size="sm"
                   onClick={clearAll}
-                  className="h-6 px-2 text-xs text-neon-orange hover:bg-neon-orange/20"
+                  className="h-8 px-2 text-xs text-neon-orange hover:bg-neon-orange/20"
                   title="Clear all"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -205,7 +205,7 @@ export default function NotificationCenter() {
                   size="sm"
                   onClick={() => setFilter({ ...filter, type: 'all' })}
                   className={cn(
-                    'h-6 px-2 text-[10px]',
+                    'h-8 px-3 text-[10px]',
                     filter.type === 'all' && 'bg-neon-cyan/20 text-neon-cyan'
                   )}
                 >
@@ -218,7 +218,7 @@ export default function NotificationCenter() {
                     size="sm"
                     onClick={() => setFilter({ ...filter, type: type as any })}
                     className={cn(
-                      'h-6 px-2 text-[10px]',
+                      'h-8 px-3 text-[10px]',
                       filter.type === type && `bg-${config.color}/20 text-${config.color}`
                     )}
                   >
@@ -233,7 +233,7 @@ export default function NotificationCenter() {
                   size="sm"
                   onClick={() => setFilter({ ...filter, read: 'all' })}
                   className={cn(
-                    'h-6 px-2 text-[10px]',
+                    'h-8 px-3 text-[10px]',
                     filter.read === 'all' && 'bg-neon-cyan/20 text-neon-cyan'
                   )}
                 >
@@ -244,7 +244,7 @@ export default function NotificationCenter() {
                   size="sm"
                   onClick={() => setFilter({ ...filter, read: false })}
                   className={cn(
-                    'h-6 px-2 text-[10px]',
+                    'h-8 px-3 text-[10px]',
                     filter.read === false && 'bg-neon-orange/20 text-neon-orange'
                   )}
                 >
@@ -255,7 +255,7 @@ export default function NotificationCenter() {
                   size="sm"
                   onClick={() => setFilter({ ...filter, read: true })}
                   className={cn(
-                    'h-6 px-2 text-[10px]',
+                    'h-8 px-3 text-[10px]',
                     filter.read === true && 'bg-neon-green/20 text-neon-green'
                   )}
                 >

@@ -99,10 +99,10 @@ export function EventTimeline({ events, onEventClick, className }: EventTimeline
   }, [isTimeVisible, timeToPosition]);
 
   return (
-    <div className={cn('space-y-4', className)}>
+    <div className={cn('space-y-3 xs:space-y-4', className)}>
       {/* Header with controls */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 font-mono text-xs text-neon-magenta">
+      <div className="flex flex-col gap-2 xs:flex-row xs:items-center xs:justify-between xs:gap-4">
+        <div className="flex items-center gap-2 font-mono text-[10px] text-neon-magenta xs:text-xs">
           <Terminal className="h-3 w-3" />
           <span>TIMELINE::VIEW</span>
         </div>
@@ -116,6 +116,7 @@ export function EventTimeline({ events, onEventClick, className }: EventTimeline
               onClick={() => setZoomLevel('hour')}
               icon={<Clock className="h-3 w-3" />}
               label="HOUR"
+              hideLabel
             />
             <ZoomButton
               level="day"
@@ -123,6 +124,7 @@ export function EventTimeline({ events, onEventClick, className }: EventTimeline
               onClick={() => setZoomLevel('day')}
               icon={<Calendar className="h-3 w-3" />}
               label="DAY"
+              hideLabel
             />
             <ZoomButton
               level="week"
@@ -130,6 +132,7 @@ export function EventTimeline({ events, onEventClick, className }: EventTimeline
               onClick={() => setZoomLevel('week')}
               icon={<CalendarDays className="h-3 w-3" />}
               label="WEEK"
+              hideLabel
             />
           </div>
 
@@ -268,12 +271,14 @@ function ZoomButton({
   onClick,
   icon,
   label,
+  hideLabel = false,
 }: {
   level: TimelineZoomLevel;
   currentLevel: TimelineZoomLevel;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  hideLabel?: boolean;
 }) {
   const isActive = level === currentLevel;
 
@@ -281,7 +286,7 @@ function ZoomButton({
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1 px-3 py-1.5 font-mono text-xs transition-colors',
+        'flex items-center gap-1 px-2 py-1.5 font-mono text-xs transition-colors xs:px-3',
         isActive ? 'bg-neon-cyan text-terminal-black' : 'text-neon-cyan hover:bg-neon-cyan/10'
       )}
     >

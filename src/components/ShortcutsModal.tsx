@@ -38,11 +38,43 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
       {/* Backdrop */}
       <div className="fixed inset-0 z-50 bg-terminal-black/80 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal */}
+      {/* Modal - Hidden on mobile since keyboard shortcuts are not relevant on touch devices */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {/* Mobile message */}
         <div
           className={cn(
-            'relative w-full max-w-lg',
+            'relative w-full max-w-sm sm:hidden',
+            'border-2 border-neon-cyan bg-terminal-black',
+            'font-mono shadow-retro'
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b-2 border-neon-cyan bg-neon-cyan/10 px-4 py-2">
+            <div className="flex items-center gap-2 text-neon-cyan">
+              <Keyboard className="h-4 w-4" />
+              <span className="text-sm font-bold">TOUCH_MODE</span>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 text-neon-cyan transition-colors hover:bg-neon-cyan/20"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="p-4 text-center">
+            <p className="mb-2 text-sm text-muted-foreground">
+              Keyboard shortcuts are designed for desktop use.
+            </p>
+            <p className="text-xs text-neon-cyan">
+              Use touch gestures and on-screen controls on mobile.
+            </p>
+          </div>
+        </div>
+
+        {/* Desktop modal */}
+        <div
+          className={cn(
+            'relative hidden w-full max-w-lg sm:block',
             'border-2 border-neon-cyan bg-terminal-black',
             'shadow-retro',
             'glow-cyan animate-fade-glow-pulse font-mono'
@@ -165,11 +197,14 @@ function ShortcutSection({ title, shortcuts, color }: ShortcutSectionProps) {
   );
 }
 
-// Compact keyboard hint for footer/status bar
+// Compact keyboard hint for footer/status bar - Hidden on mobile
 export function KeyboardHint({ className }: { className?: string }) {
   return (
     <div
-      className={cn('flex items-center gap-1 font-mono text-xs text-muted-foreground', className)}
+      className={cn(
+        'hidden items-center gap-1 font-mono text-xs text-muted-foreground sm:flex',
+        className
+      )}
     >
       <span>Press</span>
       <kbd className="border border-neon-cyan/50 px-1 text-neon-cyan">?</kbd>

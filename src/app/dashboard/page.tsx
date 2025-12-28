@@ -381,25 +381,25 @@ function DashboardContent() {
               </Button>
             </Link>
 
-            <div className="flex items-center gap-3">
-              <div className="border-2 border-neon-cyan bg-neon-cyan/10 p-2">
-                <Shield className="h-5 w-5 text-neon-cyan" />
+            <div className="flex items-center gap-2 xs:gap-3">
+              <div className="border-2 border-neon-cyan bg-neon-cyan/10 p-1.5 xs:p-2">
+                <Shield className="h-4 w-4 text-neon-cyan xs:h-5 xs:w-5" />
               </div>
               <div>
-                <h1 className="text-glow-cyan font-mono text-lg font-bold text-neon-cyan">
+                <h1 className="text-glow-cyan font-mono text-base font-bold text-neon-cyan xs:text-lg">
                   HEIMDALL
                 </h1>
               </div>
               <Badge
                 variant="outline"
-                className="hidden border-2 border-neon-magenta font-mono text-xs text-neon-magenta sm:inline-flex"
+                className="hidden border-2 border-neon-magenta font-mono text-xs text-neon-magenta md:inline-flex"
               >
                 DASHBOARD
               </Badge>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 xs:gap-3">
             {/* Timeline toggle */}
             <Button
               variant="ghost"

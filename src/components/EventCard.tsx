@@ -157,14 +157,21 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
         }
       }}
     >
-      <CardContent className="flex items-center gap-3 px-4 py-3">
+      <CardContent className="flex min-h-[48px] items-center gap-2 px-3 py-3 xs:gap-3 xs:px-4">
         {/* Service Icon - compact inline */}
-        <ServiceIcon service={serviceInfo} className={cn('h-4 w-4 shrink-0', neonColors.text)} />
+        <ServiceIcon
+          service={serviceInfo}
+          className={cn('h-3.5 w-3.5 shrink-0 xs:h-4 xs:w-4', neonColors.text)}
+        />
 
         {/* Event Type Badge */}
         <Badge
           variant="outline"
-          className={cn('shrink-0 px-1.5 py-0 text-xs', neonColors.text, neonColors.border)}
+          className={cn(
+            'shrink-0 px-1 py-0 text-[10px] xs:px-1.5 xs:text-xs',
+            neonColors.text,
+            neonColors.border
+          )}
         >
           {getEventTypeLabel(event.event_type || 'unknown')}
         </Badge>
@@ -172,7 +179,7 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
         {/* Title - truncated */}
         <span
           className={cn(
-            'flex-1 truncate font-mono text-sm',
+            'flex-1 truncate font-mono text-xs xs:text-sm',
             'transition-colors duration-200 group-hover:text-neon-cyan'
           )}
         >
@@ -181,7 +188,7 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
         </span>
 
         {/* Timestamp */}
-        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground xs:text-xs">
           {formatTimestamp(event.created_at)}
         </span>
       </CardContent>

@@ -862,3 +862,87 @@
     display: none;
   }
 }
+
+/* === MOBILE & TOUCH UTILITIES === */
+
+/* Safe area padding for notched devices (iPhone X+, etc.) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.px-safe {
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+}
+
+/* Touch action utilities for better mobile scrolling */
+.touch-pan-x {
+  touch-action: pan-x;
+}
+
+.touch-pan-y {
+  touch-action: pan-y;
+}
+
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Touch-friendly scrollbars */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: hsl(0 0% 5%);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: hsl(180 100% 50% / 0.3);
+  border-radius: 0;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: hsl(180 100% 50% / 0.5);
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+  .hover\:shadow-retro:hover {
+    box-shadow: none;
+    transform: none;
+  }
+
+  .hover\:shadow-retro-sm:hover {
+    box-shadow: none;
+    transform: none;
+  }
+
+  /* Disable scale transforms on hover for touch */
+  .hover\:scale-110:hover {
+    transform: none;
+  }
+}
+
+/* Landscape mode adjustments for very short viewports */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Reduce header height */
+  .sticky.top-0 {
+    @apply py-1;
+  }
+
+  /* Reduce spacing */
+  .py-6 {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+}

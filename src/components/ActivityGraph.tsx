@@ -139,30 +139,32 @@ export default function ActivityGraph({
   return (
     <Card className={cn('border-2 border-neon-cyan bg-terminal-black', className)}>
       {/* Terminal header */}
-      <div className="flex items-center justify-between border-b-2 border-neon-cyan bg-neon-cyan/10 px-4 py-2">
+      <div className="flex flex-col gap-2 border-b-2 border-neon-cyan bg-neon-cyan/10 px-3 py-2 xs:flex-row xs:items-center xs:justify-between xs:px-4">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-neon-cyan" />
-          <span className="font-mono text-xs text-neon-cyan">ACTIVITY::OSCILLOSCOPE</span>
+          <span className="font-mono text-[10px] text-neon-cyan xs:text-xs">
+            ACTIVITY::OSCILLOSCOPE
+          </span>
         </div>
-        <div className="flex items-center gap-3 font-mono text-xs">
+        <div className="flex items-center gap-2 font-mono text-[10px] xs:gap-3 xs:text-xs">
           <span className="text-muted-foreground">WINDOW: {timeWindow.toUpperCase()}</span>
           <span className="text-neon-green">{totalEvents} EVENTS</span>
         </div>
       </div>
 
-      <CardContent className="p-4">
+      <CardContent className="p-3 xs:p-4">
         {/* Legend */}
-        <div className="mb-4 flex flex-wrap gap-4 font-mono text-xs">
+        <div className="mb-3 flex flex-wrap gap-2 font-mono text-[10px] xs:mb-4 xs:gap-4 xs:text-xs">
           <div className="flex items-center gap-1">
-            <div className="h-3 w-3 bg-neon-cyan" />
+            <div className="h-2.5 w-2.5 bg-neon-cyan xs:h-3 xs:w-3" />
             <span className="text-neon-cyan">GITHUB</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="h-3 w-3 bg-neon-magenta" />
+            <div className="h-2.5 w-2.5 bg-neon-magenta xs:h-3 xs:w-3" />
             <span className="text-neon-magenta">VERCEL</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="h-3 w-3 bg-neon-green" />
+            <div className="h-2.5 w-2.5 bg-neon-green xs:h-3 xs:w-3" />
             <span className="text-neon-green">RAILWAY</span>
           </div>
         </div>
@@ -170,7 +172,7 @@ export default function ActivityGraph({
         {/* Chart */}
         <div style={{ height }}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 5, left: -15, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorGithub" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={SERVICE_COLORS.github} stopOpacity={0.4} />
@@ -194,10 +196,11 @@ export default function ActivityGraph({
 
               <XAxis
                 dataKey="time"
-                tick={{ fill: 'hsl(180, 100%, 50%)', fontSize: 10 }}
+                tick={{ fill: 'hsl(180, 100%, 50%)', fontSize: 9 }}
                 axisLine={{ stroke: 'hsl(180, 100%, 50%, 0.3)' }}
                 tickLine={{ stroke: 'hsl(180, 100%, 50%, 0.3)' }}
                 interval="preserveStartEnd"
+                tickMargin={4}
               />
 
               <YAxis
