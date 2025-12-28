@@ -170,7 +170,7 @@ func (r *EventRepository) GetStats() (models.EventStats, error) {
 			END as category,
 			COUNT(*) as count
 		FROM events
-		GROUP BY category
+		GROUP BY 1
 	`
 	categoryRows, err := r.db.Query(categoryQuery)
 	if err != nil {
@@ -190,12 +190,12 @@ func (r *EventRepository) GetStats() (models.EventStats, error) {
 	// Get events per day for last 30 days
 	dailyQuery := `
 		SELECT
-			DATE(created_at) as date,
+			TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
 			COUNT(*) as count
 		FROM events
 		WHERE created_at >= NOW() - INTERVAL '30 days'
 		GROUP BY DATE(created_at)
-		ORDER BY date ASC
+		ORDER BY DATE(created_at) ASC
 	`
 	dailyRows, err := r.db.Query(dailyQuery)
 	if err != nil {

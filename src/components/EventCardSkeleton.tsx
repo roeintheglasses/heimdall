@@ -1,42 +1,22 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function EventCardSkeleton() {
   return (
-    <Card className="border-l-4 border-l-muted/40">
-      <CardHeader className="pb-3">
-        <div className="flex items-start gap-3">
-          <Skeleton className="h-10 w-10 rounded-full" />
+    <Card className="border-2 border-l-4 border-muted/40 bg-terminal-black">
+      <CardContent className="flex items-center gap-3 px-4 py-3">
+        {/* Icon skeleton */}
+        <Skeleton className="h-4 w-4 shrink-0 rounded-sm" />
 
-          <div className="flex-1 space-y-2">
-            <div className="flex items-start justify-between gap-2">
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-5 w-16" />
-            </div>
+        {/* Badge skeleton */}
+        <Skeleton className="h-5 w-14 shrink-0 rounded-sm" />
 
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-3 w-3 rounded-full" />
-              <Skeleton className="h-3 w-20" />
-            </div>
-          </div>
-        </div>
-      </CardHeader>
+        {/* Title skeleton */}
+        <Skeleton className="h-4 flex-1" />
 
-      {/* Randomly show metadata skeleton on some cards */}
-      {Math.random() > 0.5 && (
-        <CardContent className="pt-0">
-          <div className="space-y-2 rounded-lg bg-muted/30 p-3">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-4 w-24" />
-            </div>
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-          </div>
-        </CardContent>
-      )}
+        {/* Timestamp skeleton */}
+        <Skeleton className="h-3 w-12 shrink-0" />
+      </CardContent>
     </Card>
   );
 }

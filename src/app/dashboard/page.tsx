@@ -652,8 +652,8 @@ function DashboardContent() {
                           onSelect={() => {
                             setSelectedEventIndex(index);
                             playClick();
+                            handleViewDetails(event);
                           }}
-                          onViewDetails={() => handleViewDetails(event)}
                         />
                       </div>
                     ))}

@@ -2,25 +2,11 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Terminal, Eye } from 'lucide-react';
 import { useCategories } from '@/contexts/CategoryContext';
-import { DashboardEvent, getCategoryColorClasses } from '@/types/categories';
-import { ServiceIcon, ServiceBadge } from '@/components/ServiceIcon';
+import { DashboardEvent } from '@/types/categories';
+import { ServiceIcon } from '@/components/ServiceIcon';
 import { getServiceFromEventType } from '@/types/services';
 import { cn } from '@/lib/utils';
-
-import { GitBranch, Rocket, Server, AlertCircle, Shield, FileText } from 'lucide-react';
-
-// Icon mapping for categories
-const ICON_MAP = {
-  GitBranch,
-  Rocket,
-  Server,
-  AlertCircle,
-  Shield,
-  FileText,
-} as const;
 
 // Category to neon color mapping
 const CATEGORY_NEON_COLORS: Record<
@@ -59,11 +45,6 @@ const CATEGORY_NEON_COLORS: Record<
   },
 };
 
-function CategoryIcon({ iconName, className }: { iconName: string; className?: string }) {
-  const IconComponent = ICON_MAP[iconName as keyof typeof ICON_MAP] || FileText;
-  return <IconComponent className={className} />;
-}
-
 function getNeonColors(categoryColor: string) {
   return CATEGORY_NEON_COLORS[categoryColor] || CATEGORY_NEON_COLORS.blue;
 }
@@ -72,7 +53,6 @@ interface EventCardProps {
   event: DashboardEvent;
   isSelected?: boolean;
   onSelect?: () => void;
-  onViewDetails?: () => void;
 }
 
 // Get event-specific animation class
@@ -109,12 +89,7 @@ function getEventAnimation(eventType: string, isNew: boolean): string {
   return 'animate-in slide-in-from-top-4 fade-in-0';
 }
 
-export default function EventCard({
-  event,
-  isSelected = false,
-  onSelect,
-  onViewDetails,
-}: EventCardProps) {
+export default function EventCard({ event, isSelected = false, onSelect }: EventCardProps) {
   const { getEventCategory } = useCategories();
 
   // Get animation class based on event type
@@ -123,7 +98,6 @@ export default function EventCard({
   // Get category and service info for this event
   const category = getEventCategory(event);
   const serviceInfo = getServiceFromEventType(event.event_type || 'unknown');
-  const colorClasses = getCategoryColorClasses(category.color);
   const neonColors = getNeonColors(category.color);
 
   const formatTimestamp = (timestamp: string) => {
@@ -183,119 +157,33 @@ export default function EventCard({
         }
       }}
     >
-      <CardContent className="relative p-0">
-        {/* Terminal header bar */}
-        <div
+      <CardContent className="flex items-center gap-3 px-4 py-3">
+        {/* Service Icon - compact inline */}
+        <ServiceIcon service={serviceInfo} className={cn('h-4 w-4 shrink-0', neonColors.text)} />
+
+        {/* Event Type Badge */}
+        <Badge
+          variant="outline"
+          className={cn('shrink-0 px-1.5 py-0 text-xs', neonColors.text, neonColors.border)}
+        >
+          {getEventTypeLabel(event.event_type || 'unknown')}
+        </Badge>
+
+        {/* Title - truncated */}
+        <span
           className={cn(
-            'flex items-center gap-2 border-b px-3 py-1.5',
-            neonColors.border,
-            neonColors.bg
+            'flex-1 truncate font-mono text-sm',
+            'transition-colors duration-200 group-hover:text-neon-cyan'
           )}
         >
-          <Terminal className={cn('h-3 w-3', neonColors.text)} />
-          <span className={cn('font-mono text-xs uppercase tracking-wider', neonColors.text)}>
-            {serviceInfo.name}://{getEventTypeLabel(event.event_type || 'unknown')}
-          </span>
-          <div className="flex-1" />
-          <span className="font-mono text-xs text-muted-foreground">
-            [{formatTimestamp(event.created_at)}]
-          </span>
-        </div>
+          <span className="mr-1 text-neon-magenta">&gt;</span>
+          {event.title}
+        </span>
 
-        {/* Main Content Area */}
-        <div className="relative z-10 p-4">
-          {/* Header Row */}
-          <div className="mb-3 flex items-start gap-4">
-            {/* Service Icon */}
-            <div className="relative mt-0.5 shrink-0">
-              <div
-                className={cn(
-                  'flex h-10 w-10 items-center justify-center',
-                  'border-2',
-                  neonColors.border,
-                  neonColors.bg,
-                  'transition-all duration-200',
-                  'group-hover:shadow-[0_0_10px_currentColor]'
-                )}
-              >
-                <ServiceIcon service={serviceInfo} className={cn('h-5 w-5', neonColors.text)} />
-              </div>
-
-              {/* Category indicator dot */}
-              <div
-                className={cn(
-                  'absolute -bottom-1 -right-1 h-5 w-5',
-                  'border-2 border-terminal-black',
-                  neonColors.bg,
-                  neonColors.border,
-                  'flex items-center justify-center'
-                )}
-              >
-                <CategoryIcon iconName={category.icon} className={cn('h-3 w-3', neonColors.text)} />
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="min-w-0 flex-1">
-              {/* Title */}
-              <h3
-                className={cn(
-                  'mb-2 truncate font-mono text-sm leading-tight text-foreground',
-                  'transition-colors duration-200 group-hover:text-neon-cyan'
-                )}
-              >
-                <span className="mr-2 text-neon-magenta">&gt;</span>
-                {event.title}
-              </h3>
-
-              {/* Badges Row */}
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="text-xs">
-                  {serviceInfo.name.toUpperCase()}
-                </Badge>
-                <Badge variant="secondary" className="text-xs">
-                  {getEventTypeLabel(event.event_type || 'unknown')}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={cn('text-xs', neonColors.text, neonColors.border)}
-                >
-                  {category.name.toUpperCase()}
-                </Badge>
-
-                {/* View Details Button */}
-                {onViewDetails && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewDetails();
-                    }}
-                    className={cn(
-                      'ml-auto h-6 px-2 text-xs',
-                      'border border-neon-cyan/50 hover:border-neon-cyan hover:bg-neon-cyan/10',
-                      'text-neon-cyan'
-                    )}
-                  >
-                    <Eye className="mr-1 h-3 w-3" />
-                    VIEW
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Hover Accent Bar - bottom scanline effect */}
-        <div
-          className={cn(
-            'h-1 w-full transition-all duration-200',
-            'bg-gradient-to-r from-neon-cyan via-neon-magenta to-neon-cyan',
-            'opacity-0 group-hover:opacity-100',
-            'origin-left scale-x-0 group-hover:scale-x-100'
-          )}
-        />
+        {/* Timestamp */}
+        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+          {formatTimestamp(event.created_at)}
+        </span>
       </CardContent>
     </Card>
   );
