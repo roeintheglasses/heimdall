@@ -60,7 +60,7 @@ module.exports = {
         },
         // Neon color palette
         neon: {
-          cyan: 'hsl(180 100% 50%)',
+          cyan: 'hsl(200 100% 50%)',
           magenta: 'hsl(300 100% 50%)',
           green: 'hsl(120 100% 50%)',
           pink: 'hsl(330 100% 60%)',
@@ -101,7 +101,7 @@ module.exports = {
         'retro-green': '4px 4px 0 hsl(120 100% 50%)',
         'retro-pink': '4px 4px 0 hsl(330 100% 60%)',
         'retro-orange': '4px 4px 0 hsl(30 100% 50%)',
-        'glow-cyan': '0 0 10px hsl(180 100% 50%), 0 0 20px hsl(180 100% 50%)',
+        'glow-cyan': '0 0 10px hsl(200 100% 50%), 0 0 20px hsl(200 100% 50%)',
         'glow-magenta': '0 0 10px hsl(300 100% 50%), 0 0 20px hsl(300 100% 50%)',
         'glow-green': '0 0 10px hsl(120 100% 50%), 0 0 20px hsl(120 100% 50%)',
         'inner-glow': 'inset 0 0 20px rgba(0, 255, 255, 0.05)',
@@ -255,7 +255,7 @@ module.exports = {
       // Text shadow utilities
       textShadow: {
         'glow-cyan':
-          '0 0 5px hsl(180 100% 50%), 0 0 10px hsl(180 100% 50%), 0 0 20px hsl(180 100% 50%)',
+          '0 0 5px hsl(200 100% 50%), 0 0 10px hsl(200 100% 50%), 0 0 20px hsl(200 100% 50%)',
         'glow-magenta':
           '0 0 5px hsl(300 100% 50%), 0 0 10px hsl(300 100% 50%), 0 0 20px hsl(300 100% 50%)',
         'glow-green':

@@ -6,7 +6,7 @@
   :root {
     /* === NEON COLOR PALETTE === */
     /* Primary Neon Colors */
-    --neon-cyan: 180 100% 50%;
+    --neon-cyan: 200 100% 50%;
     --neon-magenta: 300 100% 50%;
     --neon-green: 120 100% 50%;
     --neon-pink: 330 100% 60%;
@@ -121,9 +121,9 @@
   /* Neon text glow effects */
   .text-glow-cyan {
     text-shadow:
-      0 0 5px hsl(180 100% 50%),
-      0 0 10px hsl(180 100% 50%),
-      0 0 20px hsl(180 100% 50%);
+      0 0 5px hsl(200 100% 50%),
+      0 0 10px hsl(200 100% 50%),
+      0 0 20px hsl(200 100% 50%);
   }
 
   .text-glow-magenta {
@@ -184,8 +184,8 @@
   /* Neon border glow */
   .border-glow-cyan {
     box-shadow:
-      0 0 5px hsl(180 100% 50%),
-      inset 0 0 5px hsl(180 100% 50% / 0.1);
+      0 0 5px hsl(200 100% 50%),
+      inset 0 0 5px hsl(200 100% 50% / 0.1);
   }
 
   .border-glow-magenta {
@@ -791,7 +791,7 @@
 
 /* Event glow color variants */
 .glow-cyan {
-  --glow-color: hsl(180 100% 50%);
+  --glow-color: hsl(200 100% 50%);
 }
 .glow-magenta {
   --glow-color: hsl(300 100% 50%);
