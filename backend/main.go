@@ -40,10 +40,12 @@ func main() {
 	}
 	defer db.Close()
 
-	// Configure connection pool
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	// Configure connection pool for Neon (serverless Postgres)
+	// Lower values help avoid stale connections that Neon may have closed
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(2)
+	db.SetConnMaxLifetime(2 * time.Minute)  // Shorter lifetime to avoid stale connections
+	db.SetConnMaxIdleTime(30 * time.Second) // Close idle connections quickly
 
 	// Test database connection
 	if err := db.Ping(); err != nil {

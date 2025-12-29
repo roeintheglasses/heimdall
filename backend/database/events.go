@@ -1,10 +1,12 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"heimdall-backend/models"
 )
@@ -57,14 +59,25 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// Get total count
+	// Create context with timeout for retry operations
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get total count with retry
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM events %s", whereClause)
-	var total int
-	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
+
+	total, err := WithRetry(ctx, DefaultRetryConfig, func() (int, error) {
+		var count int
+		err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&count)
+		return count, err
+	})
+	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count events: %w", err)
 	}
 
-	// Get events with pagination
+	// Get events with pagination and retry
 	query := fmt.Sprintf(`
 		SELECT id, event_type, title, metadata, created_at
 		FROM events
@@ -73,35 +86,42 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 		LIMIT $%d OFFSET $%d
 	`, whereClause, argIndex, argIndex+1)
 
-	args = append(args, filter.Limit, filter.Offset)
+	queryArgs := append(args, filter.Limit, filter.Offset)
 
-	rows, err := r.db.Query(query, args...)
+	events, err := WithRetry(ctx, DefaultRetryConfig, func() ([]models.DashboardEvent, error) {
+		rows, err := r.db.QueryContext(ctx, query, queryArgs...)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		var results []models.DashboardEvent
+		for rows.Next() {
+			var event models.DashboardEvent
+			var metadataBytes []byte
+
+			err := rows.Scan(&event.ID, &event.EventType, &event.Title, &metadataBytes, &event.CreatedAt)
+			if err != nil {
+				return nil, fmt.Errorf("failed to scan event row: %w", err)
+			}
+
+			if metadataBytes != nil {
+				if err := json.Unmarshal(metadataBytes, &event.Metadata); err != nil {
+					event.Metadata = make(map[string]interface{})
+				}
+			}
+
+			results = append(results, event)
+		}
+
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+
+		return results, nil
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query events: %w", err)
-	}
-	defer rows.Close()
-
-	var events []models.DashboardEvent
-	for rows.Next() {
-		var event models.DashboardEvent
-		var metadataBytes []byte
-
-		err := rows.Scan(&event.ID, &event.EventType, &event.Title, &metadataBytes, &event.CreatedAt)
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to scan event row: %w", err)
-		}
-
-		if metadataBytes != nil {
-			if err := json.Unmarshal(metadataBytes, &event.Metadata); err != nil {
-				event.Metadata = make(map[string]interface{})
-			}
-		}
-
-		events = append(events, event)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("error iterating event rows: %w", err)
 	}
 
 	return events, total, nil
@@ -109,6 +129,16 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 
 // GetStats retrieves aggregate statistics for all events
 func (r *EventRepository) GetStats() (models.EventStats, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return WithRetry(ctx, DefaultRetryConfig, func() (models.EventStats, error) {
+		return r.getStatsInternal(ctx)
+	})
+}
+
+// getStatsInternal performs the actual stats retrieval
+func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventStats, error) {
 	stats := models.EventStats{
 		CategoryCounts: make(map[string]int),
 		ServiceCounts:  make(map[string]int),
@@ -116,19 +146,19 @@ func (r *EventRepository) GetStats() (models.EventStats, error) {
 	}
 
 	// Get total event count
-	if err := r.db.QueryRow("SELECT COUNT(*) FROM events").Scan(&stats.TotalEvents); err != nil {
+	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM events").Scan(&stats.TotalEvents); err != nil {
 		return stats, fmt.Errorf("failed to count total events: %w", err)
 	}
 
 	// Get events in last 24 hours
 	query24h := "SELECT COUNT(*) FROM events WHERE created_at >= NOW() - INTERVAL '24 hours'"
-	if err := r.db.QueryRow(query24h).Scan(&stats.Last24Hours); err != nil {
+	if err := r.db.QueryRowContext(ctx, query24h).Scan(&stats.Last24Hours); err != nil {
 		return stats, fmt.Errorf("failed to count last 24h events: %w", err)
 	}
 
 	// Get events in last week
 	queryWeek := "SELECT COUNT(*) FROM events WHERE created_at >= NOW() - INTERVAL '7 days'"
-	if err := r.db.QueryRow(queryWeek).Scan(&stats.LastWeek); err != nil {
+	if err := r.db.QueryRowContext(ctx, queryWeek).Scan(&stats.LastWeek); err != nil {
 		return stats, fmt.Errorf("failed to count last week events: %w", err)
 	}
 
@@ -140,7 +170,7 @@ func (r *EventRepository) GetStats() (models.EventStats, error) {
 		FROM events
 		GROUP BY SPLIT_PART(event_type, '.', 1)
 	`
-	serviceRows, err := r.db.Query(serviceQuery)
+	serviceRows, err := r.db.QueryContext(ctx, serviceQuery)
 	if err != nil {
 		return stats, fmt.Errorf("failed to query service counts: %w", err)
 	}
@@ -172,7 +202,7 @@ func (r *EventRepository) GetStats() (models.EventStats, error) {
 		FROM events
 		GROUP BY 1
 	`
-	categoryRows, err := r.db.Query(categoryQuery)
+	categoryRows, err := r.db.QueryContext(ctx, categoryQuery)
 	if err != nil {
 		return stats, fmt.Errorf("failed to query category counts: %w", err)
 	}
@@ -197,7 +227,7 @@ func (r *EventRepository) GetStats() (models.EventStats, error) {
 		GROUP BY DATE(created_at)
 		ORDER BY DATE(created_at) ASC
 	`
-	dailyRows, err := r.db.Query(dailyQuery)
+	dailyRows, err := r.db.QueryContext(ctx, dailyQuery)
 	if err != nil {
 		return stats, fmt.Errorf("failed to query daily counts: %w", err)
 	}
@@ -223,16 +253,20 @@ func (r *EventRepository) InsertEvent(event models.DashboardEvent) error {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	query := `
 		INSERT INTO events (event_type, title, metadata, created_at)
 		VALUES ($1, $2, $3, $4)
 	`
 
 	// Use the event's CreatedAt timestamp (set by transformer from webhook timestamp)
-	_, err = r.db.Exec(query, event.EventType, event.Title, metadataJSON, event.CreatedAt)
-	if err != nil {
-		return fmt.Errorf("failed to insert event: %w", err)
-	}
-
-	return nil
+	return WithRetryNoResult(ctx, DefaultRetryConfig, func() error {
+		_, err := r.db.ExecContext(ctx, query, event.EventType, event.Title, metadataJSON, event.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to insert event: %w", err)
+		}
+		return nil
+	})
 }
