@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Verify GitHub webhook signature if present
-    const webhookSecret = process.env.WEBHOOK_SECRET || process.env.GITHUB_WEBHOOK_SECRET;
+    const webhookSecret = process.env.WEBHOOK_SECRET;
     if (githubEvent && signature && webhookSecret) {
       console.log('Verifying webhook signature...');
       const encoder = new TextEncoder();

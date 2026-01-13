@@ -11,6 +11,30 @@ Scripts for managing webhooks across GitHub, Vercel, and Railway.
 | `test-webhook.js`         | `npm run test-webhook`         | Test the webhook endpoint               |
 | `test-railway-webhook.js` | `npm run test-railway-webhook` | Test Railway webhook integration        |
 
+## Automatic Webhook Sync
+
+A GitHub Action runs daily to automatically add webhooks to new repositories. See `.github/workflows/sync-webhooks.yml`.
+
+### Required Secrets (GitHub Actions)
+
+Add these in your repo Settings > Secrets and variables > Actions:
+
+| Secret                 | Description                                  |
+| ---------------------- | -------------------------------------------- |
+| `WEBHOOK_GITHUB_TOKEN` | GitHub PAT with `repo` and `admin:repo_hook` |
+| `WEBHOOK_SECRET`       | Secret for webhook signature verification    |
+| `VERCEL_TOKEN`         | Vercel API token (for manual Vercel sync)    |
+
+### Required Variables
+
+| Variable      | Description                                        |
+| ------------- | -------------------------------------------------- |
+| `WEBHOOK_URL` | Your Heimdall webhook URL (defaults to production) |
+
+### Manual Trigger
+
+You can manually trigger the webhook sync from Actions > Sync Webhooks > Run workflow.
+
 ## Quick Start
 
 ### 1. Set Environment Variables
@@ -41,8 +65,11 @@ WEBHOOK_SECRET=your-webhook-secret
 # Add webhooks to all GitHub repos
 npm run add-webhooks
 
-# Add webhooks to all Vercel projects
+# Add webhooks to all Vercel projects (per-project)
 npm run add-vercel-webhooks
+
+# Add account-level Vercel webhook (covers all current + future projects)
+npm run add-vercel-webhooks -- --account-level
 
 # Test webhook endpoint
 npm run test-webhook
@@ -62,6 +89,16 @@ npm run test-railway-webhook
 
 1. Go to https://vercel.com/account/tokens
 2. Create a new token
+
+### Account-Level Webhooks (Recommended)
+
+For automatic coverage of new Vercel projects, use the `--account-level` flag:
+
+```bash
+node scripts/add-vercel-webhooks.js --account-level
+```
+
+This creates a single webhook that automatically covers all current and future projects.
 
 ## Railway Webhooks
 

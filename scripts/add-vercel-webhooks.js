@@ -40,9 +40,10 @@ const colors = {
 };
 
 class VercelWebhookManager {
-  constructor(token, webhookUrl) {
+  constructor(token, webhookUrl, accountLevel = false) {
     this.token = token;
     this.webhookUrl = webhookUrl;
+    this.accountLevel = accountLevel;
     this.stats = {
       total: 0,
       added: 0,
@@ -168,76 +169,130 @@ class VercelWebhookManager {
       this.log(`${colors.bright}🚀 Vercel Webhook Manager${colors.reset}`, 'cyan');
       this.log(`📡 Webhook URL: ${this.webhookUrl}`, 'blue');
       this.log(`🎯 Events: ${WEBHOOK_EVENTS.join(', ')}`, 'blue');
+      this.log(
+        `🌐 Mode: ${this.accountLevel ? 'Account-level (all projects)' : 'Per-project'}`,
+        'blue'
+      );
 
-      // Get all projects
-      const projects = await this.getProjects();
-
-      if (projects.length === 0) {
-        this.log('📭 No Vercel projects found to process.', 'yellow');
-        return;
-      }
-
-      // Check for existing webhook that covers all projects
+      // Check for existing webhook
       this.log('\n🔍 Checking for existing webhook...', 'cyan');
       const existingHooks = await this.getExistingWebhooks();
       const existingHook = existingHooks.find((hook) => hook.url === this.webhookUrl);
 
       if (existingHook) {
+        const isAccountLevel = !existingHook.projectIds || existingHook.projectIds.length === 0;
         this.log(`✅ Found existing webhook (ID: ${existingHook.id})`, 'green');
-
-        // Check which projects are already covered
-        const coveredProjects = projects.filter(
-          (project) => existingHook.projectIds && existingHook.projectIds.includes(project.id)
-        );
-        const uncoveredProjects = projects.filter(
-          (project) => !existingHook.projectIds || !existingHook.projectIds.includes(project.id)
-        );
-
         this.log(
-          `📊 Projects already covered: ${coveredProjects.length}/${projects.length}`,
+          `   Type: ${isAccountLevel ? 'Account-level' : `Project-specific (${existingHook.projectIds?.length || 0} projects)`}`,
           'blue'
         );
 
-        if (uncoveredProjects.length === 0) {
-          this.log('🎉 All projects are already covered by the existing webhook!', 'green');
-          this.stats.skipped = projects.length;
-          this.stats.total = projects.length;
-          this.printSummary();
+        if (this.accountLevel && isAccountLevel) {
+          this.log(
+            '🎉 Account-level webhook already exists! All current and future projects are covered.',
+            'green'
+          );
           return;
         }
 
+        if (this.accountLevel && !isAccountLevel) {
+          this.log('🔄 Upgrading to account-level webhook...', 'yellow');
+          // Delete existing project-specific webhook
+          try {
+            await this.makeRequest('DELETE', `/v1/webhooks/${existingHook.id}`);
+            this.log(`🗑️  Deleted project-specific webhook (ID: ${existingHook.id})`, 'yellow');
+          } catch (error) {
+            this.log(`⚠️  Could not delete existing webhook: ${error.message}`, 'yellow');
+          }
+        }
+      }
+
+      // Create webhook
+      if (this.accountLevel) {
+        // Account-level webhook: empty projectIds array = all projects (current + future)
         this.log(
-          `🔧 Need to add ${uncoveredProjects.length} projects to existing webhook`,
-          'yellow'
+          '\n🔧 Creating account-level webhook (covers all current and future projects)...',
+          'cyan'
         );
-        // For now, we'll create a new webhook. In the future, we could update the existing one.
+
+        const webhookPayload = {
+          url: this.webhookUrl,
+          events: WEBHOOK_EVENTS,
+          // Empty projectIds array = account-level webhook for all projects
+        };
+
+        try {
+          const webhook = await this.makeRequest('POST', '/v1/webhooks', webhookPayload);
+          this.log(`✅ Created account-level webhook!`, 'green');
+          this.log(`🆔 Webhook ID: ${webhook.data.id}`, 'blue');
+          this.log(
+            '🎉 All current and future Vercel projects are now connected to Heimdall!',
+            'green'
+          );
+        } catch (error) {
+          this.log(`❌ Failed to create webhook: ${error.message}`, 'red');
+          process.exit(1);
+        }
+      } else {
+        // Per-project mode (original behavior)
+        const projects = await this.getProjects();
+
+        if (projects.length === 0) {
+          this.log('📭 No Vercel projects found to process.', 'yellow');
+          return;
+        }
+
+        if (existingHook) {
+          const coveredProjects = projects.filter(
+            (project) => existingHook.projectIds && existingHook.projectIds.includes(project.id)
+          );
+          const uncoveredProjects = projects.filter(
+            (project) => !existingHook.projectIds || !existingHook.projectIds.includes(project.id)
+          );
+
+          this.log(
+            `📊 Projects already covered: ${coveredProjects.length}/${projects.length}`,
+            'blue'
+          );
+
+          if (uncoveredProjects.length === 0) {
+            this.log('🎉 All projects are already covered by the existing webhook!', 'green');
+            this.stats.skipped = projects.length;
+            this.stats.total = projects.length;
+            this.printSummary();
+            return;
+          }
+
+          this.log(
+            `🔧 Need to add ${uncoveredProjects.length} projects to existing webhook`,
+            'yellow'
+          );
+        }
+
+        this.log('\n🔧 Creating webhook for all projects...', 'cyan');
+        const projectIds = projects.map((project) => project.id);
+
+        const webhookPayload = {
+          url: this.webhookUrl,
+          events: WEBHOOK_EVENTS,
+          projectIds: projectIds,
+        };
+
+        try {
+          const webhook = await this.makeRequest('POST', '/v1/webhooks', webhookPayload);
+          this.log(`✅ Created webhook for all ${projects.length} projects!`, 'green');
+          this.log(`🆔 Webhook ID: ${webhook.data.id}`, 'blue');
+
+          this.stats.added = projects.length;
+          this.stats.total = projects.length;
+        } catch (error) {
+          this.log(`❌ Failed to create webhook: ${error.message}`, 'red');
+          this.stats.errors = projects.length;
+          this.stats.total = projects.length;
+        }
+
+        this.printSummary();
       }
-
-      // Create webhook for all projects
-      this.log('\n🔧 Creating webhook for all projects...', 'cyan');
-      const projectIds = projects.map((project) => project.id);
-
-      const webhookPayload = {
-        url: this.webhookUrl,
-        events: WEBHOOK_EVENTS,
-        projectIds: projectIds,
-      };
-
-      try {
-        const webhook = await this.makeRequest('POST', '/v1/webhooks', webhookPayload);
-        this.log(`✅ Created webhook for all ${projects.length} projects!`, 'green');
-        this.log(`🆔 Webhook ID: ${webhook.data.id}`, 'blue');
-
-        this.stats.added = projects.length;
-        this.stats.total = projects.length;
-      } catch (error) {
-        this.log(`❌ Failed to create webhook: ${error.message}`, 'red');
-        this.stats.errors = projects.length;
-        this.stats.total = projects.length;
-      }
-
-      // Print summary
-      this.printSummary();
     } catch (error) {
       this.log(`\n💥 Fatal error: ${error.message}`, 'red');
       process.exit(1);
@@ -302,8 +357,10 @@ async function main() {
 
   const token = getVercelToken();
   const webhookUrl = process.env.WEBHOOK_URL || DEFAULT_WEBHOOK_URL;
+  const accountLevel =
+    process.argv.includes('--account-level') || process.env.VERCEL_ACCOUNT_LEVEL === 'true';
 
-  const manager = new VercelWebhookManager(token, webhookUrl);
+  const manager = new VercelWebhookManager(token, webhookUrl, accountLevel);
   await manager.run();
 }
 
@@ -320,21 +377,31 @@ ${colors.cyan}Setup:${colors.reset}
      export VERCEL_TOKEN="your_token_here"
 
 ${colors.cyan}Usage:${colors.reset}
-  node scripts/add-vercel-webhooks.js
+  node scripts/add-vercel-webhooks.js [options]
+
+${colors.cyan}Options:${colors.reset}
+  --account-level  Create an account-level webhook that automatically covers
+                   all projects (current and future). Recommended for automatic
+                   coverage of new projects.
 
 ${colors.cyan}Environment Variables:${colors.reset}
-  VERCEL_TOKEN - Your Vercel API Token (required)
-  WEBHOOK_URL  - Custom webhook URL (optional, defaults to production)
+  VERCEL_TOKEN         - Your Vercel API Token (required)
+  WEBHOOK_URL          - Custom webhook URL (optional, defaults to production)
+  VERCEL_ACCOUNT_LEVEL - Set to 'true' for account-level webhook (same as --account-level)
 
 ${colors.cyan}Examples:${colors.reset}
-  # Basic usage
+  # Per-project webhooks (original behavior)
   VERCEL_TOKEN="your_token" node scripts/add-vercel-webhooks.js
-  
+
+  # Account-level webhook (recommended - covers all current and future projects)
+  VERCEL_TOKEN="your_token" node scripts/add-vercel-webhooks.js --account-level
+
   # With custom webhook URL
-  VERCEL_TOKEN="your_token" WEBHOOK_URL="https://my-domain.com/api/webhook" node scripts/add-vercel-webhooks.js
-  
+  VERCEL_TOKEN="your_token" WEBHOOK_URL="https://my-domain.com/api/webhook" node scripts/add-vercel-webhooks.js --account-level
+
   # Using .env file
   echo "VERCEL_TOKEN=your_token" >> .env
+  echo "VERCEL_ACCOUNT_LEVEL=true" >> .env
   node scripts/add-vercel-webhooks.js
 `);
   process.exit(0);
