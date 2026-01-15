@@ -1,17 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { GitBranch, Rocket, Server, AlertCircle, Shield, Activity } from 'lucide-react';
 import { useCategories, useCategoryOperations } from '@/contexts/CategoryContext';
-import {
-  CategoryStats,
-  getCategoryColorClasses,
-  DashboardEvent,
-  extractService,
-  getServiceById,
-} from '@/types/categories';
+import { CategoryStats, DashboardEvent, extractService, getServiceById } from '@/types/categories';
 import { cn } from '@/lib/utils';
 
 interface CategoryStatsCardsProps {
@@ -82,7 +75,7 @@ export default function CategoryStatsCards({
   className = '',
   compact = false,
 }: CategoryStatsCardsProps) {
-  const { categories, filter, getEventCategory } = useCategories();
+  const { categories: _categories, filter: _filter, getEventCategory } = useCategories();
   const { getSortedCategories, selectCategory, isCategorySelected } = useCategoryOperations();
 
   const sortedCategories = getSortedCategories();

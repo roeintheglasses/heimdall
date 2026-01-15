@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"heimdall-backend/models"
 )
 
@@ -95,7 +96,8 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 		}
 		defer rows.Close()
 
-		var results []models.DashboardEvent
+		// Pre-allocate results slice to avoid growth allocations
+		results := make([]models.DashboardEvent, 0, filter.Limit)
 		for rows.Next() {
 			var event models.DashboardEvent
 			var metadataBytes []byte
@@ -107,6 +109,10 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 
 			if metadataBytes != nil {
 				if err := json.Unmarshal(metadataBytes, &event.Metadata); err != nil {
+					log.Warn().
+						Str("event_id", event.ID).
+						Err(err).
+						Msg("failed to unmarshal event metadata, using empty metadata")
 					event.Metadata = make(map[string]interface{})
 				}
 			}
@@ -137,7 +143,8 @@ func (r *EventRepository) GetStats() (models.EventStats, error) {
 	})
 }
 
-// getStatsInternal performs the actual stats retrieval
+// getStatsInternal performs the actual stats retrieval using consolidated queries
+// This uses CTEs to reduce database roundtrips from 6 to 2
 func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventStats, error) {
 	stats := models.EventStats{
 		CategoryCounts: make(map[string]int),
@@ -145,79 +152,87 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 		EventsPerDay:   []models.DailyCount{},
 	}
 
-	// Get total event count
-	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM events").Scan(&stats.TotalEvents); err != nil {
-		return stats, fmt.Errorf("failed to count total events: %w", err)
-	}
-
-	// Get events in last 24 hours
-	query24h := "SELECT COUNT(*) FROM events WHERE created_at >= NOW() - INTERVAL '24 hours'"
-	if err := r.db.QueryRowContext(ctx, query24h).Scan(&stats.Last24Hours); err != nil {
-		return stats, fmt.Errorf("failed to count last 24h events: %w", err)
-	}
-
-	// Get events in last week
-	queryWeek := "SELECT COUNT(*) FROM events WHERE created_at >= NOW() - INTERVAL '7 days'"
-	if err := r.db.QueryRowContext(ctx, queryWeek).Scan(&stats.LastWeek); err != nil {
-		return stats, fmt.Errorf("failed to count last week events: %w", err)
-	}
-
-	// Get counts by service (extracted from event_type prefix)
-	serviceQuery := `
+	// Consolidated query for counts, services, and categories using CTEs
+	// This reduces 5 separate queries into 1
+	consolidatedQuery := `
+		WITH counts AS (
+			SELECT
+				COUNT(*) as total,
+				COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') as last_24h,
+				COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') as last_week
+			FROM events
+		),
+		service_counts AS (
+			SELECT
+				SPLIT_PART(event_type, '.', 1) as service,
+				COUNT(*) as count
+			FROM events
+			GROUP BY 1
+		),
+		category_counts AS (
+			SELECT
+				CASE
+					WHEN event_type LIKE 'github.push%' OR event_type LIKE 'github.pr%' OR event_type LIKE 'github.release%' THEN 'development'
+					WHEN event_type LIKE 'vercel.%' OR event_type LIKE 'railway.%' THEN 'deployments'
+					WHEN event_type LIKE 'github.issue%' OR event_type LIKE 'error.%' THEN 'issues'
+					WHEN event_type LIKE 'security.%' THEN 'security'
+					WHEN event_type LIKE 'monitoring.%' THEN 'infrastructure'
+					ELSE 'development'
+				END as category,
+				COUNT(*) as count
+			FROM events
+			GROUP BY 1
+		)
 		SELECT
-			SPLIT_PART(event_type, '.', 1) as service,
-			COUNT(*) as count
-		FROM events
-		GROUP BY SPLIT_PART(event_type, '.', 1)
+			c.total,
+			c.last_24h,
+			c.last_week,
+			COALESCE((SELECT json_agg(json_build_object('service', service, 'count', count)) FROM service_counts), '[]'::json) as services,
+			COALESCE((SELECT json_agg(json_build_object('category', category, 'count', count)) FROM category_counts), '[]'::json) as categories
+		FROM counts c
 	`
-	serviceRows, err := r.db.QueryContext(ctx, serviceQuery)
+
+	var total, last24h, lastWeek int
+	var servicesJSON, categoriesJSON []byte
+
+	err := r.db.QueryRowContext(ctx, consolidatedQuery).Scan(
+		&total, &last24h, &lastWeek, &servicesJSON, &categoriesJSON,
+	)
 	if err != nil {
-		return stats, fmt.Errorf("failed to query service counts: %w", err)
+		return stats, fmt.Errorf("failed to query consolidated stats: %w", err)
 	}
-	defer serviceRows.Close()
 
-	for serviceRows.Next() {
-		var service string
-		var count int
-		if err := serviceRows.Scan(&service, &count); err != nil {
-			return stats, fmt.Errorf("failed to scan service row: %w", err)
+	stats.TotalEvents = total
+	stats.Last24Hours = last24h
+	stats.LastWeek = lastWeek
+
+	// Parse service counts from JSON
+	var serviceResults []struct {
+		Service string `json:"service"`
+		Count   int    `json:"count"`
+	}
+	if err := json.Unmarshal(servicesJSON, &serviceResults); err != nil {
+		log.Warn().Err(err).Msg("failed to parse service counts JSON")
+	} else {
+		for _, s := range serviceResults {
+			stats.ServiceCounts[s.Service] = s.Count
 		}
-		stats.ServiceCounts[service] = count
 	}
 
-	// Get counts by category (mapped from event_type)
-	// Categories: development (github.push, github.pr, github.release), deployments (vercel, railway),
-	// issues (github.issue, error.*), security (security.*), infrastructure (monitoring.*)
-	categoryQuery := `
-		SELECT
-			CASE
-				WHEN event_type LIKE 'github.push%' OR event_type LIKE 'github.pr%' OR event_type LIKE 'github.release%' THEN 'development'
-				WHEN event_type LIKE 'vercel.%' OR event_type LIKE 'railway.%' THEN 'deployments'
-				WHEN event_type LIKE 'github.issue%' OR event_type LIKE 'error.%' THEN 'issues'
-				WHEN event_type LIKE 'security.%' THEN 'security'
-				WHEN event_type LIKE 'monitoring.%' THEN 'infrastructure'
-				ELSE 'development'
-			END as category,
-			COUNT(*) as count
-		FROM events
-		GROUP BY 1
-	`
-	categoryRows, err := r.db.QueryContext(ctx, categoryQuery)
-	if err != nil {
-		return stats, fmt.Errorf("failed to query category counts: %w", err)
+	// Parse category counts from JSON
+	var categoryResults []struct {
+		Category string `json:"category"`
+		Count    int    `json:"count"`
 	}
-	defer categoryRows.Close()
-
-	for categoryRows.Next() {
-		var category string
-		var count int
-		if err := categoryRows.Scan(&category, &count); err != nil {
-			return stats, fmt.Errorf("failed to scan category row: %w", err)
+	if err := json.Unmarshal(categoriesJSON, &categoryResults); err != nil {
+		log.Warn().Err(err).Msg("failed to parse category counts JSON")
+	} else {
+		for _, c := range categoryResults {
+			stats.CategoryCounts[c.Category] = c.Count
 		}
-		stats.CategoryCounts[category] = count
 	}
 
-	// Get events per day for last 30 days
+	// Get events per day for last 30 days (separate query as it returns multiple rows)
 	dailyQuery := `
 		SELECT
 			TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,

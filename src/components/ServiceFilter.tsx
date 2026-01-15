@@ -4,7 +4,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCategories, useCategoryOperations } from '@/contexts/CategoryContext';
-import { getServiceColorClasses, DEFAULT_SERVICES } from '@/types/categories';
+import { DEFAULT_SERVICES } from '@/types/categories';
 import { GitBranch, Zap, Train, Activity, Shield, Globe, Terminal, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

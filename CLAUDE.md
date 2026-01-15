@@ -59,7 +59,7 @@ npm run check-webhooks       # Verify webhook URLs
 
 **Frontend (Vercel):**
 
-- `GITHUB_WEBHOOK_SECRET` - GitHub webhook signature verification
+- `WEBHOOK_SECRET` - Webhook signature verification (GitHub, Vercel, Railway)
 - `GO_SERVICE_URL` - Backend URL for server-side calls
 - `NEXT_PUBLIC_GO_SERVICE_URL` - Backend URL for client-side calls
 - `QSTASH_TOKEN` - Optional, for reliable message queuing

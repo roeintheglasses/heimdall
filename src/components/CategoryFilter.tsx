@@ -15,7 +15,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { useCategories, useCategoryOperations } from '@/contexts/CategoryContext';
-import { EventCategory, CategoryStats } from '@/types/categories';
+import { CategoryStats } from '@/types/categories';
 import { cn } from '@/lib/utils';
 
 interface CategoryFilterProps {

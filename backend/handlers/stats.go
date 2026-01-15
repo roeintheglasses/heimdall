@@ -3,19 +3,72 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
+	"time"
 
 	"heimdall-backend/database"
 	"heimdall-backend/logger"
+	"heimdall-backend/models"
 )
 
-// StatsHandler handles stats retrieval requests
-type StatsHandler struct {
-	repo database.EventStore
+// Cache TTL for stats
+const statsCacheTTL = 30 * time.Second
+
+// statsCache holds cached stats with a timestamp
+type statsCache struct {
+	mu        sync.RWMutex
+	stats     models.EventStats
+	fetchedAt time.Time
 }
 
-// NewStatsHandler creates a new stats handler
+// StatsHandler handles stats retrieval requests with caching
+type StatsHandler struct {
+	repo  database.EventStore
+	cache *statsCache
+}
+
+// NewStatsHandler creates a new stats handler with cache
 func NewStatsHandler(repo database.EventStore) *StatsHandler {
-	return &StatsHandler{repo: repo}
+	return &StatsHandler{
+		repo:  repo,
+		cache: &statsCache{},
+	}
+}
+
+// getStats retrieves stats from cache or database
+func (h *StatsHandler) getStats() (models.EventStats, bool, error) {
+	// Try to get from cache first (read lock)
+	h.cache.mu.RLock()
+	if time.Since(h.cache.fetchedAt) < statsCacheTTL {
+		stats := h.cache.stats
+		h.cache.mu.RUnlock()
+		return stats, true, nil // Cache hit
+	}
+	h.cache.mu.RUnlock()
+
+	// Cache miss or expired, fetch from database (write lock)
+	h.cache.mu.Lock()
+	defer h.cache.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if time.Since(h.cache.fetchedAt) < statsCacheTTL {
+		return h.cache.stats, true, nil
+	}
+
+	// Fetch fresh stats from database
+	stats, err := h.repo.GetStats()
+	if err != nil {
+		// On error, return stale cache if available
+		if !h.cache.fetchedAt.IsZero() {
+			return h.cache.stats, false, nil
+		}
+		return models.EventStats{}, false, err
+	}
+
+	// Update cache
+	h.cache.stats = stats
+	h.cache.fetchedAt = time.Now()
+	return stats, false, nil
 }
 
 // ServeHTTP handles the stats request
@@ -24,7 +77,7 @@ func (h *StatsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Msg("retrieving event stats")
 
-	stats, err := h.repo.GetStats()
+	stats, fromCache, err := h.getStats()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to retrieve stats")
 		http.Error(w, "Failed to retrieve stats", http.StatusInternalServerError)
@@ -35,8 +88,11 @@ func (h *StatsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Int("total_events", stats.TotalEvents).
 		Int("last_24h", stats.Last24Hours).
 		Int("last_week", stats.LastWeek).
+		Bool("from_cache", fromCache).
 		Msg("stats retrieved")
 
 	w.Header().Set("Content-Type", "application/json")
+	// Add cache control header to help clients
+	w.Header().Set("Cache-Control", "private, max-age=30")
 	json.NewEncoder(w).Encode(stats)
 }

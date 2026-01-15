@@ -11,7 +11,7 @@ import {
   ErrorASCII,
 } from '@/components/ASCIIIllustrations';
 import { cn } from '@/lib/utils';
-import { Terminal, ExternalLink, RefreshCw, Filter, Zap } from 'lucide-react';
+import { Terminal, RefreshCw, Filter, Zap } from 'lucide-react';
 
 export type EmptyStateType =
   | 'first-visit'

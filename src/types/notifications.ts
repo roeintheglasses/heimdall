@@ -1,3 +1,5 @@
+import type { GenericMetadata } from './metadata';
+
 export type NotificationType = 'error' | 'warning' | 'info' | 'success';
 export type NotificationPriority = 'high' | 'medium' | 'low';
 
@@ -11,7 +13,7 @@ export interface Notification {
   createdAt: string;
   read: boolean;
   priority: NotificationPriority;
-  metadata?: Record<string, any>;
+  metadata?: GenericMetadata;
 }
 
 export interface NotificationFilter {
@@ -80,7 +82,7 @@ export const NOTABLE_EVENT_PATTERNS = {
     match: (event: any) => event.event_type?.startsWith('security.'),
     type: 'warning' as NotificationType,
     priority: 'high' as NotificationPriority,
-    generateTitle: (event: any) => `Security Alert`,
+    generateTitle: (_event: any) => `Security Alert`,
     generateMessage: (event: any) => event.title || 'A security event was detected.',
   },
   // Error events
@@ -88,7 +90,7 @@ export const NOTABLE_EVENT_PATTERNS = {
     match: (event: any) => event.event_type?.startsWith('error.'),
     type: 'error' as NotificationType,
     priority: 'high' as NotificationPriority,
-    generateTitle: (event: any) => `System Error`,
+    generateTitle: (_event: any) => `System Error`,
     generateMessage: (event: any) => event.title || 'An error occurred.',
   },
   // Successful production deploys
@@ -103,6 +105,6 @@ export const NOTABLE_EVENT_PATTERNS = {
     priority: 'medium' as NotificationPriority,
     generateTitle: (event: any) =>
       `Production Deploy: ${event.metadata?.project || event.metadata?.project_name || 'Unknown'}`,
-    generateMessage: (event: any) => `Successfully deployed to production.`,
+    generateMessage: (_event: any) => `Successfully deployed to production.`,
   },
 };

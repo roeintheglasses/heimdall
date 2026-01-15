@@ -4,13 +4,12 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNotifications } from '@/contexts/NotificationContext';
-import { NOTIFICATION_CONFIG } from '@/types/notifications';
+import { NOTIFICATION_CONFIG, type NotificationType } from '@/types/notifications';
 import { cn } from '@/lib/utils';
 import {
   Bell,
   BellOff,
   X,
-  Check,
   CheckCheck,
   Trash2,
   AlertCircle,
@@ -216,7 +215,7 @@ export default function NotificationCenter() {
                     key={type}
                     variant="ghost"
                     size="sm"
-                    onClick={() => setFilter({ ...filter, type: type as any })}
+                    onClick={() => setFilter({ ...filter, type: type as NotificationType })}
                     className={cn(
                       'h-8 px-3 text-[10px]',
                       filter.type === type && `bg-${config.color}/20 text-${config.color}`

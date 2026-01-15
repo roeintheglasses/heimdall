@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"crypto/md5"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -35,7 +37,18 @@ type PaginationMeta struct {
 	HasMore bool `json:"hasMore"`
 }
 
-// ServeHTTP handles the events request
+// generateETag creates an ETag based on events content
+func generateETag(events []models.DashboardEvent, total int) string {
+	// Generate ETag from latest event timestamp + total count
+	var latestTimestamp string
+	if len(events) > 0 {
+		latestTimestamp = events[0].CreatedAt.Format(time.RFC3339Nano)
+	}
+	hash := md5.Sum([]byte(fmt.Sprintf("%s-%d-%d", latestTimestamp, total, len(events))))
+	return fmt.Sprintf(`"%x"`, hash)
+}
+
+// ServeHTTP handles the events request with ETag support
 func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context())
 
@@ -55,6 +68,14 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate ETag and check If-None-Match
+	etag := generateETag(events, total)
+	if match := r.Header.Get("If-None-Match"); match == etag {
+		log.Debug().Str("etag", etag).Msg("ETag matched, returning 304")
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
 	response := EventsResponse{
 		Events: events,
 		Pagination: PaginationMeta{
@@ -68,9 +89,12 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Debug().
 		Int("count", len(events)).
 		Int("total", total).
+		Str("etag", etag).
 		Msg("events retrieved")
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "private, max-age=5")
 	json.NewEncoder(w).Encode(response)
 }
 

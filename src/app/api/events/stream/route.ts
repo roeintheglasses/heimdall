@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
         console.log(`Client disconnected (abort). Total clients: ${clients.size}`);
         try {
           controller.close();
-        } catch (error) {
-          // Connection already closed
+        } catch {
+          // Expected: Connection already closed, no action needed
         }
       });
     },
@@ -86,10 +86,12 @@ function broadcastEvent(event: DashboardEvent) {
 }
 
 // Polling mechanism to fetch new events from Go service
-let lastEventId: string | null = null;
 let lastEventTimestamp: string | null = null;
 let pollingInterval: NodeJS.Timeout | null = null;
-let sentEventIds: Set<string> = new Set();
+// Use Map with timestamps for TTL-based cleanup (id -> timestamp when sent)
+const sentEventIds: Map<string, number> = new Map();
+// TTL for sent event IDs: 5 minutes
+const SENT_EVENT_TTL_MS = 5 * 60 * 1000;
 
 // Start polling when first client connects
 function startPolling() {
@@ -136,8 +138,7 @@ function startPolling() {
           // This is a new event, broadcast it
           console.log('Broadcasting new event:', event.id, event.title);
           broadcastEvent(event);
-          sentEventIds.add(event.id);
-          lastEventId = event.id;
+          sentEventIds.set(event.id, Date.now());
           lastEventTimestamp = event.created_at;
           newEventsFound++;
         }
@@ -146,10 +147,12 @@ function startPolling() {
           console.log(`Broadcasted ${newEventsFound} new events`);
         }
 
-        // Clean up old event IDs to prevent memory leak (keep last 100)
-        if (sentEventIds.size > 100) {
-          const idsArray = Array.from(sentEventIds);
-          sentEventIds = new Set(idsArray.slice(-50));
+        // Clean up old event IDs using TTL-based approach
+        const now = Date.now();
+        for (const [id, timestamp] of sentEventIds) {
+          if (now - timestamp > SENT_EVENT_TTL_MS) {
+            sentEventIds.delete(id);
+          }
         }
       }
     } catch (error) {

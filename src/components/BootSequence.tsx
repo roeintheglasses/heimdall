@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useBootSequence, BootPhase, BootCheck } from '@/hooks/useBootSequence';
+import { useBootSequence, BootCheck } from '@/hooks/useBootSequence';
 import { useSoundEffects } from '@/contexts/SoundContext';
 import { cn } from '@/lib/utils';
 import { Shield, Check, Loader2 } from 'lucide-react';
