@@ -368,15 +368,6 @@ function DashboardContent() {
     [filteredEvents]
   );
 
-  const getEventStats = () => {
-    const pushEvents = events.filter((e) => e.event_type === 'github.push').length;
-    const deployEvents = events.filter((e) => e.event_type === 'vercel.deploy').length;
-
-    return { pushEvents, deployEvents };
-  };
-
-  const { pushEvents: _pushEvents, deployEvents: _deployEvents } = getEventStats();
-
   return (
     <div className="min-h-screen bg-terminal-black">
       {/* Header - Terminal style */}

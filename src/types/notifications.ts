@@ -1,4 +1,5 @@
 import type { GenericMetadata } from './metadata';
+import type { DashboardEvent } from './categories';
 
 export type NotificationType = 'error' | 'warning' | 'info' | 'success';
 export type NotificationPriority = 'high' | 'medium' | 'low';
@@ -63,7 +64,7 @@ export const MAX_NOTIFICATIONS = 100;
 export const NOTABLE_EVENT_PATTERNS = {
   // Failed deployments
   failedDeploy: {
-    match: (event: any) =>
+    match: (event: DashboardEvent) =>
       (event.event_type?.includes('deploy') ||
         event.event_type?.startsWith('vercel.') ||
         event.event_type?.startsWith('railway.')) &&
@@ -72,30 +73,30 @@ export const NOTABLE_EVENT_PATTERNS = {
         event.metadata?.status === 'ERROR'),
     type: 'error' as NotificationType,
     priority: 'high' as NotificationPriority,
-    generateTitle: (event: any) =>
+    generateTitle: (event: DashboardEvent) =>
       `Deployment Failed: ${event.metadata?.project || event.metadata?.project_name || 'Unknown'}`,
-    generateMessage: (event: any) =>
+    generateMessage: (event: DashboardEvent) =>
       `Deployment to ${event.metadata?.environment || 'production'} failed.`,
   },
   // Security events
   security: {
-    match: (event: any) => event.event_type?.startsWith('security.'),
+    match: (event: DashboardEvent) => event.event_type?.startsWith('security.'),
     type: 'warning' as NotificationType,
     priority: 'high' as NotificationPriority,
-    generateTitle: (_event: any) => `Security Alert`,
-    generateMessage: (event: any) => event.title || 'A security event was detected.',
+    generateTitle: () => `Security Alert`,
+    generateMessage: (event: DashboardEvent) => event.title || 'A security event was detected.',
   },
   // Error events
   error: {
-    match: (event: any) => event.event_type?.startsWith('error.'),
+    match: (event: DashboardEvent) => event.event_type?.startsWith('error.'),
     type: 'error' as NotificationType,
     priority: 'high' as NotificationPriority,
-    generateTitle: (_event: any) => `System Error`,
-    generateMessage: (event: any) => event.title || 'An error occurred.',
+    generateTitle: () => `System Error`,
+    generateMessage: (event: DashboardEvent) => event.title || 'An error occurred.',
   },
   // Successful production deploys
   productionDeploy: {
-    match: (event: any) =>
+    match: (event: DashboardEvent) =>
       (event.event_type?.includes('deploy') ||
         event.event_type?.startsWith('vercel.') ||
         event.event_type?.startsWith('railway.')) &&
@@ -103,8 +104,8 @@ export const NOTABLE_EVENT_PATTERNS = {
       event.metadata?.environment === 'production',
     type: 'success' as NotificationType,
     priority: 'medium' as NotificationPriority,
-    generateTitle: (event: any) =>
+    generateTitle: (event: DashboardEvent) =>
       `Production Deploy: ${event.metadata?.project || event.metadata?.project_name || 'Unknown'}`,
-    generateMessage: (_event: any) => `Successfully deployed to production.`,
+    generateMessage: () => `Successfully deployed to production.`,
   },
 };

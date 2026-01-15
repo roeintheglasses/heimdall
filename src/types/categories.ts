@@ -190,6 +190,8 @@ export const DEFAULT_SERVICES: ServiceType[] = [
 
 // Cache for extractService results to avoid repeated regex matching
 const serviceCache = new Map<string, string>();
+// Maximum cache size to prevent unbounded memory growth
+const SERVICE_CACHE_MAX_SIZE = 1000;
 
 // Pre-compile regex patterns for better performance
 const compiledServicePatterns = DEFAULT_SERVICES.map((service) => ({
@@ -206,6 +208,10 @@ export function extractService(eventType: string): string {
   // Match against pre-compiled patterns
   for (const { id, regex } of compiledServicePatterns) {
     if (regex.test(eventType)) {
+      // Clear cache if it exceeds max size to prevent memory growth
+      if (serviceCache.size >= SERVICE_CACHE_MAX_SIZE) {
+        serviceCache.clear();
+      }
       serviceCache.set(eventType, id);
       return id;
     }
@@ -213,6 +219,10 @@ export function extractService(eventType: string): string {
 
   // Fallback for unmatched types
   const prefix = eventType.split('.')[0] || 'other';
+  // Clear cache if it exceeds max size to prevent memory growth
+  if (serviceCache.size >= SERVICE_CACHE_MAX_SIZE) {
+    serviceCache.clear();
+  }
   serviceCache.set(eventType, prefix);
   return prefix;
 }

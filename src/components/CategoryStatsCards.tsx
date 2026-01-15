@@ -75,7 +75,7 @@ export default function CategoryStatsCards({
   className = '',
   compact = false,
 }: CategoryStatsCardsProps) {
-  const { categories: _categories, filter: _filter, getEventCategory } = useCategories();
+  const { getEventCategory } = useCategories();
   const { getSortedCategories, selectCategory, isCategorySelected } = useCategoryOperations();
 
   const sortedCategories = getSortedCategories();
