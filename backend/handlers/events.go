@@ -44,9 +44,9 @@ func generateETag(events []models.DashboardEvent, total int) string {
 	if len(events) > 0 {
 		latestTimestamp = events[0].CreatedAt.Format(time.RFC3339Nano)
 	}
-	h := fnv.New64a()
-	h.Write([]byte(fmt.Sprintf("%s-%d-%d", latestTimestamp, total, len(events))))
-	return fmt.Sprintf(`"%x"`, h.Sum64())
+	hasher := fnv.New64a()
+	fmt.Fprintf(hasher, "%s-%d-%d", latestTimestamp, total, len(events))
+	return fmt.Sprintf(`"%x"`, hasher.Sum64())
 }
 
 // ServeHTTP handles the events request with ETag support

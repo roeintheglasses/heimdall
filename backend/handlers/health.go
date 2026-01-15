@@ -30,5 +30,6 @@ func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 		"version":   h.config.Version,
 	}
 
-	_ = json.NewEncoder(w).Encode(response)
+	// Error intentionally ignored: WriteHeader already sent, can't change response
+	_ = json.NewEncoder(w).Encode(response) //nolint:errcheck
 }

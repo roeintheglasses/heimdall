@@ -39,7 +39,6 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to database")
 	}
-	defer db.Close()
 
 	// Configure connection pool for Neon (serverless Postgres)
 	// Tuned for better performance while respecting serverless constraints
@@ -50,9 +49,11 @@ func main() {
 
 	// Test database connection
 	if err := db.Ping(); err != nil {
-		db.Close() // Close db before exit since defer won't run
+		db.Close()
 		log.Fatal().Err(err).Msg("failed to ping database")
 	}
+	// Defer close after successful ping to ensure cleanup on graceful shutdown
+	defer db.Close()
 
 	log.Info().Msg("connected to database successfully")
 
