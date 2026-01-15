@@ -263,6 +263,11 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 		stats.EventsPerDay = append(stats.EventsPerDay, dc)
 	}
 
+	// Check for errors from iteration
+	if err := dailyRows.Err(); err != nil {
+		return stats, fmt.Errorf("error iterating daily rows: %w", err)
+	}
+
 	return stats, nil
 }
 

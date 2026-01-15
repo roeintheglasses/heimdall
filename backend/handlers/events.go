@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"heimdall-backend/database"
@@ -49,6 +50,30 @@ func generateETag(events []models.DashboardEvent, total int) string {
 	return fmt.Sprintf(`"%x"`, hasher.Sum64())
 }
 
+// etagMatches checks if the If-None-Match header matches the given ETag.
+// Handles multiple ETags (comma-separated) and the wildcard (*).
+func etagMatches(header, etag string) bool {
+	// Handle wildcard
+	if strings.TrimSpace(header) == "*" {
+		return true
+	}
+
+	// Split by comma and check each ETag
+	for _, candidate := range strings.Split(header, ",") {
+		candidate = strings.TrimSpace(candidate)
+		// Remove surrounding quotes if present
+		if len(candidate) >= 2 && candidate[0] == '"' && candidate[len(candidate)-1] == '"' {
+			candidate = candidate[1 : len(candidate)-1]
+		}
+		// Compare without quotes (etag already has quotes, so compare inner value)
+		etagValue := strings.Trim(etag, `"`)
+		if candidate == etagValue || candidate == etag {
+			return true
+		}
+	}
+	return false
+}
+
 // ServeHTTP handles the events request with ETag support
 func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context())
@@ -71,10 +96,12 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Generate ETag and check If-None-Match
 	etag := generateETag(events, total)
-	if match := r.Header.Get("If-None-Match"); match == etag {
-		log.Debug().Str("etag", etag).Msg("ETag matched, returning 304")
-		w.WriteHeader(http.StatusNotModified)
-		return
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		if etagMatches(match, etag) {
+			log.Debug().Str("etag", etag).Msg("ETag matched, returning 304")
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
 	}
 
 	response := EventsResponse{

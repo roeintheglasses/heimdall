@@ -251,7 +251,7 @@ function DashboardContent() {
     return () => {
       eventSource.close();
     };
-  }, [playSuccess, playError, playNotification]);
+  }, [playSuccess, playError, playNotification, processEvent, goServiceUrl]);
 
   // Use API stats for category counts (all events) with fallback to local calculation
   const categoryStats = useMemo(() => {
