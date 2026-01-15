@@ -42,8 +42,8 @@ func main() {
 
 	// Configure connection pool for Neon (serverless Postgres)
 	// Tuned for better performance while respecting serverless constraints
-	db.SetMaxOpenConns(25)                // Increased for higher concurrency
-	db.SetMaxIdleConns(10)                // Keep more warm connections ready
+	db.SetMaxOpenConns(25)                 // Increased for higher concurrency
+	db.SetMaxIdleConns(10)                 // Keep more warm connections ready
 	db.SetConnMaxLifetime(5 * time.Minute) // Longer lifetime for connection reuse
 	db.SetConnMaxIdleTime(1 * time.Minute) // Balance between memory and connection churn
 

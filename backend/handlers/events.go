@@ -101,8 +101,8 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // parseEventsFilter extracts filter parameters from query string
 func parseEventsFilter(r *http.Request) models.EventsFilter {
 	filter := models.EventsFilter{
-		Limit:  50,  // default
-		Offset: 0,   // default
+		Limit:  50, // default
+		Offset: 0,  // default
 	}
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
