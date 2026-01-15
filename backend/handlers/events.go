@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"hash/fnv"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"heimdall-backend/database"
@@ -35,7 +38,43 @@ type PaginationMeta struct {
 	HasMore bool `json:"hasMore"`
 }
 
-// ServeHTTP handles the events request
+// generateETag creates an ETag based on events content using FNV hash
+func generateETag(events []models.DashboardEvent, total int) string {
+	// Generate ETag from latest event timestamp + total count
+	var latestTimestamp string
+	if len(events) > 0 {
+		latestTimestamp = events[0].CreatedAt.Format(time.RFC3339Nano)
+	}
+	hasher := fnv.New64a()
+	fmt.Fprintf(hasher, "%s-%d-%d", latestTimestamp, total, len(events))
+	return fmt.Sprintf(`"%x"`, hasher.Sum64())
+}
+
+// etagMatches checks if the If-None-Match header matches the given ETag.
+// Handles multiple ETags (comma-separated) and the wildcard (*).
+func etagMatches(header, etag string) bool {
+	// Handle wildcard
+	if strings.TrimSpace(header) == "*" {
+		return true
+	}
+
+	// Split by comma and check each ETag
+	for _, candidate := range strings.Split(header, ",") {
+		candidate = strings.TrimSpace(candidate)
+		// Remove surrounding quotes if present
+		if len(candidate) >= 2 && candidate[0] == '"' && candidate[len(candidate)-1] == '"' {
+			candidate = candidate[1 : len(candidate)-1]
+		}
+		// Compare without quotes (etag already has quotes, so compare inner value)
+		etagValue := strings.Trim(etag, `"`)
+		if candidate == etagValue || candidate == etag {
+			return true
+		}
+	}
+	return false
+}
+
+// ServeHTTP handles the events request with ETag support
 func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context())
 
@@ -55,6 +94,16 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate ETag and check If-None-Match
+	etag := generateETag(events, total)
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		if etagMatches(match, etag) {
+			log.Debug().Str("etag", etag).Msg("ETag matched, returning 304")
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
 	response := EventsResponse{
 		Events: events,
 		Pagination: PaginationMeta{
@@ -68,17 +117,22 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Debug().
 		Int("count", len(events)).
 		Int("total", total).
+		Str("etag", etag).
 		Msg("events retrieved")
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "private, max-age=5")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Error().Err(err).Msg("failed to encode response")
+	}
 }
 
 // parseEventsFilter extracts filter parameters from query string
 func parseEventsFilter(r *http.Request) models.EventsFilter {
 	filter := models.EventsFilter{
-		Limit:  50,  // default
-		Offset: 0,   // default
+		Limit:  50, // default
+		Offset: 0,  // default
 	}
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {

@@ -39,7 +39,7 @@ func TransformRailwayDeploy(eventData json.RawMessage, timestamp time.Time) (mod
 	}
 
 	// Map Railway type to standard format
-	status := "UNKNOWN"
+	var status string
 	switch railwayEvent.Type {
 	case "DEPLOY":
 		status = "SUCCESS"

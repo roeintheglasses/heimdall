@@ -7,11 +7,21 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import dynamic from 'next/dynamic';
 import EventCard from '@/components/EventCard';
 import EventCardSkeleton from '@/components/EventCardSkeleton';
 import EventDetailDrawer from '@/components/EventDetailDrawer';
-import ActivityGraph from '@/components/ActivityGraph';
 import ConnectionStatus from '@/components/ConnectionStatus';
+
+// Lazy load ActivityGraph (Recharts ~91KB) - only load when needed
+const ActivityGraph = dynamic(() => import('@/components/ActivityGraph'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[200px] w-full">
+      <Skeleton className="h-full w-full rounded-lg bg-terminal-dark" />
+    </div>
+  ),
+});
 import FilterPanel from '@/components/FilterPanel';
 import CategoryStatsCards from '@/components/CategoryStatsCards';
 import { SoundToggleCompact } from '@/components/SoundToggle';
@@ -38,6 +48,9 @@ import {
 } from 'lucide-react';
 import { DashboardEvent } from '@/types/categories';
 import { cn } from '@/lib/utils';
+
+// Maximum events to keep in memory to prevent unbounded growth
+const MAX_EVENTS = 500;
 
 // Dashboard component wrapped with CategoryProvider
 function DashboardContent() {
@@ -109,7 +122,8 @@ function DashboardContent() {
         const data = await response.json();
         const newEvents = data.events || data;
         if (newEvents.length > 0) {
-          setEvents((prev) => [...prev, ...newEvents]);
+          // Cap at MAX_EVENTS to prevent unbounded memory growth
+          setEvents((prev) => [...prev, ...newEvents].slice(0, MAX_EVENTS));
         }
         if (data.pagination) {
           setHasMore(data.pagination.hasMore);
@@ -212,8 +226,8 @@ function DashboardContent() {
           // Process event for notifications (auto-detect notable events)
           processEvent(newEvent);
 
-          // Add new event with flash effect (no limit - show all events)
-          const updatedEvents = [{ ...newEvent, isNew: true }, ...prev];
+          // Add new event with flash effect, cap at MAX_EVENTS to prevent memory growth
+          const updatedEvents = [{ ...newEvent, isNew: true }, ...prev].slice(0, MAX_EVENTS);
 
           // Remove the "new" flag after animation completes
           setTimeout(() => {
@@ -237,7 +251,7 @@ function DashboardContent() {
     return () => {
       eventSource.close();
     };
-  }, [playSuccess, playError, playNotification]);
+  }, [playSuccess, playError, playNotification, processEvent, goServiceUrl]);
 
   // Use API stats for category counts (all events) with fallback to local calculation
   const categoryStats = useMemo(() => {
@@ -354,15 +368,6 @@ function DashboardContent() {
     },
     [filteredEvents]
   );
-
-  const getEventStats = () => {
-    const pushEvents = events.filter((e) => e.event_type === 'github.push').length;
-    const deployEvents = events.filter((e) => e.event_type === 'vercel.deploy').length;
-
-    return { pushEvents, deployEvents };
-  };
-
-  const { pushEvents, deployEvents } = getEventStats();
 
   return (
     <div className="min-h-screen bg-terminal-black">

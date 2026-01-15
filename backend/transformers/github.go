@@ -142,9 +142,9 @@ func TransformGitHubIssue(eventData json.RawMessage, timestamp time.Time) (model
 	var issueEvent struct {
 		Action string `json:"action"`
 		Issue  struct {
-			Number  int    `json:"number"`
-			Title   string `json:"title"`
-			User    struct {
+			Number int    `json:"number"`
+			Title  string `json:"title"`
+			User   struct {
 				Login string `json:"login"`
 			} `json:"user"`
 			State   string `json:"state"`

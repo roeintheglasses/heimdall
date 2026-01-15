@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { DashboardEvent, EventCategory } from '@/types/categories';
+import { DashboardEvent } from '@/types/categories';
 import { useCategories } from '@/contexts/CategoryContext';
 import { useTimelineZoom, TimelineZoomLevel } from '@/hooks/useTimelineZoom';
 import { TimelineEventCluster, EnrichedTimelineEvent } from './TimelineEvent';
@@ -20,7 +20,7 @@ import {
 
 interface EventTimelineProps {
   events: DashboardEvent[];
-  onEventClick?: (event: DashboardEvent) => void;
+  onEventClick?: (_event: DashboardEvent) => void;
   className?: string;
 }
 
@@ -194,7 +194,7 @@ export function EventTimeline({ events, onEventClick, className }: EventTimeline
 
         {/* Event dots area */}
         <div className="absolute inset-x-0 bottom-12 top-4 px-2">
-          {clusteredEvents.map((cluster, index) => {
+          {clusteredEvents.map((cluster, _index) => {
             const { start, end } = getVisibleTimeRange();
             const position = (cluster.timestamp - start) / (end - start);
 
@@ -271,7 +271,7 @@ function ZoomButton({
   onClick,
   icon,
   label,
-  hideLabel = false,
+  hideLabel: _hideLabel = false,
 }: {
   level: TimelineZoomLevel;
   currentLevel: TimelineZoomLevel;
@@ -315,7 +315,7 @@ export function EventTimelineCompact({ events, onEventClick, className }: EventT
       className={cn('relative h-8 border-2 border-neon-cyan/30 bg-terminal-black px-2', className)}
     >
       <div className="absolute inset-0 flex items-center justify-around px-4">
-        {recentEvents.slice(0, 10).map((enrichedEvent, index) => {
+        {recentEvents.slice(0, 10).map((enrichedEvent, _index) => {
           const categoryColors: Record<string, string> = {
             development: 'bg-neon-cyan',
             deployments: 'bg-neon-magenta',

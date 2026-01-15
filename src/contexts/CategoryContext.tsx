@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import {
   EventCategory,
   DashboardEvent,
@@ -10,12 +10,10 @@ import {
   ServiceStats,
   TimeRangePreset,
   EventStatus,
-  DateRange,
   DEFAULT_CATEGORIES,
   DEFAULT_SERVICES,
   classifyEvent,
   extractService,
-  getServiceById,
   extractEventStatus,
   extractRepository,
   isEventInTimeRange,
@@ -38,21 +36,21 @@ interface CategoryContextType {
 
   // Filter state
   filter: CategoryFilter;
-  setFilter: (filter: Partial<CategoryFilter>) => void;
+  setFilter: (_filter: Partial<CategoryFilter>) => void;
   clearAllFilters: () => void;
 
   // Helper functions
-  getEventCategory: (event: DashboardEvent) => EventCategory;
-  getEventService: (event: DashboardEvent) => ServiceType | null;
-  calculateStats: (events: DashboardEvent[]) => CategoryStats;
-  calculateServiceStats: (events: DashboardEvent[]) => ServiceStats;
-  filterEvents: (events: DashboardEvent[]) => DashboardEvent[];
+  getEventCategory: (_event: DashboardEvent) => EventCategory;
+  getEventService: (_event: DashboardEvent) => ServiceType | null;
+  calculateStats: (_events: DashboardEvent[]) => CategoryStats;
+  calculateServiceStats: (_events: DashboardEvent[]) => ServiceStats;
+  filterEvents: (_events: DashboardEvent[]) => DashboardEvent[];
 
   // Active filter helpers
   getActiveFilters: () => ActiveFilter[];
   getActiveFilterCount: () => number;
   hasActiveFilters: () => boolean;
-  removeFilter: (type: ActiveFilter['type'], value?: string) => void;
+  removeFilter: (_type: ActiveFilter['type'], _value?: string) => void;
 
   // Loading states
   isLoading: boolean;
@@ -63,10 +61,10 @@ const CategoryContext = createContext<CategoryContextType | null>(null);
 
 export function CategoryProvider({ children }: { children: React.ReactNode }) {
   // State
-  const [categories, setCategories] = useState<EventCategory[]>(DEFAULT_CATEGORIES);
-  const [services, setServices] = useState<ServiceType[]>(DEFAULT_SERVICES);
-  const [categoryStats, setCategoryStats] = useState<CategoryStats>({});
-  const [serviceStats, setServiceStats] = useState<ServiceStats>({});
+  const [categories, _setCategories] = useState<EventCategory[]>(DEFAULT_CATEGORIES);
+  const [services, _setServices] = useState<ServiceType[]>(DEFAULT_SERVICES);
+  const [categoryStats, _setCategoryStats] = useState<CategoryStats>({});
+  const [serviceStats, _setServiceStats] = useState<ServiceStats>({});
   const [filter, setFilterState] = useState<CategoryFilter>({
     selectedCategory: null,
     selectedService: null,
@@ -76,21 +74,31 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     selectedStatuses: [],
     repositoryFilter: '',
   });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, _setIsLoading] = useState(false);
+  const [error, _setError] = useState<string | null>(null);
 
-  // Helper function to get category for an event
-  const getEventCategory = (event: DashboardEvent): EventCategory => {
-    // Use backend category if available, otherwise classify from event_type
-    const categoryId = event.category || classifyEvent(event.event_type);
-    return categories.find((cat) => cat.id === categoryId) || categories[0];
-  };
+  // Create Map lookups for O(1) category and service access (instead of O(n) .find())
+  const categoryMap = useMemo(() => new Map(categories.map((cat) => [cat.id, cat])), [categories]);
+  const serviceMap = useMemo(() => new Map(services.map((svc) => [svc.id, svc])), [services]);
 
-  // Helper function to get service for an event
-  const getEventService = (event: DashboardEvent): ServiceType | null => {
-    const serviceId = extractService(event.event_type);
-    return getServiceById(serviceId) || null;
-  };
+  // Helper function to get category for an event - O(1) Map lookup
+  const getEventCategory = useCallback(
+    (event: DashboardEvent): EventCategory => {
+      // Use backend category if available, otherwise classify from event_type
+      const categoryId = event.category || classifyEvent(event.event_type);
+      return categoryMap.get(categoryId) || categories[0];
+    },
+    [categoryMap, categories]
+  );
+
+  // Helper function to get service for an event - O(1) Map lookup
+  const getEventService = useCallback(
+    (event: DashboardEvent): ServiceType | null => {
+      const serviceId = extractService(event.event_type);
+      return serviceMap.get(serviceId) || null;
+    },
+    [serviceMap]
+  );
 
   // Calculate category statistics from events
   const calculateStats = (events: DashboardEvent[]): CategoryStats => {
@@ -133,63 +141,83 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     return stats;
   };
 
-  // Filter events based on current filter state
-  const filterEvents = (events: DashboardEvent[]): DashboardEvent[] => {
-    let filtered = [...events];
+  // Check if any filters are currently active (for early exit)
+  const hasAnyActiveFilter = useCallback((): boolean => {
+    return !!(
+      (filter.selectedCategory && filter.selectedCategory !== 'all') ||
+      (filter.selectedService && filter.selectedService !== 'all') ||
+      filter.searchQuery ||
+      filter.timeRange !== 'all' ||
+      filter.selectedStatuses.length > 0 ||
+      filter.repositoryFilter
+    );
+  }, [filter]);
 
-    // Filter by category
-    if (filter.selectedCategory && filter.selectedCategory !== 'all') {
-      filtered = filtered.filter((event) => {
-        const category = getEventCategory(event);
-        return category.id === filter.selectedCategory;
+  // Filter events using single-pass with early-exit conditions
+  // This is O(n) instead of O(n*m) where m is the number of active filters
+  const filterEvents = useCallback(
+    (events: DashboardEvent[]): DashboardEvent[] => {
+      // Early exit if no filters active
+      if (!hasAnyActiveFilter()) return events;
+
+      // Pre-compute lowercase search query once
+      const searchQuery = filter.searchQuery?.toLowerCase();
+      const repoQuery = filter.repositoryFilter?.toLowerCase();
+
+      return events.filter((event) => {
+        // Category filter - O(1) with Map lookup
+        if (filter.selectedCategory && filter.selectedCategory !== 'all') {
+          const categoryId = event.category || classifyEvent(event.event_type);
+          if (categoryId !== filter.selectedCategory) return false;
+        }
+
+        // Service filter - uses cached extractService
+        if (filter.selectedService && filter.selectedService !== 'all') {
+          const serviceId = extractService(event.event_type);
+          if (serviceId !== filter.selectedService) return false;
+        }
+
+        // Search filter - check title and event_type first (faster), then metadata
+        if (searchQuery) {
+          const matchesTitle = event.title.toLowerCase().includes(searchQuery);
+          const matchesType = event.event_type.toLowerCase().includes(searchQuery);
+          if (!matchesTitle && !matchesType) {
+            // Only check metadata if title and type don't match
+            const matchesMetadata = Object.values(event.metadata).some((value) =>
+              String(value).toLowerCase().includes(searchQuery)
+            );
+            if (!matchesMetadata) return false;
+          }
+        }
+
+        // Time range filter
+        if (filter.timeRange !== 'all') {
+          if (!isEventInTimeRange(event, filter.timeRange, filter.customDateRange)) {
+            return false;
+          }
+        }
+
+        // Status filter
+        if (filter.selectedStatuses.length > 0) {
+          const eventStatus = extractEventStatus(event);
+          if (eventStatus === null || !filter.selectedStatuses.includes(eventStatus)) {
+            return false;
+          }
+        }
+
+        // Repository filter
+        if (repoQuery) {
+          const repo = extractRepository(event);
+          if (repo === null || !repo.toLowerCase().includes(repoQuery)) {
+            return false;
+          }
+        }
+
+        return true;
       });
-    }
-
-    // Filter by service
-    if (filter.selectedService && filter.selectedService !== 'all') {
-      filtered = filtered.filter((event) => {
-        const serviceId = extractService(event.event_type);
-        return serviceId === filter.selectedService;
-      });
-    }
-
-    // Filter by search query
-    if (filter.searchQuery) {
-      const query = filter.searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (event) =>
-          event.title.toLowerCase().includes(query) ||
-          event.event_type.toLowerCase().includes(query) ||
-          Object.values(event.metadata).some((value) => String(value).toLowerCase().includes(query))
-      );
-    }
-
-    // Filter by time range
-    if (filter.timeRange !== 'all') {
-      filtered = filtered.filter((event) =>
-        isEventInTimeRange(event, filter.timeRange, filter.customDateRange)
-      );
-    }
-
-    // Filter by status
-    if (filter.selectedStatuses.length > 0) {
-      filtered = filtered.filter((event) => {
-        const eventStatus = extractEventStatus(event);
-        return eventStatus !== null && filter.selectedStatuses.includes(eventStatus);
-      });
-    }
-
-    // Filter by repository
-    if (filter.repositoryFilter) {
-      const repoQuery = filter.repositoryFilter.toLowerCase();
-      filtered = filtered.filter((event) => {
-        const repo = extractRepository(event);
-        return repo !== null && repo.toLowerCase().includes(repoQuery);
-      });
-    }
-
-    return filtered;
-  };
+    },
+    [filter, hasAnyActiveFilter]
+  );
 
   // Update filter state
   const setFilter = useCallback((newFilter: Partial<CategoryFilter>) => {
@@ -212,12 +240,13 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Get list of active filters for chip display
+  // Get list of active filters for chip display - uses O(1) Map lookups
   const getActiveFilters = useCallback((): ActiveFilter[] => {
     const active: ActiveFilter[] = [];
 
     if (filter.selectedCategory && filter.selectedCategory !== 'all') {
-      const cat = categories.find((c) => c.id === filter.selectedCategory);
+      // O(1) Map lookup instead of O(n) find
+      const cat = categoryMap.get(filter.selectedCategory);
       active.push({
         type: 'category',
         label: cat?.name || filter.selectedCategory,
@@ -226,7 +255,8 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (filter.selectedService && filter.selectedService !== 'all') {
-      const svc = services.find((s) => s.id === filter.selectedService);
+      // O(1) Map lookup instead of O(n) find
+      const svc = serviceMap.get(filter.selectedService);
       active.push({
         type: 'service',
         label: svc?.name || filter.selectedService,
@@ -278,7 +308,7 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     }
 
     return active;
-  }, [filter, categories, services]);
+  }, [filter, categoryMap, serviceMap]);
 
   // Get count of active filters
   const getActiveFilterCount = useCallback((): number => {

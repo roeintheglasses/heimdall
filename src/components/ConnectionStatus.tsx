@@ -1,7 +1,6 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Activity, Wifi, WifiOff, Database, Terminal } from 'lucide-react';
+import { Activity, Wifi, WifiOff, Database } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ConnectionStatusProps {

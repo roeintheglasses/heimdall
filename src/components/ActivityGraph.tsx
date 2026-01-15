@@ -13,7 +13,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { DashboardEvent } from '@/types/categories';
 import { cn } from '@/lib/utils';
-import { Activity, Terminal } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 interface ActivityGraphProps {
   events: DashboardEvent[];

@@ -1,4 +1,5 @@
 // Category type definitions for event categorization system
+import type { GenericMetadata } from './metadata';
 
 export interface EventCategory {
   id: string;
@@ -15,7 +16,7 @@ export interface DashboardEvent {
   category?: string; // Optional - will be computed from event_type if not present
   subcategory?: string; // Optional subcategory
   title: string;
-  metadata: Record<string, any>;
+  metadata: GenericMetadata;
   created_at: string;
   isNew?: boolean;
 }
@@ -187,17 +188,43 @@ export const DEFAULT_SERVICES: ServiceType[] = [
   },
 ];
 
-// Helper function to extract service from event_type
+// Cache for extractService results to avoid repeated regex matching
+const serviceCache = new Map<string, string>();
+// Maximum cache size to prevent unbounded memory growth
+const SERVICE_CACHE_MAX_SIZE = 1000;
+
+// Pre-compile regex patterns for better performance
+const compiledServicePatterns = DEFAULT_SERVICES.map((service) => ({
+  id: service.id,
+  regex: new RegExp(service.pattern),
+}));
+
+// Helper function to extract service from event_type (with caching)
 export function extractService(eventType: string): string {
-  for (const service of DEFAULT_SERVICES) {
-    if (new RegExp(service.pattern).test(eventType)) {
-      return service.id;
+  // Check cache first
+  const cached = serviceCache.get(eventType);
+  if (cached !== undefined) return cached;
+
+  // Match against pre-compiled patterns
+  for (const { id, regex } of compiledServicePatterns) {
+    if (regex.test(eventType)) {
+      // Clear cache if it exceeds max size to prevent memory growth
+      if (serviceCache.size >= SERVICE_CACHE_MAX_SIZE) {
+        serviceCache.clear();
+      }
+      serviceCache.set(eventType, id);
+      return id;
     }
   }
 
   // Fallback for unmatched types
-  const prefix = eventType.split('.')[0];
-  return prefix || 'other';
+  const prefix = eventType.split('.')[0] || 'other';
+  // Clear cache if it exceeds max size to prevent memory growth
+  if (serviceCache.size >= SERVICE_CACHE_MAX_SIZE) {
+    serviceCache.clear();
+  }
+  serviceCache.set(eventType, prefix);
+  return prefix;
 }
 
 // Helper function to get service by ID

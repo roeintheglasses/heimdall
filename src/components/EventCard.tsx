@@ -8,6 +8,18 @@ import { ServiceIcon } from '@/components/ServiceIcon';
 import { getServiceFromEventType } from '@/types/services';
 import { cn } from '@/lib/utils';
 
+// Format relative timestamp - defined outside component for reuse
+function formatTimestamp(timestamp: string): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+  return date.toLocaleDateString();
+}
+
 // Category to neon color mapping
 const CATEGORY_NEON_COLORS: Record<
   string,
@@ -100,16 +112,9 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
   const serviceInfo = getServiceFromEventType(event.event_type || 'unknown');
   const neonColors = getNeonColors(category.color);
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return date.toLocaleDateString();
-  };
+  // Format timestamp on each render to keep relative time fresh
+  // (useMemo would cache stale values like "5s ago" that never update)
+  const formattedTimestamp = formatTimestamp(event.created_at);
 
   const getEventTypeLabel = (eventType: string) => {
     switch (eventType) {
@@ -189,7 +194,7 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
 
         {/* Timestamp */}
         <span className="shrink-0 font-mono text-[10px] text-muted-foreground xs:text-xs">
-          {formatTimestamp(event.created_at)}
+          {formattedTimestamp}
         </span>
       </CardContent>
     </Card>

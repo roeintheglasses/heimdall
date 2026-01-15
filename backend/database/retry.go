@@ -110,7 +110,8 @@ func WithRetry[T any](ctx context.Context, cfg RetryConfig, fn func() (T, error)
 		}
 
 		// Add jitter to avoid thundering herd
-		jitter := time.Duration(rand.Int63n(int64(backoff / 4)))
+		// Using math/rand is acceptable here as jitter doesn't require cryptographic randomness
+		jitter := time.Duration(rand.Int63n(int64(backoff / 4))) // #nosec G404
 		sleepTime := backoff + jitter
 
 		if sleepTime > cfg.MaxBackoff {

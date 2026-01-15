@@ -111,3 +111,39 @@ export function formatNumber(num: number): string {
   }
   return num.toString();
 }
+
+/**
+ * Format a commit SHA for display
+ * @param sha - Full commit SHA
+ * @param length - Number of characters to show (default: 7)
+ */
+export function formatCommitSha(sha: string, length = 7): string {
+  return sha.substring(0, length);
+}
+
+/**
+ * Format build time duration
+ * @param seconds - Duration in seconds
+ */
+export function formatBuildTime(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (remainingSeconds === 0) {
+    return `${minutes}m`;
+  }
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
+/**
+ * Format memory size for display
+ * @param mb - Size in megabytes
+ */
+export function formatMemory(mb: number): string {
+  if (mb >= 1024) {
+    return `${(mb / 1024).toFixed(1)} GB`;
+  }
+  return `${mb} MB`;
+}

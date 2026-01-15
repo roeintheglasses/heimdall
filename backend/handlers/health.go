@@ -19,7 +19,7 @@ func NewHealthHandler(cfg *config.Config) *HealthHandler {
 }
 
 // ServeHTTP handles the health check request
-func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
@@ -30,5 +30,6 @@ func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"version":   h.config.Version,
 	}
 
-	json.NewEncoder(w).Encode(response)
+	//nolint:errcheck // WriteHeader already sent, can't change response on encode failure
+	_ = json.NewEncoder(w).Encode(response)
 }

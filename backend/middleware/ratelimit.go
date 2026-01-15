@@ -2,12 +2,16 @@ package middleware
 
 import (
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
 )
+
+// MaxVisitors is the maximum number of tracked IPs before aggressive cleanup
+const MaxVisitors = 10000
 
 // RateLimiter implements a per-IP rate limiter using token bucket algorithm
 type RateLimiter struct {
@@ -55,16 +59,40 @@ func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 }
 
 // cleanupVisitors removes visitors that haven't been seen recently
+// Also enforces MaxVisitors limit to prevent unbounded memory growth
 func (rl *RateLimiter) cleanupVisitors() {
 	for {
 		time.Sleep(time.Minute)
 
 		rl.mu.Lock()
-		for ip, v := range rl.visitors {
-			if time.Since(v.lastSeen) > rl.cleanup {
-				delete(rl.visitors, ip)
+
+		// If over limit, aggressively clean up oldest half
+		if len(rl.visitors) > MaxVisitors {
+			// Sort visitors by lastSeen
+			type ipTime struct {
+				time time.Time
+				ip   string
+			}
+			items := make([]ipTime, 0, len(rl.visitors))
+			for ip, v := range rl.visitors {
+				items = append(items, ipTime{v.lastSeen, ip})
+			}
+			sort.Slice(items, func(i, j int) bool {
+				return items[i].time.Before(items[j].time)
+			})
+			// Remove oldest half
+			for i := 0; i < len(items)/2; i++ {
+				delete(rl.visitors, items[i].ip)
+			}
+		} else {
+			// Normal cleanup - remove stale visitors
+			for ip, v := range rl.visitors {
+				if time.Since(v.lastSeen) > rl.cleanup {
+					delete(rl.visitors, ip)
+				}
 			}
 		}
+
 		rl.mu.Unlock()
 	}
 }

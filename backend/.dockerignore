@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Test files
+*_test.go
+coverage.out
+
+# Build artifacts
+main
+heimdall-backend
+
+# Documentation
+README.md
+*.md
+
+# Local env
+.env
+.env.*

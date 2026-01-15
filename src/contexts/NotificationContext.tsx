@@ -4,26 +4,28 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import {
   Notification,
   NotificationFilter,
-  NotificationType,
-  NotificationPriority,
   MAX_NOTIFICATIONS,
   NOTABLE_EVENT_PATTERNS,
 } from '@/types/notifications';
 import { DashboardEvent } from '@/types/categories';
 
 const STORAGE_KEY = 'heimdall-notifications';
+// TTL for processed event IDs cleanup: 1 hour
+const PROCESSED_EVENT_TTL_MS = 60 * 60 * 1000;
+// Cleanup interval: 5 minutes
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
 interface NotificationContextValue {
   notifications: Notification[];
   unreadCount: number;
   filter: NotificationFilter;
-  addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'read'>) => void;
-  markAsRead: (id: string) => void;
+  addNotification: (_notification: Omit<Notification, 'id' | 'createdAt' | 'read'>) => void;
+  markAsRead: (_id: string) => void;
   markAllAsRead: () => void;
-  removeNotification: (id: string) => void;
+  removeNotification: (_id: string) => void;
   clearAll: () => void;
-  setFilter: (filter: NotificationFilter) => void;
-  processEvent: (event: DashboardEvent) => void;
+  setFilter: (_filter: NotificationFilter) => void;
+  processEvent: (_event: DashboardEvent) => void;
   filteredNotifications: Notification[];
 }
 
@@ -37,7 +39,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     priority: 'all',
   });
   const [isInitialized, setIsInitialized] = useState(false);
-  const [processedEventIds] = useState<Set<string>>(new Set());
+  // Use Map with timestamps for TTL-based cleanup (id -> timestamp when processed)
+  const [processedEventIds] = useState<Map<string, number>>(new Map());
 
   // Load notifications from localStorage on mount
   useEffect(() => {
@@ -47,10 +50,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
           setNotifications(parsed);
-          // Mark existing event IDs as processed
+          // Mark existing event IDs as processed with current timestamp
           parsed.forEach((n: Notification) => {
             if (n.eventId) {
-              processedEventIds.add(n.eventId);
+              processedEventIds.set(n.eventId, Date.now());
             }
           });
         }
@@ -70,6 +73,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       console.error('Failed to save notifications to localStorage:', error);
     }
   }, [notifications, isInitialized]);
+
+  // Periodic cleanup of old processed event IDs to prevent memory growth
+  useEffect(() => {
+    const cleanup = setInterval(() => {
+      const now = Date.now();
+      for (const [id, timestamp] of processedEventIds) {
+        if (now - timestamp > PROCESSED_EVENT_TTL_MS) {
+          processedEventIds.delete(id);
+        }
+      }
+    }, CLEANUP_INTERVAL_MS);
+
+    return () => clearInterval(cleanup);
+  }, [processedEventIds]);
 
   // Calculate unread count
   const unreadCount = useMemo(() => {
@@ -147,9 +164,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             metadata: event.metadata,
           });
 
-          // Mark as processed
+          // Mark as processed with timestamp for TTL-based cleanup
           if (event.id) {
-            processedEventIds.add(event.id);
+            processedEventIds.set(event.id, Date.now());
           }
 
           // Only create one notification per event

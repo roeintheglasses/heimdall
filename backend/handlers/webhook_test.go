@@ -21,12 +21,12 @@ type mockEventStore struct {
 	insertCalls int
 }
 
-func (m *mockEventStore) InsertEvent(event models.DashboardEvent) error {
+func (m *mockEventStore) InsertEvent(event *models.DashboardEvent) error {
 	m.insertCalls++
 	if m.insertErr != nil {
 		return m.insertErr
 	}
-	m.events = append(m.events, event)
+	m.events = append(m.events, *event)
 	return nil
 }
 
