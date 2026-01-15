@@ -44,7 +44,7 @@ func TransformVercelDeploy(eventData json.RawMessage, timestamp time.Time) (mode
 	}
 
 	// Determine status from event type
-	status := "UNKNOWN"
+	var status string
 	switch deployEvent.Type {
 	case "deployment.created":
 		status = "BUILDING"

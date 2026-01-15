@@ -9,14 +9,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
-	_ "github.com/lib/pq"
 	"heimdall-backend/config"
 	"heimdall-backend/database"
 	"heimdall-backend/handlers"
 	"heimdall-backend/logger"
 	"heimdall-backend/middleware"
 	"heimdall-backend/transformers"
+
+	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -49,6 +50,7 @@ func main() {
 
 	// Test database connection
 	if err := db.Ping(); err != nil {
+		db.Close() // Close db before exit since defer won't run
 		log.Fatal().Err(err).Msg("failed to ping database")
 	}
 

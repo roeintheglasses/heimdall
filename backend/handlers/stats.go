@@ -16,9 +16,9 @@ const statsCacheTTL = 30 * time.Second
 
 // statsCache holds cached stats with a timestamp
 type statsCache struct {
-	mu        sync.RWMutex
 	stats     models.EventStats
 	fetchedAt time.Time
+	mu        sync.RWMutex
 }
 
 // StatsHandler handles stats retrieval requests with caching
@@ -94,5 +94,7 @@ func (h *StatsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// Add cache control header to help clients
 	w.Header().Set("Cache-Control", "private, max-age=30")
-	json.NewEncoder(w).Encode(stats)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		log.Error().Err(err).Msg("failed to encode stats response")
+	}
 }

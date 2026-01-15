@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -47,62 +48,85 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create migration instance: %v", err)
 	}
-	defer m.Close()
 
 	// Execute command
+	var exitCode int
 	switch command {
 	case "up":
-		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-			log.Fatalf("Failed to run migrations: %v", err)
+		if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+			log.Printf("Failed to run migrations: %v", err)
+			exitCode = 1
+		} else {
+			log.Println("Migrations applied successfully")
 		}
-		log.Println("Migrations applied successfully")
 
 	case "down":
-		if err := m.Down(); err != nil && err != migrate.ErrNoChange {
-			log.Fatalf("Failed to rollback migrations: %v", err)
+		if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+			log.Printf("Failed to rollback migrations: %v", err)
+			exitCode = 1
+		} else {
+			log.Println("Migrations rolled back successfully")
 		}
-		log.Println("Migrations rolled back successfully")
 
 	case "version":
 		version, dirty, err := m.Version()
 		if err != nil {
-			if err == migrate.ErrNilVersion {
+			if errors.Is(err, migrate.ErrNilVersion) {
 				log.Println("No migrations have been applied yet")
-				return
+			} else {
+				log.Printf("Failed to get version: %v", err)
+				exitCode = 1
 			}
-			log.Fatalf("Failed to get version: %v", err)
+		} else {
+			log.Printf("Current version: %d (dirty: %v)", version, dirty)
 		}
-		log.Printf("Current version: %d (dirty: %v)", version, dirty)
 
 	case "force":
 		if len(args) < 2 {
-			log.Fatal("Force requires a version number")
+			log.Println("Force requires a version number")
+			exitCode = 1
+		} else {
+			var version int
+			if _, err := fmt.Sscanf(args[1], "%d", &version); err != nil {
+				log.Printf("Invalid version number: %v", err)
+				exitCode = 1
+			} else if err := m.Force(version); err != nil {
+				log.Printf("Failed to force version: %v", err)
+				exitCode = 1
+			} else {
+				log.Printf("Forced version to %d", version)
+			}
 		}
-		var version int
-		if _, err := fmt.Sscanf(args[1], "%d", &version); err != nil {
-			log.Fatalf("Invalid version number: %v", err)
-		}
-		if err := m.Force(version); err != nil {
-			log.Fatalf("Failed to force version: %v", err)
-		}
-		log.Printf("Forced version to %d", version)
 
 	case "steps":
 		if len(args) < 2 {
-			log.Fatal("Steps requires a number (positive for up, negative for down)")
+			log.Println("Steps requires a number (positive for up, negative for down)")
+			exitCode = 1
+		} else {
+			var n int
+			if _, err := fmt.Sscanf(args[1], "%d", &n); err != nil {
+				log.Printf("Invalid step count: %v", err)
+				exitCode = 1
+			} else if err := m.Steps(n); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+				log.Printf("Failed to run steps: %v", err)
+				exitCode = 1
+			} else {
+				log.Printf("Applied %d migration steps", n)
+			}
 		}
-		var n int
-		if _, err := fmt.Sscanf(args[1], "%d", &n); err != nil {
-			log.Fatalf("Invalid step count: %v", err)
-		}
-		if err := m.Steps(n); err != nil && err != migrate.ErrNoChange {
-			log.Fatalf("Failed to run steps: %v", err)
-		}
-		log.Printf("Applied %d migration steps", n)
 
 	default:
 		printUsage()
-		os.Exit(1)
+		exitCode = 1
+	}
+
+	// Close migration instance before exiting
+	if _, closeErr := m.Close(); closeErr != nil {
+		log.Printf("Warning: failed to close migration instance: %v", closeErr)
+	}
+
+	if exitCode != 0 {
+		os.Exit(exitCode)
 	}
 }
 

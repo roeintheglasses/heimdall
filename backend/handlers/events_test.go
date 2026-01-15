@@ -25,7 +25,7 @@ func TestEventsHandler_Success(t *testing.T) {
 	}
 	handler := NewEventsHandler(mockRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -52,7 +52,7 @@ func TestEventsHandler_WithPagination(t *testing.T) {
 	mockRepo := &mockEventStore{}
 	handler := NewEventsHandler(mockRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events?limit=10&offset=5", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events?limit=10&offset=5", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -88,7 +88,7 @@ func TestEventsHandler_WithTypeFilter(t *testing.T) {
 	}
 	handler := NewEventsHandler(mockRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events?type=github.push", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events?type=github.push", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -113,7 +113,7 @@ func TestEventsHandler_WithSinceFilter(t *testing.T) {
 	mockRepo := &mockEventStore{}
 	handler := NewEventsHandler(mockRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events?since=2024-01-01", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events?since=2024-01-01", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -129,7 +129,7 @@ func TestEventsHandler_DatabaseError(t *testing.T) {
 	}
 	handler := NewEventsHandler(mockRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -144,7 +144,7 @@ func TestEventsHandler_MaxLimit(t *testing.T) {
 	handler := NewEventsHandler(mockRepo)
 
 	// Request a limit higher than max (500)
-	req := httptest.NewRequest(http.MethodGet, "/api/events?limit=1000", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events?limit=1000", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -169,7 +169,7 @@ func TestEventsHandler_InvalidLimitIgnored(t *testing.T) {
 	handler := NewEventsHandler(mockRepo)
 
 	// Invalid limit should be ignored and use default
-	req := httptest.NewRequest(http.MethodGet, "/api/events?limit=invalid", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events?limit=invalid", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -204,7 +204,7 @@ func TestEventsHandler_HasMorePagination(t *testing.T) {
 	// Use mockStoreWithTotal to return total of 100
 	handler := NewEventsHandler(&mockStoreWithTotal{events: events[:10], total: 100})
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events?limit=10", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events?limit=10", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -225,15 +225,15 @@ type mockStoreWithTotal struct {
 	total  int
 }
 
-func (m *mockStoreWithTotal) InsertEvent(event models.DashboardEvent) error {
+func (m *mockStoreWithTotal) InsertEvent(_ *models.DashboardEvent) error {
 	return nil
 }
 
-func (m *mockStoreWithTotal) GetRecentEvents(limit int) ([]models.DashboardEvent, error) {
+func (m *mockStoreWithTotal) GetRecentEvents(_ int) ([]models.DashboardEvent, error) {
 	return m.events, nil
 }
 
-func (m *mockStoreWithTotal) GetEventsWithFilters(filter models.EventsFilter) ([]models.DashboardEvent, int, error) {
+func (m *mockStoreWithTotal) GetEventsWithFilters(_ models.EventsFilter) ([]models.DashboardEvent, int, error) {
 	return m.events, m.total, nil
 }
 

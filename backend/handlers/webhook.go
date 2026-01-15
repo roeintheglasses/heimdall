@@ -67,7 +67,7 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert into database
-	if err := h.repo.InsertEvent(dashboardEvent); err != nil {
+	if err := h.repo.InsertEvent(&dashboardEvent); err != nil {
 		log.Error().
 			Err(err).
 			Str("event_type", dashboardEvent.EventType).

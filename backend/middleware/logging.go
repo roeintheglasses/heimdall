@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"heimdall-backend/logger"
+
+	"github.com/google/uuid"
 )
 
 // RequestID middleware injects a unique request ID into the context and response headers

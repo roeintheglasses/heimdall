@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"heimdall-backend/models"
+
+	"github.com/rs/zerolog/log"
 )
 
 // EventRepository handles database operations for events
@@ -65,32 +66,36 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 	defer cancel()
 
 	// Get total count with retry
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM events %s", whereClause)
+	// Note: whereClause is safely constructed from validated conditions with parameterized args
+	countQuery := "SELECT COUNT(*) FROM events " + whereClause // #nosec G201
 	countArgs := make([]interface{}, len(args))
 	copy(countArgs, args)
 
-	total, err := WithRetry(ctx, DefaultRetryConfig, func() (int, error) {
+	total, countErr := WithRetry(ctx, DefaultRetryConfig, func() (int, error) {
 		var count int
-		err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&count)
-		return count, err
+		if err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&count); err != nil {
+			return 0, err
+		}
+		return count, nil
 	})
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to count events: %w", err)
+	if countErr != nil {
+		return nil, 0, fmt.Errorf("failed to count events: %w", countErr)
 	}
 
 	// Get events with pagination and retry
+	// Note: whereClause is safely constructed from validated conditions with parameterized args
 	query := fmt.Sprintf(`
 		SELECT id, event_type, title, metadata, created_at
 		FROM events
 		%s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d
-	`, whereClause, argIndex, argIndex+1)
+	`, whereClause, argIndex, argIndex+1) // #nosec G201
 
-	queryArgs := append(args, filter.Limit, filter.Offset)
+	args = append(args, filter.Limit, filter.Offset)
 
-	events, err := WithRetry(ctx, DefaultRetryConfig, func() ([]models.DashboardEvent, error) {
-		rows, err := r.db.QueryContext(ctx, query, queryArgs...)
+	events, queryErr := WithRetry(ctx, DefaultRetryConfig, func() ([]models.DashboardEvent, error) {
+		rows, err := r.db.QueryContext(ctx, query, args...)
 		if err != nil {
 			return nil, err
 		}
@@ -126,8 +131,8 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 
 		return results, nil
 	})
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to query events: %w", err)
+	if queryErr != nil {
+		return nil, 0, fmt.Errorf("failed to query events: %w", queryErr)
 	}
 
 	return events, total, nil
@@ -211,8 +216,8 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 		Service string `json:"service"`
 		Count   int    `json:"count"`
 	}
-	if err := json.Unmarshal(servicesJSON, &serviceResults); err != nil {
-		log.Warn().Err(err).Msg("failed to parse service counts JSON")
+	if unmarshalErr := json.Unmarshal(servicesJSON, &serviceResults); unmarshalErr != nil {
+		log.Warn().Err(unmarshalErr).Msg("failed to parse service counts JSON")
 	} else {
 		for _, s := range serviceResults {
 			stats.ServiceCounts[s.Service] = s.Count
@@ -224,8 +229,8 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 		Category string `json:"category"`
 		Count    int    `json:"count"`
 	}
-	if err := json.Unmarshal(categoriesJSON, &categoryResults); err != nil {
-		log.Warn().Err(err).Msg("failed to parse category counts JSON")
+	if unmarshalErr := json.Unmarshal(categoriesJSON, &categoryResults); unmarshalErr != nil {
+		log.Warn().Err(unmarshalErr).Msg("failed to parse category counts JSON")
 	} else {
 		for _, c := range categoryResults {
 			stats.CategoryCounts[c.Category] = c.Count
@@ -262,7 +267,7 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 }
 
 // InsertEvent inserts a new event into the database
-func (r *EventRepository) InsertEvent(event models.DashboardEvent) error {
+func (r *EventRepository) InsertEvent(event *models.DashboardEvent) error {
 	metadataJSON, err := json.Marshal(event.Metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)

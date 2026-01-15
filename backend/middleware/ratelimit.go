@@ -70,12 +70,12 @@ func (rl *RateLimiter) cleanupVisitors() {
 		if len(rl.visitors) > MaxVisitors {
 			// Sort visitors by lastSeen
 			type ipTime struct {
-				ip   string
 				time time.Time
+				ip   string
 			}
 			items := make([]ipTime, 0, len(rl.visitors))
 			for ip, v := range rl.visitors {
-				items = append(items, ipTime{ip, v.lastSeen})
+				items = append(items, ipTime{v.lastSeen, ip})
 			}
 			sort.Slice(items, func(i, j int) bool {
 				return items[i].time.Before(items[j].time)
