@@ -1,6 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCategories } from '@/contexts/CategoryContext';
@@ -113,8 +112,9 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
   const serviceInfo = getServiceFromEventType(event.event_type || 'unknown');
   const neonColors = getNeonColors(category.color);
 
-  // Memoize the formatted timestamp to avoid re-computing on each render
-  const formattedTimestamp = useMemo(() => formatTimestamp(event.created_at), [event.created_at]);
+  // Format timestamp on each render to keep relative time fresh
+  // (useMemo would cache stale values like "5s ago" that never update)
+  const formattedTimestamp = formatTimestamp(event.created_at);
 
   const getEventTypeLabel = (eventType: string) => {
     switch (eventType) {

@@ -53,17 +53,25 @@ func main() {
 	var exitCode int
 	switch command {
 	case "up":
-		if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-			log.Printf("Failed to run migrations: %v", err)
-			exitCode = 1
+		if err := m.Up(); err != nil {
+			if errors.Is(err, migrate.ErrNoChange) {
+				log.Println("No new migrations to apply (database is up to date)")
+			} else {
+				log.Printf("Failed to run migrations: %v", err)
+				exitCode = 1
+			}
 		} else {
 			log.Println("Migrations applied successfully")
 		}
 
 	case "down":
-		if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-			log.Printf("Failed to rollback migrations: %v", err)
-			exitCode = 1
+		if err := m.Down(); err != nil {
+			if errors.Is(err, migrate.ErrNoChange) {
+				log.Println("No migrations to rollback (database is already at base)")
+			} else {
+				log.Printf("Failed to rollback migrations: %v", err)
+				exitCode = 1
+			}
 		} else {
 			log.Println("Migrations rolled back successfully")
 		}
@@ -107,9 +115,13 @@ func main() {
 			if _, err := fmt.Sscanf(args[1], "%d", &n); err != nil {
 				log.Printf("Invalid step count: %v", err)
 				exitCode = 1
-			} else if err := m.Steps(n); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-				log.Printf("Failed to run steps: %v", err)
-				exitCode = 1
+			} else if err := m.Steps(n); err != nil {
+				if errors.Is(err, migrate.ErrNoChange) {
+					log.Printf("No migration steps to apply (requested %d steps)", n)
+				} else {
+					log.Printf("Failed to run steps: %v", err)
+					exitCode = 1
+				}
 			} else {
 				log.Printf("Applied %d migration steps", n)
 			}

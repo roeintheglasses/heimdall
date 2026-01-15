@@ -63,7 +63,7 @@ func main() {
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cfg)
 	eventsHandler := handlers.NewEventsHandler(eventRepo)
-	statsHandler := handlers.NewStatsHandler(eventRepo)
+	statsHandler := handlers.NewStatsHandler(eventRepo, log)
 	webhookHandler := handlers.NewWebhookHandler(eventRepo, transformerRegistry)
 
 	// Create rate limiter for webhook endpoint

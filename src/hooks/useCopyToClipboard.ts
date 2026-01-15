@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 interface UseCopyToClipboardReturn {
   copiedValue: string | null;
@@ -13,6 +13,16 @@ interface UseCopyToClipboardReturn {
  */
 export function useCopyToClipboard(resetTimeout = 2000): UseCopyToClipboardReturn {
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const copy = useCallback(
     async (text: string, identifier?: string): Promise<boolean> => {
@@ -26,7 +36,11 @@ export function useCopyToClipboard(resetTimeout = 2000): UseCopyToClipboardRetur
         setCopiedValue(identifier ?? text);
 
         if (resetTimeout > 0) {
-          setTimeout(() => setCopiedValue(null), resetTimeout);
+          // Clear any existing timeout before setting a new one
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+          }
+          timeoutRef.current = setTimeout(() => setCopiedValue(null), resetTimeout);
         }
 
         return true;
@@ -47,6 +61,10 @@ export function useCopyToClipboard(resetTimeout = 2000): UseCopyToClipboardRetur
   );
 
   const reset = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     setCopiedValue(null);
   }, []);
 

@@ -25,13 +25,15 @@ type statsCache struct {
 type StatsHandler struct {
 	repo  database.EventStore
 	cache *statsCache
+	log   *logger.Logger
 }
 
 // NewStatsHandler creates a new stats handler with cache
-func NewStatsHandler(repo database.EventStore) *StatsHandler {
+func NewStatsHandler(repo database.EventStore, log *logger.Logger) *StatsHandler {
 	return &StatsHandler{
 		repo:  repo,
 		cache: &statsCache{},
+		log:   log,
 	}
 }
 
@@ -60,7 +62,9 @@ func (h *StatsHandler) getStats() (models.EventStats, bool, error) {
 	if err != nil {
 		// On error, return stale cache if available
 		if !h.cache.fetchedAt.IsZero() {
-			return h.cache.stats, false, nil
+			// Log the error but return stale data to maintain availability
+			h.log.Warn().Err(err).Msg("failed to fetch stats, returning stale cache")
+			return h.cache.stats, true, nil // true = from cache (stale)
 		}
 		return models.EventStats{}, false, err
 	}

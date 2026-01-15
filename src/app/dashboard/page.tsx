@@ -122,7 +122,8 @@ function DashboardContent() {
         const data = await response.json();
         const newEvents = data.events || data;
         if (newEvents.length > 0) {
-          setEvents((prev) => [...prev, ...newEvents]);
+          // Cap at MAX_EVENTS to prevent unbounded memory growth
+          setEvents((prev) => [...prev, ...newEvents].slice(0, MAX_EVENTS));
         }
         if (data.pagination) {
           setHasMore(data.pagination.hasMore);
