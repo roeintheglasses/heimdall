@@ -12,6 +12,7 @@ import EventCard from '@/components/EventCard';
 import EventCardSkeleton from '@/components/EventCardSkeleton';
 import EventDetailDrawer from '@/components/EventDetailDrawer';
 import ConnectionStatus from '@/components/ConnectionStatus';
+import { getGoServiceUrl } from '@/lib/api';
 
 // Lazy load ActivityGraph (Recharts ~91KB) - only load when needed
 const ActivityGraph = dynamic(() => import('@/components/ActivityGraph'), {
@@ -107,8 +108,7 @@ function DashboardContent() {
     [playClick]
   );
 
-  const goServiceUrl =
-    process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
+  const goServiceUrl = getGoServiceUrl();
 
   // Function to load more events
   const loadMoreEvents = useCallback(async () => {

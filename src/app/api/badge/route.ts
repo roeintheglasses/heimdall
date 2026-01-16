@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getGoServiceUrl } from '@/lib/api';
 
 export const runtime = 'edge';
 
@@ -13,10 +14,7 @@ interface Stats {
 
 async function getStats(): Promise<Stats | null> {
   try {
-    const goServiceUrl =
-      process.env.GO_SERVICE_URL ||
-      process.env.NEXT_PUBLIC_GO_SERVICE_URL ||
-      'https://heimdall-backend-prod.up.railway.app';
+    const goServiceUrl = getGoServiceUrl();
     const response = await fetch(`${goServiceUrl}/api/stats`, {
       next: { revalidate: 300 },
     });

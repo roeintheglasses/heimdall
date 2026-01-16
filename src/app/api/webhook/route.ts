@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from '@upstash/qstash';
+import { getGoServiceUrl } from '@/lib/api';
 
 export const runtime = 'edge';
 
@@ -179,8 +180,7 @@ export async function POST(req: NextRequest) {
 
     // Check if QStash is configured
     const qstashToken = process.env.QSTASH_TOKEN;
-    const goServiceUrl =
-      process.env.GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
+    const goServiceUrl = getGoServiceUrl();
 
     if (qstashToken) {
       // Use QStash for reliable message queuing

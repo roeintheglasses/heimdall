@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { getGoServiceUrl } from '@/lib/api';
 
 interface DayActivity {
   date: string;
@@ -20,8 +21,7 @@ export function HeatmapBackground({ className }: HeatmapBackgroundProps) {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const goServiceUrl =
-          process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
+        const goServiceUrl = getGoServiceUrl();
         const response = await fetch(`${goServiceUrl}/api/events?limit=500`);
 
         if (!response.ok) {

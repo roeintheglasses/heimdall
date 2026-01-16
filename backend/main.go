@@ -68,8 +68,10 @@ func main() {
 	wrappedHandler := handlers.NewWrappedHandler(eventRepo, log)
 	webhookHandler := handlers.NewWebhookHandler(eventRepo, transformerRegistry)
 
-	// Create rate limiter for webhook endpoint
-	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	// Create rate limiter for webhook endpoint (stricter limits for writes)
+	webhookRateLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	// Create rate limiter for read endpoints (more lenient - 30 RPS, burst of 60)
+	readRateLimiter := middleware.NewRateLimiter(30, 60)
 
 	// Create router
 	r := mux.NewRouter()
@@ -82,11 +84,11 @@ func main() {
 	// API routes
 	api := r.PathPrefix("/api").Subrouter()
 	api.Handle("/health", healthHandler).Methods("GET", "OPTIONS")
-	api.Handle("/events", eventsHandler).Methods("GET", "OPTIONS")
-	api.Handle("/stats", statsHandler).Methods("GET", "OPTIONS")
-	api.PathPrefix("/wrapped/").Handler(wrappedHandler).Methods("GET", "OPTIONS")
-	// Apply rate limiting only to webhook endpoint
-	api.Handle("/webhook", rateLimiter.Limit(webhookHandler)).Methods("POST", "OPTIONS")
+	api.Handle("/events", readRateLimiter.Limit(eventsHandler)).Methods("GET", "OPTIONS")
+	api.Handle("/stats", readRateLimiter.Limit(statsHandler)).Methods("GET", "OPTIONS")
+	api.PathPrefix("/wrapped/").Handler(readRateLimiter.Limit(wrappedHandler)).Methods("GET", "OPTIONS")
+	// Apply stricter rate limiting to webhook endpoint
+	api.Handle("/webhook", webhookRateLimiter.Limit(webhookHandler)).Methods("POST", "OPTIONS")
 
 	// Create server with timeouts
 	srv := &http.Server{

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -49,21 +50,21 @@ func NewWrappedHandler(repo database.EventStore, log *logger.Logger) *WrappedHan
 func parseYearMonth(s string) (int, int, error) {
 	parts := strings.Split(s, "-")
 	if len(parts) != 2 {
-		return 0, 0, nil
+		return 0, 0, errors.New("invalid format: expected YYYY-MM")
 	}
 
 	year, err := strconv.Atoi(parts[0])
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.New("invalid year: must be a number")
 	}
 
 	month, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.New("invalid month: must be a number")
 	}
 
 	if month < 1 || month > 12 {
-		return 0, 0, nil
+		return 0, 0, errors.New("invalid month: must be between 1 and 12")
 	}
 
 	return year, month, nil
@@ -124,8 +125,8 @@ func (h *WrappedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	yearMonth := parts[len(parts)-1]
 	year, month, err := parseYearMonth(yearMonth)
-	if err != nil || year == 0 || month == 0 {
-		http.Error(w, "Invalid year-month format. Expected YYYY-MM", http.StatusBadRequest)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

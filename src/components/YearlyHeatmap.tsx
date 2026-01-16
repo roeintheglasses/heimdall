@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Activity, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getGoServiceUrl } from '@/lib/api';
 
 interface DayActivity {
   date: string;
@@ -36,8 +37,7 @@ export function YearlyHeatmap({ className = '', eventsPerYear }: YearlyHeatmapPr
 
     const fetchYearlyStats = async () => {
       try {
-        const goServiceUrl =
-          process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
+        const goServiceUrl = getGoServiceUrl();
         const response = await fetch(`${goServiceUrl}/api/stats?range=year`);
 
         if (!response.ok) {

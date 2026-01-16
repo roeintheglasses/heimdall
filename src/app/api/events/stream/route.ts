@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getGoServiceUrl } from '@/lib/api';
 
 export const runtime = 'nodejs';
 
@@ -112,8 +113,7 @@ function startPolling() {
     }
 
     try {
-      const goServiceUrl =
-        process.env.GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
+      const goServiceUrl = getGoServiceUrl();
       const response = await fetch(`${goServiceUrl}/api/events?limit=50`);
 
       if (response.ok) {

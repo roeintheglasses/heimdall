@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Flame, Trophy, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getGoServiceUrl } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface StreakInfo {
@@ -35,8 +36,7 @@ export function StreakCounter({
 
     const fetchStreak = async () => {
       try {
-        const goServiceUrl =
-          process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
+        const goServiceUrl = getGoServiceUrl();
         const response = await fetch(`${goServiceUrl}/api/stats`);
 
         if (!response.ok) {

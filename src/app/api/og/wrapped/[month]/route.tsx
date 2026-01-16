@@ -1,5 +1,6 @@
 import { ImageResponse } from '@vercel/og';
 import { NextRequest } from 'next/server';
+import { getGoServiceUrl } from '@/lib/api';
 
 export const runtime = 'edge';
 
@@ -17,10 +18,7 @@ interface MonthlyStats {
 
 async function getMonthlyStats(month: string): Promise<MonthlyStats | null> {
   try {
-    const goServiceUrl =
-      process.env.GO_SERVICE_URL ||
-      process.env.NEXT_PUBLIC_GO_SERVICE_URL ||
-      'https://heimdall-backend-prod.up.railway.app';
+    const goServiceUrl = getGoServiceUrl();
     const response = await fetch(`${goServiceUrl}/api/wrapped/${month}`, {
       next: { revalidate: 300 },
     });

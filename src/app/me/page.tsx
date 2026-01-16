@@ -1,13 +1,11 @@
 import { Metadata } from 'next';
 import { PublicStatsContent } from './PublicStatsContent';
+import { getGoServiceUrl } from '@/lib/api';
 
 // Fetch stats for metadata
 async function getStats() {
   try {
-    const goServiceUrl =
-      process.env.GO_SERVICE_URL ||
-      process.env.NEXT_PUBLIC_GO_SERVICE_URL ||
-      'https://heimdall-backend-prod.up.railway.app';
+    const goServiceUrl = getGoServiceUrl();
     const response = await fetch(`${goServiceUrl}/api/stats?range=year`, {
       next: { revalidate: 60 },
     });

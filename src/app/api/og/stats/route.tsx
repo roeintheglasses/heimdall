@@ -1,14 +1,12 @@
 import { ImageResponse } from '@vercel/og';
 import { NextRequest } from 'next/server';
+import { getGoServiceUrl } from '@/lib/api';
 
 export const runtime = 'edge';
 
 async function getStats() {
   try {
-    const goServiceUrl =
-      process.env.GO_SERVICE_URL ||
-      process.env.NEXT_PUBLIC_GO_SERVICE_URL ||
-      'https://heimdall-backend-prod.up.railway.app';
+    const goServiceUrl = getGoServiceUrl();
     const response = await fetch(`${goServiceUrl}/api/stats`, {
       next: { revalidate: 60 },
     });

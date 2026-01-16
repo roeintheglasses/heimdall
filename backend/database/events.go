@@ -373,7 +373,7 @@ func (r *EventRepository) CalculateStreak() (models.StreakInfo, error) {
 				if diff == 1 {
 					// Consecutive day
 					tempStreak++
-					if currentStreak > 0 && i < len(dates) {
+					if currentStreak > 0 {
 						currentStreak++
 					}
 				} else {
