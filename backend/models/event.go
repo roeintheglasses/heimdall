@@ -34,6 +34,8 @@ type EventStats struct {
 	CategoryCounts map[string]int `json:"category_counts"`
 	ServiceCounts  map[string]int `json:"service_counts"`
 	EventsPerDay   []DailyCount   `json:"events_per_day"`
+	EventsPerYear  []DailyCount   `json:"events_per_year,omitempty"`
+	Streak         StreakInfo     `json:"streak"`
 	TotalEvents    int            `json:"total_events"`
 	Last24Hours    int            `json:"last_24_hours"`
 	LastWeek       int            `json:"last_week"`
@@ -43,4 +45,30 @@ type EventStats struct {
 type DailyCount struct {
 	Date  string `json:"date"`
 	Count int    `json:"count"`
+}
+
+// StreakInfo contains streak tracking data
+type StreakInfo struct {
+	CurrentStreak  int    `json:"current_streak"`
+	LongestStreak  int    `json:"longest_streak"`
+	LastActiveDate string `json:"last_active_date"`
+}
+
+// ServiceCount represents event count for a specific service
+type ServiceCount struct {
+	Service string `json:"service"`
+	Count   int    `json:"count"`
+}
+
+// MonthlyStats contains aggregate statistics for a specific month
+type MonthlyStats struct {
+	Year              int            `json:"year"`
+	Month             int            `json:"month"`
+	MonthName         string         `json:"month_name"`
+	TotalEvents       int            `json:"total_events"`
+	DailyAverage      float64        `json:"daily_average"`
+	BusiestDay        DailyCount     `json:"busiest_day"`
+	TopServices       []ServiceCount `json:"top_services"`
+	EventsPerDay      []DailyCount   `json:"events_per_day"`
+	CategoryBreakdown map[string]int `json:"category_breakdown"`
 }

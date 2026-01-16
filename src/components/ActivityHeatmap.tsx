@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Terminal, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getGoServiceUrl } from '@/lib/api';
 
 interface DayActivity {
   date: string;
@@ -23,8 +24,7 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const goServiceUrl =
-          process.env.NEXT_PUBLIC_GO_SERVICE_URL || 'https://heimdall-backend-prod.up.railway.app';
+        const goServiceUrl = getGoServiceUrl();
         // Fetch more events for better heatmap coverage
         const response = await fetch(`${goServiceUrl}/api/events?limit=500`);
 

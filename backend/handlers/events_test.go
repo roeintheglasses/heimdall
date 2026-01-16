@@ -245,3 +245,19 @@ func (m *mockStoreWithTotal) GetStats() (models.EventStats, error) {
 		EventsPerDay:   []models.DailyCount{},
 	}, nil
 }
+
+func (m *mockStoreWithTotal) GetYearlyDailyStats() ([]models.DailyCount, error) {
+	return []models.DailyCount{}, nil
+}
+
+func (m *mockStoreWithTotal) CalculateStreak() (models.StreakInfo, error) {
+	return models.StreakInfo{}, nil
+}
+
+func (m *mockStoreWithTotal) GetMonthlyStats(year, month int) (models.MonthlyStats, error) {
+	return models.MonthlyStats{
+		Year:              year,
+		Month:             month,
+		CategoryBreakdown: make(map[string]int),
+	}, nil
+}
