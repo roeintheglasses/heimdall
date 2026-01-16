@@ -409,7 +409,7 @@ func (r *EventRepository) CalculateStreak() (models.StreakInfo, error) {
 }
 
 // GetMonthlyStats retrieves aggregate statistics for a specific month
-func (r *EventRepository) GetMonthlyStats(year int, month int) (models.MonthlyStats, error) {
+func (r *EventRepository) GetMonthlyStats(year, month int) (models.MonthlyStats, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -446,7 +446,8 @@ func (r *EventRepository) GetMonthlyStats(year int, month int) (models.MonthlySt
 		var busiestDay models.DailyCount
 		for dailyRows.Next() {
 			var dc models.DailyCount
-			if err := dailyRows.Scan(&dc.Date, &dc.Count); err != nil {
+			err = dailyRows.Scan(&dc.Date, &dc.Count)
+			if err != nil {
 				return stats, fmt.Errorf("failed to scan daily row: %w", err)
 			}
 			stats.EventsPerDay = append(stats.EventsPerDay, dc)
@@ -455,7 +456,8 @@ func (r *EventRepository) GetMonthlyStats(year int, month int) (models.MonthlySt
 				busiestDay = dc
 			}
 		}
-		if err := dailyRows.Err(); err != nil {
+		err = dailyRows.Err()
+		if err != nil {
 			return stats, fmt.Errorf("error iterating daily rows: %w", err)
 		}
 
@@ -487,12 +489,14 @@ func (r *EventRepository) GetMonthlyStats(year int, month int) (models.MonthlySt
 
 		for serviceRows.Next() {
 			var sc models.ServiceCount
-			if err := serviceRows.Scan(&sc.Service, &sc.Count); err != nil {
+			err = serviceRows.Scan(&sc.Service, &sc.Count)
+			if err != nil {
 				return stats, fmt.Errorf("failed to scan service row: %w", err)
 			}
 			stats.TopServices = append(stats.TopServices, sc)
 		}
-		if err := serviceRows.Err(); err != nil {
+		err = serviceRows.Err()
+		if err != nil {
 			return stats, fmt.Errorf("error iterating service rows: %w", err)
 		}
 
@@ -521,12 +525,14 @@ func (r *EventRepository) GetMonthlyStats(year int, month int) (models.MonthlySt
 		for catRows.Next() {
 			var cat string
 			var count int
-			if err := catRows.Scan(&cat, &count); err != nil {
+			err = catRows.Scan(&cat, &count)
+			if err != nil {
 				return stats, fmt.Errorf("failed to scan category row: %w", err)
 			}
 			stats.CategoryBreakdown[cat] = count
 		}
-		if err := catRows.Err(); err != nil {
+		err = catRows.Err()
+		if err != nil {
 			return stats, fmt.Errorf("error iterating category rows: %w", err)
 		}
 

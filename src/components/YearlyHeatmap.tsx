@@ -173,7 +173,7 @@ export function YearlyHeatmap({ className = '', eventsPerYear }: YearlyHeatmapPr
         <div className="flex items-center gap-2 text-neon-cyan">
           <Calendar className="h-3 w-3" />
           <span>
-            {String(stats.total).padStart(4, '0')} EVENTS // {stats.activeDays} ACTIVE DAYS // 365D
+            {String(stats.total).padStart(4, '0')} EVENTS | {stats.activeDays} ACTIVE DAYS | 365D
           </span>
         </div>
         <div className="flex items-center gap-1">

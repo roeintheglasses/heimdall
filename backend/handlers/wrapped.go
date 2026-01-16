@@ -47,18 +47,18 @@ func NewWrappedHandler(repo database.EventStore, log *logger.Logger) *WrappedHan
 }
 
 // parseYearMonth parses a "YYYY-MM" string into year and month
-func parseYearMonth(s string) (int, int, error) {
+func parseYearMonth(s string) (year int, month int, err error) {
 	parts := strings.Split(s, "-")
 	if len(parts) != 2 {
 		return 0, 0, errors.New("invalid format: expected YYYY-MM")
 	}
 
-	year, err := strconv.Atoi(parts[0])
+	year, err = strconv.Atoi(parts[0])
 	if err != nil {
 		return 0, 0, errors.New("invalid year: must be a number")
 	}
 
-	month, err := strconv.Atoi(parts[1])
+	month, err = strconv.Atoi(parts[1])
 	if err != nil {
 		return 0, 0, errors.New("invalid month: must be a number")
 	}
