@@ -47,7 +47,7 @@ func NewWrappedHandler(repo database.EventStore, log *logger.Logger) *WrappedHan
 }
 
 // parseYearMonth parses a "YYYY-MM" string into year and month
-func parseYearMonth(s string) (year int, month int, err error) {
+func parseYearMonth(s string) (year, month int, err error) {
 	parts := strings.Split(s, "-")
 	if len(parts) != 2 {
 		return 0, 0, errors.New("invalid format: expected YYYY-MM")

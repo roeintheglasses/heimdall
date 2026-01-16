@@ -254,7 +254,7 @@ func (m *mockStoreWithTotal) CalculateStreak() (models.StreakInfo, error) {
 	return models.StreakInfo{}, nil
 }
 
-func (m *mockStoreWithTotal) GetMonthlyStats(year int, month int) (models.MonthlyStats, error) {
+func (m *mockStoreWithTotal) GetMonthlyStats(year, month int) (models.MonthlyStats, error) {
 	return models.MonthlyStats{
 		Year:              year,
 		Month:             month,
