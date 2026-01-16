@@ -65,6 +65,7 @@ func main() {
 	healthHandler := handlers.NewHealthHandler(cfg)
 	eventsHandler := handlers.NewEventsHandler(eventRepo)
 	statsHandler := handlers.NewStatsHandler(eventRepo, log)
+	wrappedHandler := handlers.NewWrappedHandler(eventRepo, log)
 	webhookHandler := handlers.NewWebhookHandler(eventRepo, transformerRegistry)
 
 	// Create rate limiter for webhook endpoint
@@ -83,6 +84,7 @@ func main() {
 	api.Handle("/health", healthHandler).Methods("GET", "OPTIONS")
 	api.Handle("/events", eventsHandler).Methods("GET", "OPTIONS")
 	api.Handle("/stats", statsHandler).Methods("GET", "OPTIONS")
+	api.PathPrefix("/wrapped/").Handler(wrappedHandler).Methods("GET", "OPTIONS")
 	// Apply rate limiting only to webhook endpoint
 	api.Handle("/webhook", rateLimiter.Limit(webhookHandler)).Methods("POST", "OPTIONS")
 

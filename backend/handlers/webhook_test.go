@@ -56,6 +56,22 @@ func (m *mockEventStore) GetStats() (models.EventStats, error) {
 	}, nil
 }
 
+func (m *mockEventStore) GetYearlyDailyStats() ([]models.DailyCount, error) {
+	return []models.DailyCount{}, nil
+}
+
+func (m *mockEventStore) CalculateStreak() (models.StreakInfo, error) {
+	return models.StreakInfo{}, nil
+}
+
+func (m *mockEventStore) GetMonthlyStats(year int, month int) (models.MonthlyStats, error) {
+	return models.MonthlyStats{
+		Year:              year,
+		Month:             month,
+		CategoryBreakdown: make(map[string]int),
+	}, nil
+}
+
 func TestWebhookHandler_ValidPayload(t *testing.T) {
 	mockRepo := &mockEventStore{}
 	registry := transformers.NewRegistry()

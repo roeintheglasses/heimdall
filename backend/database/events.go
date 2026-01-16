@@ -271,6 +271,269 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 	return stats, nil
 }
 
+// GetYearlyDailyStats retrieves daily counts for the past 365 days
+func (r *EventRepository) GetYearlyDailyStats() ([]models.DailyCount, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return WithRetry(ctx, DefaultRetryConfig, func() ([]models.DailyCount, error) {
+		query := `
+			SELECT
+				TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
+				COUNT(*) as count
+			FROM events
+			WHERE created_at >= NOW() - INTERVAL '365 days'
+			GROUP BY DATE(created_at)
+			ORDER BY DATE(created_at) ASC
+		`
+		rows, err := r.db.QueryContext(ctx, query)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query yearly stats: %w", err)
+		}
+		defer rows.Close()
+
+		results := make([]models.DailyCount, 0, 365)
+		for rows.Next() {
+			var dc models.DailyCount
+			if err := rows.Scan(&dc.Date, &dc.Count); err != nil {
+				return nil, fmt.Errorf("failed to scan yearly row: %w", err)
+			}
+			results = append(results, dc)
+		}
+
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("error iterating yearly rows: %w", err)
+		}
+
+		return results, nil
+	})
+}
+
+// CalculateStreak calculates the current and longest streak of consecutive days with activity
+func (r *EventRepository) CalculateStreak() (models.StreakInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return WithRetry(ctx, DefaultRetryConfig, func() (models.StreakInfo, error) {
+		// Get all distinct dates with events, ordered descending
+		query := `
+			SELECT DISTINCT DATE(created_at) as event_date
+			FROM events
+			ORDER BY event_date DESC
+		`
+		rows, err := r.db.QueryContext(ctx, query)
+		if err != nil {
+			return models.StreakInfo{}, fmt.Errorf("failed to query dates for streak: %w", err)
+		}
+		defer rows.Close()
+
+		var dates []time.Time
+		for rows.Next() {
+			var date time.Time
+			if err := rows.Scan(&date); err != nil {
+				return models.StreakInfo{}, fmt.Errorf("failed to scan date: %w", err)
+			}
+			dates = append(dates, date)
+		}
+
+		if err := rows.Err(); err != nil {
+			return models.StreakInfo{}, fmt.Errorf("error iterating dates: %w", err)
+		}
+
+		if len(dates) == 0 {
+			return models.StreakInfo{}, nil
+		}
+
+		streak := models.StreakInfo{
+			LastActiveDate: dates[0].Format("2006-01-02"),
+		}
+
+		// Calculate current streak (consecutive days from today or yesterday)
+		today := time.Now().UTC().Truncate(24 * time.Hour)
+		yesterday := today.AddDate(0, 0, -1)
+
+		currentStreak := 0
+		longestStreak := 0
+		tempStreak := 1
+
+		for i, date := range dates {
+			dateOnly := date.Truncate(24 * time.Hour)
+
+			// For current streak: must start from today or yesterday
+			if i == 0 {
+				if dateOnly.Equal(today) || dateOnly.Equal(yesterday) {
+					currentStreak = 1
+				}
+			}
+
+			if i > 0 {
+				prevDate := dates[i-1].Truncate(24 * time.Hour)
+				diff := prevDate.Sub(dateOnly).Hours() / 24
+
+				if diff == 1 {
+					// Consecutive day
+					tempStreak++
+					if currentStreak > 0 && i < len(dates) {
+						currentStreak++
+					}
+				} else {
+					// Gap found
+					if tempStreak > longestStreak {
+						longestStreak = tempStreak
+					}
+					tempStreak = 1
+					if currentStreak > 0 {
+						// Current streak is broken, save it
+						if currentStreak > longestStreak {
+							longestStreak = currentStreak
+						}
+						currentStreak = 0
+					}
+				}
+			}
+		}
+
+		// Check final streak
+		if tempStreak > longestStreak {
+			longestStreak = tempStreak
+		}
+		if currentStreak > longestStreak {
+			longestStreak = currentStreak
+		}
+
+		streak.CurrentStreak = currentStreak
+		streak.LongestStreak = longestStreak
+
+		return streak, nil
+	})
+}
+
+// GetMonthlyStats retrieves aggregate statistics for a specific month
+func (r *EventRepository) GetMonthlyStats(year int, month int) (models.MonthlyStats, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return WithRetry(ctx, DefaultRetryConfig, func() (models.MonthlyStats, error) {
+		monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+		monthEnd := monthStart.AddDate(0, 1, 0)
+
+		stats := models.MonthlyStats{
+			Year:              year,
+			Month:             month,
+			MonthName:         monthStart.Format("January"),
+			CategoryBreakdown: make(map[string]int),
+			TopServices:       []models.ServiceCount{},
+			EventsPerDay:      []models.DailyCount{},
+		}
+
+		// Get total events and daily counts for the month
+		dailyQuery := `
+			SELECT
+				TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
+				COUNT(*) as count
+			FROM events
+			WHERE created_at >= $1 AND created_at < $2
+			GROUP BY DATE(created_at)
+			ORDER BY DATE(created_at) ASC
+		`
+		dailyRows, err := r.db.QueryContext(ctx, dailyQuery, monthStart, monthEnd)
+		if err != nil {
+			return stats, fmt.Errorf("failed to query monthly daily counts: %w", err)
+		}
+		defer dailyRows.Close()
+
+		totalEvents := 0
+		var busiestDay models.DailyCount
+		for dailyRows.Next() {
+			var dc models.DailyCount
+			if err := dailyRows.Scan(&dc.Date, &dc.Count); err != nil {
+				return stats, fmt.Errorf("failed to scan daily row: %w", err)
+			}
+			stats.EventsPerDay = append(stats.EventsPerDay, dc)
+			totalEvents += dc.Count
+			if dc.Count > busiestDay.Count {
+				busiestDay = dc
+			}
+		}
+		if err := dailyRows.Err(); err != nil {
+			return stats, fmt.Errorf("error iterating daily rows: %w", err)
+		}
+
+		stats.TotalEvents = totalEvents
+		stats.BusiestDay = busiestDay
+
+		// Calculate daily average
+		daysInMonth := monthEnd.Sub(monthStart).Hours() / 24
+		if daysInMonth > 0 {
+			stats.DailyAverage = float64(totalEvents) / daysInMonth
+		}
+
+		// Get top services
+		serviceQuery := `
+			SELECT
+				SPLIT_PART(event_type, '.', 1) as service,
+				COUNT(*) as count
+			FROM events
+			WHERE created_at >= $1 AND created_at < $2
+			GROUP BY 1
+			ORDER BY count DESC
+			LIMIT 5
+		`
+		serviceRows, err := r.db.QueryContext(ctx, serviceQuery, monthStart, monthEnd)
+		if err != nil {
+			return stats, fmt.Errorf("failed to query service counts: %w", err)
+		}
+		defer serviceRows.Close()
+
+		for serviceRows.Next() {
+			var sc models.ServiceCount
+			if err := serviceRows.Scan(&sc.Service, &sc.Count); err != nil {
+				return stats, fmt.Errorf("failed to scan service row: %w", err)
+			}
+			stats.TopServices = append(stats.TopServices, sc)
+		}
+		if err := serviceRows.Err(); err != nil {
+			return stats, fmt.Errorf("error iterating service rows: %w", err)
+		}
+
+		// Get category breakdown
+		categoryQuery := `
+			SELECT
+				CASE
+					WHEN event_type LIKE 'github.push%' OR event_type LIKE 'github.pr%' OR event_type LIKE 'github.release%' THEN 'development'
+					WHEN event_type LIKE 'vercel.%' OR event_type LIKE 'railway.%' THEN 'deployments'
+					WHEN event_type LIKE 'github.issue%' OR event_type LIKE 'error.%' THEN 'issues'
+					WHEN event_type LIKE 'security.%' THEN 'security'
+					WHEN event_type LIKE 'monitoring.%' THEN 'infrastructure'
+					ELSE 'development'
+				END as category,
+				COUNT(*) as count
+			FROM events
+			WHERE created_at >= $1 AND created_at < $2
+			GROUP BY 1
+		`
+		catRows, err := r.db.QueryContext(ctx, categoryQuery, monthStart, monthEnd)
+		if err != nil {
+			return stats, fmt.Errorf("failed to query category counts: %w", err)
+		}
+		defer catRows.Close()
+
+		for catRows.Next() {
+			var cat string
+			var count int
+			if err := catRows.Scan(&cat, &count); err != nil {
+				return stats, fmt.Errorf("failed to scan category row: %w", err)
+			}
+			stats.CategoryBreakdown[cat] = count
+		}
+		if err := catRows.Err(); err != nil {
+			return stats, fmt.Errorf("error iterating category rows: %w", err)
+		}
+
+		return stats, nil
+	})
+}
+
 // InsertEvent inserts a new event into the database
 func (r *EventRepository) InsertEvent(event *models.DashboardEvent) error {
 	metadataJSON, err := json.Marshal(event.Metadata)
