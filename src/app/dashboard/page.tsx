@@ -158,14 +158,11 @@ function DashboardContent() {
     const fetchEvents = async () => {
       setIsLoading(true);
       try {
-        console.log('Fetching events from:', `${goServiceUrl}/api/events?limit=200`);
         const response = await fetch(`${goServiceUrl}/api/events?limit=200`);
-        console.log('Response status:', response.status);
         if (response.ok) {
           const data = await response.json();
           // Handle both old format (array) and new format (object with events)
           const initialEvents = data.events || data;
-          console.log('Fetched events:', initialEvents.length);
           setEvents(initialEvents);
           // Handle pagination metadata if present
           if (data.pagination) {

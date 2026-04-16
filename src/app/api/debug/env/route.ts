@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
-  // Only allow in development or with a secret key
+  // Require an explicitly configured secret key — no hardcoded default.
+  // If DEBUG_KEY is not set, the endpoint is disabled.
   const debugKey = req.nextUrl.searchParams.get('key');
-  const expectedKey = process.env.DEBUG_KEY || 'debug-heimdall-2024';
+  const expectedKey = process.env.DEBUG_KEY;
 
-  if (debugKey !== expectedKey) {
+  if (!expectedKey || debugKey !== expectedKey) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	stdlog "log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,8 +22,11 @@ import (
 )
 
 func main() {
-	// Load configuration
-	cfg := config.LoadWithDefaults()
+	// Load configuration — fail fast if required env vars are missing
+	cfg, err := config.Load()
+	if err != nil {
+		stdlog.Fatalf("configuration error: %v", err)
+	}
 
 	// Initialize structured logger
 	log := logger.New(cfg.PrettyLogs)
