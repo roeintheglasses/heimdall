@@ -315,10 +315,13 @@ func (r *EventRepository) CalculateStreak() (models.StreakInfo, error) {
 	defer cancel()
 
 	return WithRetry(ctx, DefaultRetryConfig, func() (models.StreakInfo, error) {
-		// Get all distinct dates with events, ordered descending
+		// Get all distinct dates with events over the last 400 days, ordered descending.
+		// A 400-day window bounds the query to prevent full-table scans as history grows,
+		// while being far beyond any realistic streak length.
 		query := `
 			SELECT DISTINCT DATE(created_at) as event_date
 			FROM events
+			WHERE created_at > NOW() - INTERVAL '400 days'
 			ORDER BY event_date DESC
 		`
 		rows, err := r.db.QueryContext(ctx, query)
