@@ -1,277 +1,126 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Client } from '@upstash/qstash';
-import { getGoServiceUrl } from '@/lib/api';
+import { detectEvent, isObject, type Provider } from '@/lib/webhook/detect';
+import { buildEnvelope, forwardToBackend } from '@/lib/webhook/forward';
+import { verifyGitHub, verifyRailwayToken, verifyVercel } from '@/lib/webhook/verify';
 
 export const runtime = 'edge';
 
-interface QStashPayload {
-  type: string;
-  event: any;
-}
+const MAX_BODY_BYTES = 1024 * 1024;
 
 // Handle CORS preflight requests
-export async function OPTIONS(req: NextRequest) {
+export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers':
-        'Content-Type, X-GitHub-Event, X-Hub-Signature-256, X-Railway-Event, X-Railway-Project, X-Railway-Service',
+        'Content-Type, X-GitHub-Event, X-GitHub-Delivery, X-Hub-Signature-256, X-Vercel-Signature, X-Railway-Event, X-Railway-Project, X-Railway-Service',
     },
   });
 }
 
+interface LogFields {
+  provider: Provider | null;
+  eventType: string | null;
+  deliveryId: string | null;
+  bodyBytes: number;
+}
+
+function json(status: number, body: Record<string, unknown>) {
+  return NextResponse.json(body, { status });
+}
+
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
+  const fields: LogFields = { provider: null, eventType: null, deliveryId: null, bodyBytes: 0 };
+
+  // Log only an allowlist of fields: never headers, payloads, signatures, or the token URL.
+  const respond = (status: number, body: Record<string, unknown> | 'pong') => {
+    // eslint-disable-next-line no-console -- single structured access log
+    console.log('webhook', { ...fields, status, ms: Date.now() - startTime });
+    if (body === 'pong') {
+      return new NextResponse('pong', { status, headers: { 'Content-Type': 'text/plain' } });
+    }
+    return json(status, body);
+  };
 
   try {
+    const declaredLength = Number(req.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+      return respond(413, { error: 'payload too large' });
+    }
+
     const body = await req.text();
+    fields.bodyBytes = new TextEncoder().encode(body).length;
+    if (fields.bodyBytes > MAX_BODY_BYTES) {
+      return respond(413, { error: 'payload too large' });
+    }
+
+    // Authenticate. The provider follows from which credential is present, never from the payload.
     const githubEvent = req.headers.get('x-github-event');
-    const vercelEvent = req.headers.get('x-vercel-deployment-url');
-    const railwayEvent = req.headers.get('x-railway-event');
-    const signature = req.headers.get('x-hub-signature-256');
+    const vercelSignature = req.headers.get('x-vercel-signature');
+    const token = new URL(req.url).searchParams.get('token');
 
-    // Enhanced logging for debugging
-    const allHeaders = Object.fromEntries(req.headers.entries());
-    const parsedPayload = body ? JSON.parse(body) : null;
-
-    console.log('Webhook received v2:', {
-      githubEvent,
-      vercelEvent,
-      railwayEvent,
-      hasSignature: !!signature,
-      bodyLength: body.length,
-      timestamp: new Date().toISOString(),
-      headers: allHeaders,
-      payloadType: parsedPayload?.type,
-      payloadKeys: parsedPayload ? Object.keys(parsedPayload) : [],
-    });
-
-    // Verify GitHub webhook signature if present
-    const webhookSecret = process.env.WEBHOOK_SECRET;
-    if (githubEvent && signature && webhookSecret) {
-      console.log('Verifying webhook signature...');
-      const encoder = new TextEncoder();
-      const key = await crypto.subtle.importKey(
-        'raw',
-        encoder.encode(webhookSecret),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-      );
-
-      const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
-      const expectedSignature =
-        'sha256=' +
-        Array.from(new Uint8Array(signatureBuffer))
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('');
-
-      if (expectedSignature !== signature) {
-        console.error('Webhook signature verification failed:', {
-          expected: expectedSignature,
-          received: signature,
-        });
-        return new NextResponse('Invalid signature', { status: 401 });
-      }
-      console.log('Webhook signature verified successfully');
-    } else if (githubEvent && signature) {
-      console.warn('Webhook secret not configured - skipping signature verification');
-    }
-
-    // Use the parsed payload from above
-    const payload = parsedPayload;
-
-    // Determine event type and create QStash payload
-    let qstashPayload: QStashPayload;
-
-    console.log('Detection attempt v3:', {
-      githubEvent,
-      vercelEvent,
-      railwayEvent,
-      payloadType: payload?.type,
-      payloadEvent: payload?.event,
-      hasProject: !!payload?.project,
-      hasDeployment: !!payload?.deployment,
-      hasPayloadPayload: !!payload?.payload,
-      isGithubPush: githubEvent === 'push',
-      isRailwayByType: payload && payload.type === 'DEPLOY',
-      isRailwayByEvent:
-        payload &&
-        payload.event &&
-        (payload.event.includes('deployment') || payload.event.includes('deploy')),
-      isRailwayByHeader: !!railwayEvent,
-      isRailwayByStructure: payload && payload.project && payload.deployment && !payload.payload,
-      isVercelByHeader: !!vercelEvent,
-      isVercelByStructure: payload?.type?.startsWith('deployment.') && !!payload?.payload,
-    });
-
-    if (githubEvent === 'push') {
-      qstashPayload = {
-        type: 'github.push',
-        event: payload,
-      };
-    } else if (githubEvent === 'pull_request') {
-      qstashPayload = {
-        type: 'github.pr',
-        event: payload,
-      };
-    } else if (githubEvent === 'issues') {
-      qstashPayload = {
-        type: 'github.issue',
-        event: payload,
-      };
-    } else if (githubEvent === 'release') {
-      qstashPayload = {
-        type: 'github.release',
-        event: payload,
-      };
-    } else if (
-      // Comprehensive Railway detection - check multiple possible formats
-      (payload && payload.type === 'DEPLOY') || // Format: {"type": "DEPLOY", ...}
-      (payload &&
-        payload.event &&
-        (payload.event.includes('deployment') || payload.event.includes('deploy'))) || // Format: {"event": "deployment.completed", ...}
-      (railwayEvent && (railwayEvent.includes('deployment') || railwayEvent === 'deploy')) || // Railway header
-      (payload && payload.project && payload.deployment && !payload.payload) // Railway structure (no nested payload)
-    ) {
-      // Railway webhook detected
-      console.log('Railway webhook detected v3!', {
-        detectionMethod:
-          payload?.type === 'DEPLOY'
-            ? 'type-DEPLOY'
-            : payload?.event?.includes('deployment')
-              ? 'event-deployment'
-              : railwayEvent
-                ? 'header'
-                : 'structure',
-        payloadType: payload?.type,
-        payloadEvent: payload?.event,
-        railwayHeader: railwayEvent,
-        hasProject: !!payload?.project,
-        hasDeployment: !!payload?.deployment,
-        projectName: payload?.project?.name,
-        fullPayload: payload,
-      });
-      qstashPayload = {
-        type: 'railway.deploy',
-        event: payload,
-      };
-    } else if (
-      vercelEvent ||
-      (payload?.type && payload.type.startsWith('deployment.') && payload?.payload)
-    ) {
-      // Vercel webhook detected (has payload.payload structure)
-      console.log('Vercel webhook detected v3', {
-        vercelEvent: !!vercelEvent,
-        payloadType: payload?.type,
-        hasPayloadPayload: !!payload?.payload,
-        isDeploymentType: payload?.type?.startsWith('deployment.'),
-      });
-      qstashPayload = {
-        type: 'vercel.deploy',
-        event: payload,
-      };
+    let provider: Provider;
+    if (githubEvent !== null) {
+      provider = 'github';
+      fields.provider = provider;
+      const secret = process.env.WEBHOOK_SECRET;
+      if (!secret) return respond(500, { error: 'webhook not configured' });
+      const ok = await verifyGitHub(body, req.headers.get('x-hub-signature-256'), secret);
+      if (!ok) return respond(401, { error: 'invalid signature' });
+    } else if (vercelSignature !== null) {
+      provider = 'vercel';
+      fields.provider = provider;
+      const secret = process.env.VERCEL_WEBHOOK_SECRET;
+      if (!secret) return respond(500, { error: 'webhook not configured' });
+      const ok = await verifyVercel(body, vercelSignature, secret);
+      if (!ok) return respond(401, { error: 'invalid signature' });
+    } else if (token !== null) {
+      provider = 'railway';
+      fields.provider = provider;
+      const expected = process.env.RAILWAY_WEBHOOK_TOKEN;
+      if (!expected) return respond(500, { error: 'webhook not configured' });
+      const ok = await verifyRailwayToken(token, expected);
+      if (!ok) return respond(401, { error: 'invalid token' });
     } else {
-      console.log('Unknown event type v3 - payload:', payload);
-      return new NextResponse('Unknown event type', { status: 400 });
+      return respond(401, { error: 'missing credentials' });
     }
 
-    // Check if QStash is configured
-    const qstashToken = process.env.QSTASH_TOKEN;
-    const goServiceUrl = getGoServiceUrl();
-
-    if (qstashToken) {
-      // Use QStash for reliable message queuing
-      console.log('Using QStash for webhook processing:', {
-        eventType: qstashPayload.type,
-        destination: goServiceUrl,
-      });
-
-      try {
-        const qstash = new Client({ token: qstashToken });
-
-        const result = await qstash.publishJSON({
-          url: `${goServiceUrl}/api/webhook`,
-          body: qstashPayload,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          // Add retry configuration for better reliability
-          retries: 3,
-          delay: 1000, // 1 second delay between retries
-        });
-
-        console.log('Message queued successfully via QStash:', {
-          messageId: result.messageId,
-          eventType: qstashPayload.type,
-        });
-      } catch (qstashError) {
-        console.error('QStash queueing failed, falling back to direct call:', qstashError);
-
-        // Fallback to direct call if QStash fails
-        const response = await fetch(`${goServiceUrl}/api/webhook`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(qstashPayload),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Fallback webhook processing failed:', {
-            status: response.status,
-            error: errorText,
-            goServiceUrl,
-            eventType: qstashPayload.type,
-          });
-          return new NextResponse(`Failed to process webhook: ${response.status}`, { status: 500 });
-        }
-      }
-    } else {
-      // Direct forwarding when QStash is not configured
-      console.log('QStash not configured, forwarding directly to Go service:', {
-        eventType: githubEvent || 'vercel',
-        url: goServiceUrl,
-      });
-
-      const response = await fetch(`${goServiceUrl}/api/webhook`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(qstashPayload),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to process webhook:', {
-          status: response.status,
-          error: errorText,
-          goServiceUrl,
-          eventType: qstashPayload.type,
-        });
-        return new NextResponse(`Failed to process webhook: ${response.status}`, { status: 500 });
-      }
+    let payload: unknown;
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      return respond(400, { error: 'invalid JSON' });
+    }
+    if (!isObject(payload)) {
+      return respond(400, { error: 'payload must be a JSON object' });
     }
 
-    const processingTime = Date.now() - startTime;
-    console.log('Webhook processed successfully:', {
-      eventType: qstashPayload.type,
-      processingTime: `${processingTime}ms`,
+    const detected = await detectEvent({
+      provider,
+      payload,
+      rawBody: body,
+      githubEvent,
+      githubDelivery: req.headers.get('x-github-delivery'),
     });
 
-    return new NextResponse('Webhook processed successfully', {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'text/plain',
-      },
-    });
+    if (detected.kind === 'pong') return respond(200, 'pong');
+    if (detected.kind === 'ignore') return respond(202, { status: 'ignored' });
+
+    fields.eventType = detected.type;
+    fields.deliveryId = detected.deliveryId;
+
+    const result = await forwardToBackend(
+      buildEnvelope(detected.type, payload, detected.deliveryId)
+    );
+    if (!result.ok) {
+      return respond(result.status, { error: result.reason });
+    }
+    return respond(200, { status: 'ok' });
   } catch (error) {
-    console.error('Webhook processing error:', error);
-    return new NextResponse('Internal server error', { status: 500 });
+    console.error('webhook error', { error: error instanceof Error ? error.name : 'unknown' });
+    return respond(500, { error: 'internal server error' });
   }
 }

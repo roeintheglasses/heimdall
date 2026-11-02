@@ -14,7 +14,7 @@ async function getStats() {
       return null;
     }
 
-    return response.json();
+    return await response.json();
   } catch {
     return null;
   }
@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const totalEvents = stats?.total_events || 0;
   const currentStreak = stats?.streak?.current_streak || 0;
 
-  const title = 'Dev Activity | Heimdall';
+  const title = 'Dev Activity';
   const description = `${totalEvents} events tracked | ${currentStreak} day streak | Real-time development activity`;
 
   return {

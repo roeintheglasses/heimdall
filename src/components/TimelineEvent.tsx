@@ -19,7 +19,7 @@ interface TimelineEventProps {
   isStacked?: boolean;
   stackCount?: number;
   onClick?: () => void;
-  onHover?: (isHovered: boolean) => void;
+  onHover?: (_isHovered: boolean) => void;
 }
 
 // Category to neon color mapping for dots
@@ -194,13 +194,12 @@ interface TimelineEventClusterProps {
   position: number;
   isExpanded?: boolean;
   onExpand?: () => void;
-  onEventClick?: (event: DashboardEvent) => void;
+  onEventClick?: (_event: DashboardEvent) => void;
 }
 
 export function TimelineEventCluster({
   events,
   position,
-  isExpanded = false,
   onExpand,
   onEventClick,
 }: TimelineEventClusterProps) {

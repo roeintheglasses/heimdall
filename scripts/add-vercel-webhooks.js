@@ -12,7 +12,10 @@
  * - Or Vercel API token with appropriate scopes
  *
  * Usage:
- *   node scripts/add-vercel-webhooks.js
+ *   node scripts/add-vercel-webhooks.js [--account-level] [--recreate]
+ *
+ * Vercel returns the signing secret once, when a webhook is created. The script prints it.
+ * Set it as VERCEL_WEBHOOK_SECRET on the Heimdall frontend deployment.
  *
  * Environment Variables:
  *   VERCEL_TOKEN - Your Vercel API Token (optional if using vercel CLI)
@@ -25,7 +28,13 @@ const { execSync } = require('child_process');
 // Configuration
 const VERCEL_API_BASE = 'https://api.vercel.com';
 const DEFAULT_WEBHOOK_URL = 'https://heimdall-ashen.vercel.app/api/webhook';
-const WEBHOOK_EVENTS = ['deployment.created', 'deployment.succeeded', 'deployment.error'];
+const WEBHOOK_EVENTS = [
+  'deployment.created',
+  'deployment.succeeded',
+  'deployment.error',
+  'deployment.canceled',
+  'deployment.promoted',
+];
 
 // Colors for console output
 const colors = {
@@ -40,10 +49,11 @@ const colors = {
 };
 
 class VercelWebhookManager {
-  constructor(token, webhookUrl, accountLevel = false) {
+  constructor(token, webhookUrl, accountLevel = false, recreate = false) {
     this.token = token;
     this.webhookUrl = webhookUrl;
     this.accountLevel = accountLevel;
+    this.recreate = recreate;
     this.stats = {
       total: 0,
       added: 0,
@@ -92,6 +102,17 @@ class VercelWebhookManager {
 
       req.end();
     });
+  }
+
+  // Vercel returns the signing secret only when a webhook is created.
+  printSecret(webhook) {
+    if (webhook && webhook.secret) {
+      this.log('\n🔐 Webhook signing secret (shown once, store it now):', 'magenta');
+      this.log(`   ${webhook.secret}`, 'bright');
+      this.log('   Set it as VERCEL_WEBHOOK_SECRET on Vercel and redeploy Heimdall.', 'yellow');
+    } else {
+      this.log('\n⚠️  Vercel did not return a secret for this webhook.', 'yellow');
+    }
   }
 
   async getProjects() {
@@ -177,7 +198,16 @@ class VercelWebhookManager {
       // Check for existing webhook
       this.log('\n🔍 Checking for existing webhook...', 'cyan');
       const existingHooks = await this.getExistingWebhooks();
-      const existingHook = existingHooks.find((hook) => hook.url === this.webhookUrl);
+      let existingHook = existingHooks.find((hook) => hook.url === this.webhookUrl);
+
+      if (existingHook && this.recreate) {
+        // Delete every Heimdall hook so the new one gets a fresh, known secret.
+        for (const hook of existingHooks.filter((h) => h.url === this.webhookUrl)) {
+          await this.makeRequest('DELETE', `/v1/webhooks/${hook.id}`);
+          this.log(`🗑️  Deleted existing webhook (ID: ${hook.id})`, 'yellow');
+        }
+        existingHook = undefined;
+      }
 
       if (existingHook) {
         const isAccountLevel = !existingHook.projectIds || existingHook.projectIds.length === 0;
@@ -191,6 +221,10 @@ class VercelWebhookManager {
           this.log(
             '🎉 Account-level webhook already exists! All current and future projects are covered.',
             'green'
+          );
+          this.log(
+            'ℹ️  Vercel shows the signing secret only at creation. Re-run with --recreate to get a new one.',
+            'yellow'
           );
           return;
         }
@@ -229,6 +263,7 @@ class VercelWebhookManager {
             '🎉 All current and future Vercel projects are now connected to Heimdall!',
             'green'
           );
+          this.printSecret(webhook.data);
         } catch (error) {
           this.log(`❌ Failed to create webhook: ${error.message}`, 'red');
           process.exit(1);
@@ -285,6 +320,7 @@ class VercelWebhookManager {
 
           this.stats.added = projects.length;
           this.stats.total = projects.length;
+          this.printSecret(webhook.data);
         } catch (error) {
           this.log(`❌ Failed to create webhook: ${error.message}`, 'red');
           this.stats.errors = projects.length;
@@ -360,7 +396,9 @@ async function main() {
   const accountLevel =
     process.argv.includes('--account-level') || process.env.VERCEL_ACCOUNT_LEVEL === 'true';
 
-  const manager = new VercelWebhookManager(token, webhookUrl, accountLevel);
+  const recreate = process.argv.includes('--recreate');
+
+  const manager = new VercelWebhookManager(token, webhookUrl, accountLevel, recreate);
   await manager.run();
 }
 
@@ -384,6 +422,10 @@ ${colors.cyan}Options:${colors.reset}
                    all projects (current and future). Recommended for automatic
                    coverage of new projects.
 
+  --recreate       Delete the existing Heimdall webhook (matched by URL) and create
+                   a new one. Vercel shows the signing secret only when a webhook
+                   is created, so use this to get a secret you can store.
+
 ${colors.cyan}Environment Variables:${colors.reset}
   VERCEL_TOKEN         - Your Vercel API Token (required)
   WEBHOOK_URL          - Custom webhook URL (optional, defaults to production)
@@ -395,6 +437,9 @@ ${colors.cyan}Examples:${colors.reset}
 
   # Account-level webhook (recommended - covers all current and future projects)
   VERCEL_TOKEN="your_token" node scripts/add-vercel-webhooks.js --account-level
+
+  # Replace the existing webhook and print its new signing secret
+  VERCEL_TOKEN="your_token" node scripts/add-vercel-webhooks.js --account-level --recreate
 
   # With custom webhook URL
   VERCEL_TOKEN="your_token" WEBHOOK_URL="https://my-domain.com/api/webhook" node scripts/add-vercel-webhooks.js --account-level

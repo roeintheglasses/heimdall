@@ -18,6 +18,8 @@ export interface DashboardEvent {
   title: string;
   metadata: GenericMetadata;
   created_at: string;
+  /** True when the event came from a private repo/project; backend redacts details. */
+  private?: boolean;
   isNew?: boolean;
 }
 
@@ -301,7 +303,7 @@ export function getServiceColorClasses(color: string) {
 
 // Helper function to extract event status from metadata
 export function extractEventStatus(event: DashboardEvent): EventStatus | null {
-  const metadata = event.metadata;
+  const metadata = event.metadata ?? {};
 
   // Check common status fields
   if (metadata.status) {
@@ -350,7 +352,7 @@ export function extractEventStatus(event: DashboardEvent): EventStatus | null {
 
 // Helper function to extract repository name from event
 export function extractRepository(event: DashboardEvent): string | null {
-  const metadata = event.metadata;
+  const metadata = event.metadata ?? {};
 
   // Common repository field names
   if (metadata.repository) {

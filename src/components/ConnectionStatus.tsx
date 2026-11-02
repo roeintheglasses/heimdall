@@ -3,18 +3,35 @@
 import { Activity, Wifi, WifiOff, Database } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+export type StreamState = 'connecting' | 'live' | 'backend-down' | 'disconnected';
+
 interface ConnectionStatusProps {
-  isConnected: boolean;
+  streamState: StreamState;
   eventCount: number;
   error?: string | null;
 }
 
 export default function ConnectionStatus({
-  isConnected,
+  streamState,
   eventCount,
   error,
 }: ConnectionStatusProps) {
+  const isConnected = streamState === 'live' && !error;
+
   const getStatusConfig = () => {
+    if (streamState === 'backend-down') {
+      return {
+        icon: WifiOff,
+        label: 'BACKEND DOWN',
+        borderColor: 'border-destructive',
+        textColor: 'text-destructive',
+        bgColor: 'bg-destructive/10',
+        dotColor: 'bg-destructive',
+        glowColor: 'shadow-[0_0_10px_hsl(0_100%_50%)]',
+        description: 'BACKEND_UNREACHABLE',
+      };
+    }
+
     if (error) {
       return {
         icon: WifiOff,
@@ -28,7 +45,7 @@ export default function ConnectionStatus({
       };
     }
 
-    if (isConnected) {
+    if (streamState === 'live') {
       return {
         icon: Wifi,
         label: 'LIVE',
@@ -43,7 +60,7 @@ export default function ConnectionStatus({
 
     return {
       icon: WifiOff,
-      label: 'OFFLINE',
+      label: streamState === 'connecting' ? 'CONNECTING' : 'OFFLINE',
       borderColor: 'border-neon-orange',
       textColor: 'text-neon-orange',
       bgColor: 'bg-neon-orange/10',

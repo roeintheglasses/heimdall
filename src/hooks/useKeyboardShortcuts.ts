@@ -12,7 +12,7 @@ export interface ShortcutHandlers {
 
   // Filtering
   onFocusSearch?: () => void;
-  onFilterCategory?: (categoryIndex: number) => void;
+  onFilterCategory?: (_categoryIndex: number) => void;
   onClearFilters?: () => void;
 
   // General
@@ -21,7 +21,7 @@ export interface ShortcutHandlers {
   onShowHelp?: () => void;
 
   // Custom
-  onCustomShortcut?: (key: string) => void;
+  onCustomShortcut?: (_key: string) => void;
 }
 
 interface UseKeyboardShortcutsOptions {

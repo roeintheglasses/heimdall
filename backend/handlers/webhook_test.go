@@ -2,49 +2,73 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"heimdall-backend/models"
 	"heimdall-backend/transformers"
 )
 
+const testSecret = "test-secret"
+
 // mockEventStore is a mock implementation of database.EventStore for testing
 type mockEventStore struct {
-	events      []models.DashboardEvent
-	insertErr   error
-	getErr      error
-	insertCalls int
+	getErr        error
+	insertErr     error
+	deliveries    map[string]bool
+	events        []models.DashboardEvent
+	lastFilter    models.EventsFilter
+	totalOverride int
+	insertCalls   int
 }
 
-func (m *mockEventStore) InsertEvent(event *models.DashboardEvent) error {
+func (m *mockEventStore) InsertEvent(_ context.Context, event *models.DashboardEvent) (bool, error) {
 	m.insertCalls++
 	if m.insertErr != nil {
-		return m.insertErr
+		return false, m.insertErr
 	}
+	if event.DeliveryID != "" {
+		if m.deliveries == nil {
+			m.deliveries = map[string]bool{}
+		}
+		if m.deliveries[event.DeliveryID] {
+			return false, nil
+		}
+		m.deliveries[event.DeliveryID] = true
+	}
+	event.ID = fmt.Sprintf("id-%d", len(m.events)+1)
 	m.events = append(m.events, *event)
-	return nil
+	return true, nil
 }
 
-func (m *mockEventStore) GetRecentEvents(limit int) ([]models.DashboardEvent, error) {
+func (m *mockEventStore) GetRecentEvents(_ context.Context, _ int) ([]models.DashboardEvent, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
 	return m.events, nil
 }
 
-func (m *mockEventStore) GetEventsWithFilters(filter models.EventsFilter) ([]models.DashboardEvent, int, error) {
+func (m *mockEventStore) GetEventsWithFilters(_ context.Context, filter *models.EventsFilter) ([]models.DashboardEvent, int, error) {
 	if m.getErr != nil {
 		return nil, 0, m.getErr
 	}
-	return m.events, len(m.events), nil
+	m.lastFilter = *filter
+	total := len(m.events)
+	if m.totalOverride > 0 {
+		total = m.totalOverride
+	}
+	return m.events, total, nil
 }
 
-func (m *mockEventStore) GetStats() (models.EventStats, error) {
+func (m *mockEventStore) GetStats(_ context.Context) (models.EventStats, error) {
 	if m.getErr != nil {
 		return models.EventStats{}, m.getErr
 	}
@@ -56,15 +80,15 @@ func (m *mockEventStore) GetStats() (models.EventStats, error) {
 	}, nil
 }
 
-func (m *mockEventStore) GetYearlyDailyStats() ([]models.DailyCount, error) {
+func (m *mockEventStore) GetYearlyDailyStats(_ context.Context) ([]models.DailyCount, error) {
 	return []models.DailyCount{}, nil
 }
 
-func (m *mockEventStore) CalculateStreak() (models.StreakInfo, error) {
+func (m *mockEventStore) CalculateStreak(_ context.Context) (models.StreakInfo, error) {
 	return models.StreakInfo{}, nil
 }
 
-func (m *mockEventStore) GetMonthlyStats(year, month int) (models.MonthlyStats, error) {
+func (m *mockEventStore) GetMonthlyStats(_ context.Context, year, month int) (models.MonthlyStats, error) {
 	return models.MonthlyStats{
 		Year:              year,
 		Month:             month,
@@ -72,10 +96,41 @@ func (m *mockEventStore) GetMonthlyStats(year, month int) (models.MonthlyStats, 
 	}, nil
 }
 
+const validPushEvent = `{
+	"ref": "refs/heads/main",
+	"repository": {"name": "test-repo"},
+	"head_commit": {"message": "Test commit", "author": {"name": "Test User"}},
+	"commits": [{"id": "abc123"}]
+}`
+
+func newWebhookHandler(repo *mockEventStore) *WebhookHandler {
+	return NewWebhookHandler(repo, transformers.NewRegistry(), testSecret)
+}
+
+// postWebhook sends a raw body with the correct secret header.
+func postWebhook(h http.Handler, body []byte) *httptest.ResponseRecorder {
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/webhook", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Heimdall-Secret", testSecret)
+	req.Header.Set("X-Heimdall-Secret", testSecret)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func pushPayload(ts int64, event string) []byte {
+	body, _ := json.Marshal(models.QStashPayload{ //nolint:errchkjson // test helper with valid input
+		EventType: "github.push",
+		Timestamp: ts,
+		Event:     json.RawMessage(event),
+	})
+	return body
+}
+
 func TestWebhookHandler_ValidPayload(t *testing.T) {
 	mockRepo := &mockEventStore{}
 	registry := transformers.NewRegistry()
-	handler := NewWebhookHandler(mockRepo, registry)
+	handler := NewWebhookHandler(mockRepo, registry, testSecret)
 
 	payload := models.QStashPayload{
 		EventType: "github.push",
@@ -92,8 +147,9 @@ func TestWebhookHandler_ValidPayload(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/webhook", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/webhook", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Heimdall-Secret", testSecret)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -110,10 +166,11 @@ func TestWebhookHandler_ValidPayload(t *testing.T) {
 func TestWebhookHandler_InvalidJSON(t *testing.T) {
 	mockRepo := &mockEventStore{}
 	registry := transformers.NewRegistry()
-	handler := NewWebhookHandler(mockRepo, registry)
+	handler := NewWebhookHandler(mockRepo, registry, testSecret)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/webhook", bytes.NewReader([]byte("invalid json")))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/webhook", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Heimdall-Secret", testSecret)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -130,7 +187,7 @@ func TestWebhookHandler_InvalidJSON(t *testing.T) {
 func TestWebhookHandler_UnknownEventType(t *testing.T) {
 	mockRepo := &mockEventStore{}
 	registry := transformers.NewRegistry()
-	handler := NewWebhookHandler(mockRepo, registry)
+	handler := NewWebhookHandler(mockRepo, registry, testSecret)
 
 	payload := models.QStashPayload{
 		EventType: "unknown.event",
@@ -139,8 +196,9 @@ func TestWebhookHandler_UnknownEventType(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/webhook", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/webhook", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Heimdall-Secret", testSecret)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -159,7 +217,7 @@ func TestWebhookHandler_DatabaseError(t *testing.T) {
 		insertErr: errors.New("database connection failed"),
 	}
 	registry := transformers.NewRegistry()
-	handler := NewWebhookHandler(mockRepo, registry)
+	handler := NewWebhookHandler(mockRepo, registry, testSecret)
 
 	payload := models.QStashPayload{
 		EventType: "github.push",
@@ -173,8 +231,9 @@ func TestWebhookHandler_DatabaseError(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/webhook", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/webhook", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Heimdall-Secret", testSecret)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -187,9 +246,9 @@ func TestWebhookHandler_DatabaseError(t *testing.T) {
 func TestWebhookHandler_UsesPayloadTimestamp(t *testing.T) {
 	mockRepo := &mockEventStore{}
 	registry := transformers.NewRegistry()
-	handler := NewWebhookHandler(mockRepo, registry)
+	handler := NewWebhookHandler(mockRepo, registry, testSecret)
 
-	expectedTime := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	expectedTime := time.Now().UTC().Add(-48 * time.Hour).Truncate(time.Second)
 	payload := models.QStashPayload{
 		EventType: "github.push",
 		Timestamp: expectedTime.Unix(),
@@ -202,8 +261,9 @@ func TestWebhookHandler_UsesPayloadTimestamp(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/webhook", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/webhook", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Heimdall-Secret", testSecret)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -225,7 +285,7 @@ func TestWebhookHandler_UsesPayloadTimestamp(t *testing.T) {
 func TestWebhookHandler_FallbackToCurrentTime(t *testing.T) {
 	mockRepo := &mockEventStore{}
 	registry := transformers.NewRegistry()
-	handler := NewWebhookHandler(mockRepo, registry)
+	handler := NewWebhookHandler(mockRepo, registry, testSecret)
 
 	beforeTest := time.Now().UTC().Add(-time.Second)
 
@@ -242,8 +302,9 @@ func TestWebhookHandler_FallbackToCurrentTime(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/webhook", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/webhook", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Heimdall-Secret", testSecret)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -261,5 +322,25 @@ func TestWebhookHandler_FallbackToCurrentTime(t *testing.T) {
 	insertedEvent := mockRepo.events[0]
 	if insertedEvent.CreatedAt.Before(beforeTest) || insertedEvent.CreatedAt.After(afterTest) {
 		t.Errorf("expected timestamp to be around current time, got %v", insertedEvent.CreatedAt)
+	}
+}
+
+func TestWebhookHandler_TruncatesLongTitleOnRuneBoundary(t *testing.T) {
+	repo := &mockEventStore{}
+	h := newWebhookHandler(repo)
+	repoName := strings.Repeat("é", 800)
+	event := `{"ref":"refs/heads/main","repository":{"name":"` + repoName + `"},"head_commit":{"message":"m","author":{"name":"u"}},"commits":[{"id":"a"}]}`
+
+	rec := postWebhook(h, pushPayload(time.Now().Unix(), event))
+
+	if rec.Code != http.StatusOK || len(repo.events) != 1 {
+		t.Fatalf("code=%d events=%d", rec.Code, len(repo.events))
+	}
+	title := repo.events[0].Title
+	if n := utf8.RuneCountInString(title); n != maxTitleLength {
+		t.Errorf("title has %d runes, want %d", n, maxTitleLength)
+	}
+	if !utf8.ValidString(title) {
+		t.Error("title is not valid UTF-8")
 	}
 }

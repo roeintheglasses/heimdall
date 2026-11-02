@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { MIN_WRAPPED_YEAR, formatMonthKey, shiftMonth } from '@/lib/months';
 
 interface DailyCount {
   date: string;
@@ -46,6 +47,7 @@ interface MonthlyStats {
 interface WrappedContentProps {
   month: string;
   stats: MonthlyStats | null;
+  error?: boolean;
 }
 
 const SERVICE_ICONS: Record<string, React.ReactNode> = {
@@ -68,27 +70,18 @@ const CATEGORY_COLORS: Record<string, string> = {
   infrastructure: 'bg-neon-green',
 };
 
-export function WrappedContent({ month, stats }: WrappedContentProps) {
+export function WrappedContent({ month, stats, error = false }: WrappedContentProps) {
   const [copied, setCopied] = useState(false);
 
-  // Calculate previous and next month
+  // Calculate previous and next month (UTC, bounded by 2020-01 and the current month)
   const navMonths = useMemo(() => {
     const [year, monthNum] = month.split('-').map(Number);
-    const currentDate = new Date(year, monthNum - 1, 1);
-
-    const prevDate = new Date(currentDate);
-    prevDate.setMonth(prevDate.getMonth() - 1);
-    const prev = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-
-    const nextDate = new Date(currentDate);
-    nextDate.setMonth(nextDate.getMonth() + 1);
-    const next = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
-
-    // Don't show next if it's in the future
+    const prev =
+      year === MIN_WRAPPED_YEAR && monthNum === 1 ? null : shiftMonth(year, monthNum, -1);
+    const next = shiftMonth(year, monthNum, 1);
     const now = new Date();
-    const isNextFuture = nextDate > now;
-
-    return { prev, next: isNextFuture ? null : next };
+    const nowKey = formatMonthKey(now.getUTCFullYear(), now.getUTCMonth() + 1);
+    return { prev, next: next > nowKey ? null : next };
   }, [month]);
 
   const handleCopyLink = async () => {
@@ -105,7 +98,7 @@ export function WrappedContent({ month, stats }: WrappedContentProps) {
   const heatmapData = useMemo(() => {
     if (!stats) return [];
     const [year, monthNum] = month.split('-').map(Number);
-    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    const daysInMonth = new Date(Date.UTC(year, monthNum, 0)).getUTCDate();
     const eventsByDate: Record<string, number> = {};
 
     stats.events_per_day.forEach((d) => {
@@ -122,6 +115,23 @@ export function WrappedContent({ month, stats }: WrappedContentProps) {
       return { day, count, level };
     });
   }, [month, stats]);
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+        <div className="text-center font-mono">
+          <div className="mb-4 text-6xl text-neon-orange">!</div>
+          <h1 className="mb-2 text-xl text-neon-cyan">BACKEND_UNAVAILABLE</h1>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Could not load stats for this month. Try again in a moment.
+          </p>
+          <Link href="/me" className="text-neon-cyan hover:underline">
+            &lt; Back to profile
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!stats) {
     return (
@@ -145,16 +155,20 @@ export function WrappedContent({ month, stats }: WrappedContentProps) {
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Navigation */}
         <div className="flex items-center justify-between">
-          <Link href={`/wrapped/${navMonths.prev}`}>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1 font-mono text-xs text-muted-foreground hover:text-neon-cyan"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              PREV
-            </Button>
-          </Link>
+          {navMonths.prev ? (
+            <Link href={`/wrapped/${navMonths.prev}`}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1 font-mono text-xs text-muted-foreground hover:text-neon-cyan"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                PREV
+              </Button>
+            </Link>
+          ) : (
+            <span />
+          )}
           {navMonths.next && (
             <Link href={`/wrapped/${navMonths.next}`}>
               <Button
@@ -229,6 +243,7 @@ export function WrappedContent({ month, stats }: WrappedContentProps) {
                   </div>
                   <div className="font-mono text-lg text-neon-yellow">
                     {new Date(stats.busiest_day.date).toLocaleDateString('en-US', {
+                      timeZone: 'UTC',
                       weekday: 'long',
                       month: 'long',
                       day: 'numeric',

@@ -7,18 +7,21 @@ import (
 
 // QStashPayload represents the payload structure from QStash
 type QStashPayload struct {
-	EventType string          `json:"type"`
-	Timestamp int64           `json:"timestamp"`
-	Event     json.RawMessage `json:"event"`
+	EventType  string          `json:"type"`
+	Timestamp  int64           `json:"timestamp"`
+	Event      json.RawMessage `json:"event"`
+	DeliveryID string          `json:"delivery_id"`
 }
 
 // DashboardEvent represents a processed event for the dashboard
 type DashboardEvent struct {
-	CreatedAt time.Time              `json:"created_at"`
-	Metadata  map[string]interface{} `json:"metadata"`
-	ID        string                 `json:"id"`
-	EventType string                 `json:"event_type"`
-	Title     string                 `json:"title"`
+	CreatedAt  time.Time              `json:"created_at"`
+	Metadata   map[string]interface{} `json:"metadata"`
+	ID         string                 `json:"id"`
+	EventType  string                 `json:"event_type"`
+	Title      string                 `json:"title"`
+	IsPrivate  bool                   `json:"private"`
+	DeliveryID string                 `json:"-"`
 }
 
 // EventsFilter contains parameters for filtering events
@@ -27,6 +30,8 @@ type EventsFilter struct {
 	EventType string    // Filter by event type (optional)
 	Limit     int       // Max events to return (default 50, max 500)
 	Offset    int       // Pagination offset (default 0)
+	Before    time.Time // Cursor: created_at upper bound (optional)
+	BeforeID  string    // Cursor: id tie-breaker, used with Before
 }
 
 // EventStats contains aggregate statistics for events
@@ -39,6 +44,7 @@ type EventStats struct {
 	TotalEvents    int            `json:"total_events"`
 	Last24Hours    int            `json:"last_24_hours"`
 	LastWeek       int            `json:"last_week"`
+	LastEventAt    *time.Time     `json:"last_event_at,omitempty"`
 }
 
 // DailyCount represents event count for a specific date

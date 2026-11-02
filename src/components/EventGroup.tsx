@@ -22,7 +22,7 @@ import {
 
 interface EventGroupProps {
   group: EventGroupType;
-  onViewDetails?: (event: DashboardEvent) => void;
+  onViewDetails?: (_event: DashboardEvent) => void;
 }
 
 // Group type styling

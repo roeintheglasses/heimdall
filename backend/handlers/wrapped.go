@@ -1,21 +1,32 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"heimdall-backend/database"
 	"heimdall-backend/logger"
 	"heimdall-backend/models"
+
+	"github.com/gorilla/mux"
 )
 
 // Cache TTL for monthly wrapped
 const wrappedCacheTTL = 5 * time.Minute
+
+// wrappedCacheMax bounds the number of cached months.
+const wrappedCacheMax = 64
+
+const minWrappedYear = 2020
+
+var yearMonthPattern = regexp.MustCompile(`^\d{4}-\d{2}$`)
 
 // wrappedCache holds cached monthly stats
 type wrappedCache struct {
@@ -46,85 +57,77 @@ func NewWrappedHandler(repo database.EventStore, log *logger.Logger) *WrappedHan
 	}
 }
 
-// parseYearMonth parses a "YYYY-MM" string into year and month
-func parseYearMonth(s string) (year, month int, err error) {
-	parts := strings.Split(s, "-")
-	if len(parts) != 2 {
+// parseYearMonth parses a strict "YYYY-MM" string. The year must be between 2020
+// and the current UTC year, the month between 1 and 12, and the month must not
+// be after the current UTC month.
+func parseYearMonth(s string, now time.Time) (year, month int, err error) {
+	if !yearMonthPattern.MatchString(s) {
 		return 0, 0, errors.New("invalid format: expected YYYY-MM")
 	}
 
-	year, err = strconv.Atoi(parts[0])
+	year, err = strconv.Atoi(s[:4])
 	if err != nil {
 		return 0, 0, errors.New("invalid year: must be a number")
 	}
-
-	month, err = strconv.Atoi(parts[1])
+	month, err = strconv.Atoi(s[5:])
 	if err != nil {
 		return 0, 0, errors.New("invalid month: must be a number")
 	}
 
+	now = now.UTC()
+	if year < minWrappedYear || year > now.Year() {
+		return 0, 0, fmt.Errorf("invalid year: must be between %d and %d", minWrappedYear, now.Year())
+	}
 	if month < 1 || month > 12 {
 		return 0, 0, errors.New("invalid month: must be between 1 and 12")
+	}
+	if year == now.Year() && month > int(now.Month()) {
+		return 0, 0, errors.New("invalid month: must not be in the future")
 	}
 
 	return year, month, nil
 }
 
-// getMonthlyStats retrieves monthly stats from cache or database
-func (h *WrappedHandler) getMonthlyStats(year, month int) (models.MonthlyStats, error) {
-	cacheKey := strconv.Itoa(year) + "-" + strconv.Itoa(month)
+// getMonthlyStats retrieves monthly stats from cache or database.
+// No lock is held while the database query runs.
+func (h *WrappedHandler) getMonthlyStats(ctx context.Context, year, month int) (models.MonthlyStats, error) {
+	cacheKey := fmt.Sprintf("%04d-%02d", year, month)
 
-	// Try cache first
 	h.cache.mu.RLock()
-	if entry, ok := h.cache.cache[cacheKey]; ok {
-		if time.Since(entry.fetchedAt) < wrappedCacheTTL {
-			h.cache.mu.RUnlock()
-			return entry.stats, nil
-		}
-	}
+	entry, ok := h.cache.cache[cacheKey]
 	h.cache.mu.RUnlock()
-
-	// Cache miss, fetch from database
-	h.cache.mu.Lock()
-	defer h.cache.mu.Unlock()
-
-	// Double-check
-	if entry, ok := h.cache.cache[cacheKey]; ok {
-		if time.Since(entry.fetchedAt) < wrappedCacheTTL {
-			return entry.stats, nil
-		}
+	if ok && time.Since(entry.fetchedAt) < wrappedCacheTTL {
+		return entry.stats, nil
 	}
 
-	stats, err := h.repo.GetMonthlyStats(year, month)
+	stats, err := h.repo.GetMonthlyStats(ctx, year, month)
 	if err != nil {
 		return models.MonthlyStats{}, err
 	}
 
-	// Update cache
-	h.cache.cache[cacheKey] = wrappedCacheEntry{
-		stats:     stats,
-		fetchedAt: time.Now(),
+	h.cache.mu.Lock()
+	if _, exists := h.cache.cache[cacheKey]; !exists && len(h.cache.cache) >= wrappedCacheMax {
+		for k := range h.cache.cache {
+			if time.Since(h.cache.cache[k].fetchedAt) >= wrappedCacheTTL {
+				delete(h.cache.cache, k)
+			}
+		}
+		if len(h.cache.cache) >= wrappedCacheMax {
+			h.cache.cache = make(map[string]wrappedCacheEntry)
+		}
 	}
+	h.cache.cache[cacheKey] = wrappedCacheEntry{stats: stats, fetchedAt: time.Now()}
+	h.cache.mu.Unlock()
 
 	return stats, nil
 }
 
 // ServeHTTP handles the wrapped request
-// Expected path: /api/wrapped/{year}-{month} e.g., /api/wrapped/2025-01
+// Route: /api/wrapped/{month} where month is YYYY-MM, e.g. /api/wrapped/2025-01
 func (h *WrappedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context())
 
-	// Extract year-month from URL path
-	// Path format: /api/wrapped/2025-01
-	path := r.URL.Path
-	parts := strings.Split(path, "/")
-	if len(parts) < 4 {
-		http.Error(w, "Invalid path format. Expected /api/wrapped/YYYY-MM", http.StatusBadRequest)
-		return
-	}
-
-	yearMonth := parts[len(parts)-1]
-	year, month, err := parseYearMonth(yearMonth)
+	year, month, err := parseYearMonth(mux.Vars(r)["month"], time.Now())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -132,7 +135,7 @@ func (h *WrappedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Int("year", year).Int("month", month).Msg("retrieving monthly wrapped stats")
 
-	stats, err := h.getMonthlyStats(year, month)
+	stats, err := h.getMonthlyStats(r.Context(), year, month)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to retrieve monthly stats")
 		http.Error(w, "Failed to retrieve monthly stats", http.StatusInternalServerError)

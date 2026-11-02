@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getGoServiceUrl } from '@/lib/api';
+import { escapeXml, getBadgeContent, type BadgeStats } from '@/lib/badge';
 
 export const runtime = 'edge';
 
-interface Stats {
-  total_events: number;
-  last_24_hours: number;
-  streak?: {
-    current_streak: number;
-    last_active_date: string;
-  };
-}
-
-async function getStats(): Promise<Stats | null> {
+async function getStats(): Promise<BadgeStats | null> {
   try {
     const goServiceUrl = getGoServiceUrl();
     const response = await fetch(`${goServiceUrl}/api/stats`, {
@@ -23,36 +15,22 @@ async function getStats(): Promise<Stats | null> {
       return null;
     }
 
-    return response.json();
+    return (await response.json()) as BadgeStats;
   } catch {
     return null;
   }
 }
 
-function getTimeAgo(dateStr: string): string {
-  if (!dateStr) return 'N/A';
-
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffHours < 1) return 'just now';
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return 'yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 function generateSVG(
-  label: string,
-  value: string,
+  rawLabel: string,
+  rawValue: string,
   color: string,
   style: 'flat' | 'flat-square'
 ): string {
-  const labelWidth = label.length * 7 + 10;
-  const valueWidth = value.length * 7 + 10;
+  const label = escapeXml(rawLabel);
+  const value = escapeXml(rawValue);
+  const labelWidth = rawLabel.length * 7 + 10;
+  const valueWidth = rawValue.length * 7 + 10;
   const totalWidth = labelWidth + valueWidth;
   const height = 20;
   const radius = style === 'flat' ? 3 : 0;
@@ -98,39 +76,16 @@ export async function GET(request: NextRequest) {
 
   const stats = await getStats();
 
-  let label = 'Heimdall';
-  let value = 'N/A';
-
-  if (stats) {
-    switch (type) {
-      case 'last':
-        label = 'Last shipped';
-        value = stats.streak?.last_active_date ? getTimeAgo(stats.streak.last_active_date) : 'N/A';
-        break;
-      case 'today':
-        label = 'Today';
-        value = `${stats.last_24_hours} deploys`;
-        break;
-      case 'streak':
-        label = 'Streak';
-        value = `${stats.streak?.current_streak || 0} days`;
-        break;
-      case 'total':
-        label = 'Total';
-        value = `${stats.total_events} events`;
-        break;
-      default:
-        label = 'Last shipped';
-        value = stats.streak?.last_active_date ? getTimeAgo(stats.streak.last_active_date) : 'N/A';
-    }
-  }
+  const { label, value } = stats
+    ? getBadgeContent(type, stats)
+    : { label: 'Heimdall', value: 'N/A' };
 
   const svg = generateSVG(label, value, color, style);
 
   return new NextResponse(svg, {
     headers: {
       'Content-Type': 'image/svg+xml',
-      'Cache-Control': 'public, max-age=300, s-maxage=300',
+      'Cache-Control': stats ? 'public, max-age=300, s-maxage=300' : 'no-store',
     },
   });
 }

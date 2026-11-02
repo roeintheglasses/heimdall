@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -31,6 +33,14 @@ func New(pretty bool) *Logger {
 			TimeFormat: time.RFC3339,
 		}
 	}
+
+	level := zerolog.InfoLevel
+	if raw := strings.TrimSpace(os.Getenv("LOG_LEVEL")); raw != "" {
+		if parsed, err := zerolog.ParseLevel(strings.ToLower(raw)); err == nil && parsed != zerolog.NoLevel {
+			level = parsed
+		}
+	}
+	zerolog.SetGlobalLevel(level)
 
 	log := zerolog.New(output).
 		With().
@@ -94,8 +104,14 @@ func FromContext(ctx context.Context) *Logger {
 	if l, ok := ctx.Value(LoggerKey).(*Logger); ok {
 		return l
 	}
-	return New(false)
+	defaultLoggerOnce.Do(func() { defaultLogger = New(false) })
+	return defaultLogger
 }
+
+var (
+	defaultLoggerOnce sync.Once
+	defaultLogger     *Logger
+)
 
 // WithContext adds logger to context
 func (l *Logger) WithContext(ctx context.Context) context.Context {

@@ -17,7 +17,6 @@ interface UseBootSequenceOptions {
 }
 
 const STORAGE_KEY = 'heimdall-booted';
-const BOOT_DURATION = 3200; // Total boot time in ms
 
 export function useBootSequence(options: UseBootSequenceOptions = {}) {
   const { skipOnRefresh = true, autoStart = true, onComplete } = options;

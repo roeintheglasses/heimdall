@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +22,8 @@ type RateLimiter struct {
 	rps      rate.Limit
 	burst    int
 	cleanup  time.Duration
+	// overflow is shared by all new IPs seen while the visitor map is full.
+	overflow *rate.Limiter
 }
 
 type visitor struct {
@@ -34,6 +38,7 @@ func NewRateLimiter(rps float64, burst int) *RateLimiter {
 		rps:      rate.Limit(rps),
 		burst:    burst,
 		cleanup:  3 * time.Minute,
+		overflow: rate.NewLimiter(rate.Limit(rps), burst),
 	}
 
 	// Start cleanup goroutine to remove stale visitors
@@ -49,6 +54,9 @@ func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 
 	v, exists := rl.visitors[ip]
 	if !exists {
+		if len(rl.visitors) >= MaxVisitors {
+			return rl.overflow
+		}
 		limiter := rate.NewLimiter(rl.rps, rl.burst)
 		rl.visitors[ip] = &visitor{limiter: limiter, lastSeen: time.Now()}
 		return limiter
@@ -129,31 +137,22 @@ func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 	})
 }
 
-// getClientIP extracts the client IP from the request
+// getClientIP extracts the client IP from the request.
+// The rightmost non-empty hop of the last X-Forwarded-For header line is the one
+// appended by the trusted proxy in front of the service; earlier hops and
+// earlier header lines are client controlled.
 func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header first (for proxies/load balancers)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// X-Forwarded-For can contain multiple IPs, take the first one
-		for i := 0; i < len(xff); i++ {
-			if xff[i] == ',' {
-				return xff[:i]
+	if lines := r.Header.Values("X-Forwarded-For"); len(lines) > 0 {
+		parts := strings.Split(lines[len(lines)-1], ",")
+		for i := len(parts) - 1; i >= 0; i-- {
+			if ip := strings.TrimSpace(parts[i]); ip != "" {
+				return ip
 			}
 		}
-		return xff
 	}
 
-	// Check X-Real-IP header
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
 	}
-
-	// Fall back to RemoteAddr
-	// Strip port if present
-	addr := r.RemoteAddr
-	for i := len(addr) - 1; i >= 0; i-- {
-		if addr[i] == ':' {
-			return addr[:i]
-		}
-	}
-	return addr
+	return r.RemoteAddr
 }

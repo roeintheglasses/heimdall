@@ -6,8 +6,8 @@ export type TimelineZoomLevel = 'hour' | 'day' | 'week';
 
 interface UseTimelineZoomOptions {
   initialZoom?: TimelineZoomLevel;
-  onZoomChange?: (zoom: TimelineZoomLevel) => void;
-  onOffsetChange?: (offset: number) => void;
+  onZoomChange?: (_zoom: TimelineZoomLevel) => void;
+  onOffsetChange?: (_offset: number) => void;
 }
 
 interface TimelineZoomState {

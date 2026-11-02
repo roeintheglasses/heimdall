@@ -14,6 +14,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { DashboardEvent } from '@/types/categories';
+import { safeUrl } from '@/lib/safeUrl';
 
 interface RailwayEventDetailProps {
   event: DashboardEvent;
@@ -38,7 +39,9 @@ interface RailwayMetadata {
 }
 
 export default function RailwayEventDetail({ event }: RailwayEventDetailProps) {
-  const metadata = event.metadata as RailwayMetadata;
+  const metadata = (event.metadata ?? {}) as RailwayMetadata;
+  const deploymentUrl = safeUrl(metadata.deployment_url);
+  const logsUrl = safeUrl(metadata.logs_url);
 
   const getStatusIcon = (status?: string) => {
     switch (status?.toLowerCase()) {
@@ -123,10 +126,10 @@ export default function RailwayEventDetail({ event }: RailwayEventDetailProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          {metadata.logs_url && (
+          {logsUrl && (
             <Button variant="ghost" size="sm" asChild className="h-8 px-2">
               <a
-                href={metadata.logs_url}
+                href={logsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1"
@@ -137,10 +140,10 @@ export default function RailwayEventDetail({ event }: RailwayEventDetailProps) {
             </Button>
           )}
 
-          {metadata.deployment_url && (
+          {deploymentUrl && (
             <Button variant="ghost" size="sm" asChild className="h-8 px-2">
               <a
-                href={metadata.deployment_url}
+                href={deploymentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1"
@@ -265,7 +268,7 @@ export default function RailwayEventDetail({ event }: RailwayEventDetailProps) {
       )}
 
       {/* Deployment URL */}
-      {metadata.deployment_url && (
+      {deploymentUrl && (
         <div className="rounded-lg border bg-muted/30 p-4">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-medium">
             <ExternalLink className="h-4 w-4" />
@@ -278,7 +281,7 @@ export default function RailwayEventDetail({ event }: RailwayEventDetailProps) {
             </span>
             <Button variant="outline" size="sm" asChild className="shrink-0">
               <a
-                href={metadata.deployment_url}
+                href={deploymentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1"

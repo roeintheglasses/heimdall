@@ -6,8 +6,14 @@
  * This script sends a test Railway webhook payload to your Heimdall webhook endpoint
  * to verify that Railway deployment events are properly processed and displayed.
  *
- * Usage: node scripts/test-railway-webhook.js
+ * Usage: RAILWAY_WEBHOOK_TOKEN=... node scripts/test-railway-webhook.js
  */
+
+try {
+  require('dotenv').config();
+} catch {
+  // dotenv not available, rely on the shell environment
+}
 
 const readline = require('readline');
 
@@ -27,6 +33,16 @@ async function main() {
   const webhookUrl =
     (await question('Enter your webhook URL (default: http://localhost:3000/api/webhook): ')) ||
     'http://localhost:3000/api/webhook';
+
+  const railwayToken = process.env.RAILWAY_WEBHOOK_TOKEN;
+  if (!railwayToken) {
+    console.error('RAILWAY_WEBHOOK_TOKEN is required (same value as on the Vercel deployment).');
+    rl.close();
+    process.exit(1);
+  }
+  // Railway cannot sign requests, so the shared token travels in the query string.
+  const target = new URL(webhookUrl);
+  target.searchParams.set('token', railwayToken);
 
   console.log(`\nTesting webhook: ${webhookUrl}\n`);
 
@@ -66,7 +82,7 @@ async function main() {
   console.log('Payload:', JSON.stringify(railwayPayload, null, 2));
 
   try {
-    const response = await fetch(webhookUrl, {
+    const response = await fetch(target, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -138,7 +154,7 @@ async function main() {
     };
 
     try {
-      const failedResponse = await fetch(webhookUrl, {
+      const failedResponse = await fetch(target, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

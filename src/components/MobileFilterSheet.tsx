@@ -21,12 +21,12 @@ import ActiveFilterChips from '@/components/ActiveFilterChips';
 
 interface MobileFilterSheetProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange: (_open: boolean) => void;
   categoryStats: Record<string, number>;
   serviceStats: Record<string, number>;
   // Legacy props - kept for backwards compatibility but not used
   searchQuery?: string;
-  onSearchChange?: (query: string) => void;
+  onSearchChange?: (_query: string) => void;
 }
 
 export default function MobileFilterSheet({

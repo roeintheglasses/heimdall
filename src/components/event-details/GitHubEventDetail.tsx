@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { DashboardEvent } from '@/types/categories';
+import { safeUrl } from '@/lib/safeUrl';
 
 interface GitHubEventDetailProps {
   event: DashboardEvent;
@@ -30,14 +31,14 @@ interface GitHubCommit {
 }
 
 interface GitHubMetadata {
-  repo: string;
-  message: string;
-  author: string;
+  repo?: string;
+  message?: string;
+  author?: string;
   branch?: string;
   commit_sha?: string;
   commit_url?: string;
   repository_url?: string;
-  commits?: GitHubCommit[];
+  commits?: GitHubCommit[] | number;
   pusher?: {
     name: string;
     email: string;
@@ -48,7 +49,7 @@ export default function GitHubEventDetail({ event }: GitHubEventDetailProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [copiedSha, setCopiedSha] = useState<string | null>(null);
 
-  const metadata = event.metadata as GitHubMetadata;
+  const metadata = (event.metadata ?? {}) as GitHubMetadata;
 
   // Extract branch name from ref (e.g., "refs/heads/main" -> "main")
   const getBranchName = (branch?: string) => {
@@ -57,7 +58,7 @@ export default function GitHubEventDetail({ event }: GitHubEventDetailProps) {
   };
 
   const formatCommitSha = (sha: string) => {
-    return sha.substring(0, 7);
+    return (sha || 'unknown').substring(0, 7);
   };
 
   const copyToClipboard = async (text: string, sha: string) => {
@@ -71,23 +72,24 @@ export default function GitHubEventDetail({ event }: GitHubEventDetailProps) {
   };
 
   const formatCommitMessage = (message: string) => {
-    const lines = message.split('\n');
+    const lines = (message || '').split('\n');
     const title = lines[0];
     const body = lines.slice(1).join('\n').trim();
     return { title, body };
   };
 
   const branchName = getBranchName(metadata.branch);
-  const commits = metadata.commits || [];
+  const commits = Array.isArray(metadata.commits) ? metadata.commits : [];
   const mainCommit: GitHubCommit = {
     id: metadata.commit_sha || 'unknown',
-    message: metadata.message,
-    author: { name: metadata.author, email: '' },
+    message: metadata.message ?? event.title ?? '',
+    author: { name: metadata.author ?? '', email: '' },
     timestamp: event.created_at,
     url: metadata.commit_url,
   };
 
   // Use commits array if available, otherwise fall back to main commit data
+  const repositoryUrl = safeUrl(metadata.repository_url);
   const displayCommits = commits.length > 0 ? commits : [mainCommit];
 
   return (
@@ -96,17 +98,17 @@ export default function GitHubEventDetail({ event }: GitHubEventDetailProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <GitBranch className="h-4 w-4 text-muted-foreground" />
-          <span className="font-mono text-sm text-muted-foreground">{metadata.repo}</span>
+          <span className="font-mono text-sm text-muted-foreground">{metadata.repo ?? ''}</span>
           <span className="text-muted-foreground">→</span>
           <Badge variant="outline" className="font-mono text-xs">
             {branchName}
           </Badge>
         </div>
 
-        {metadata.repository_url && (
+        {repositoryUrl && (
           <Button variant="ghost" size="sm" asChild className="h-8 px-2">
             <a
-              href={metadata.repository_url}
+              href={repositoryUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1"
@@ -123,6 +125,7 @@ export default function GitHubEventDetail({ event }: GitHubEventDetailProps) {
         {displayCommits.slice(0, isExpanded ? displayCommits.length : 1).map((commit, index) => {
           const { title, body } = formatCommitMessage(commit.message);
           const shortSha = formatCommitSha(commit.id);
+          const commitHref = safeUrl(commit.url);
 
           return (
             <div key={commit.id || index} className="rounded-lg border bg-muted/30 p-4">
@@ -163,8 +166,8 @@ export default function GitHubEventDetail({ event }: GitHubEventDetailProps) {
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <User className="h-3 w-3" />
-                  <span>{commit.author.name}</span>
-                  {commit.author.email && (
+                  <span>{commit.author?.name ?? ''}</span>
+                  {commit.author?.email && (
                     <span className="font-mono">({commit.author.email})</span>
                   )}
                 </div>
@@ -176,10 +179,10 @@ export default function GitHubEventDetail({ event }: GitHubEventDetailProps) {
                   </time>
                 </div>
 
-                {commit.url && (
+                {commitHref && (
                   <Button variant="ghost" size="sm" asChild className="h-5 px-1 text-xs">
                     <a
-                      href={commit.url}
+                      href={commitHref}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1"

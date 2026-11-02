@@ -1,6 +1,7 @@
 import { ImageResponse } from '@vercel/og';
 import { NextRequest } from 'next/server';
 import { getGoServiceUrl } from '@/lib/api';
+import { monthNameUTC, parseWrappedMonth } from '@/lib/months';
 
 export const runtime = 'edge';
 
@@ -16,35 +17,46 @@ interface MonthlyStats {
   };
 }
 
-async function getMonthlyStats(month: string): Promise<MonthlyStats | null> {
+type StatsResult = { ok: true; stats: MonthlyStats | null } | { ok: false };
+
+async function getMonthlyStats(month: string): Promise<StatsResult> {
   try {
     const goServiceUrl = getGoServiceUrl();
     const response = await fetch(`${goServiceUrl}/api/wrapped/${month}`, {
       next: { revalidate: 300 },
     });
 
+    if (response.status === 404) {
+      return { ok: true, stats: null };
+    }
     if (!response.ok) {
-      return null;
+      return { ok: false };
     }
 
-    return response.json();
+    return { ok: true, stats: (await response.json()) as MonthlyStats };
   } catch {
-    return null;
+    return { ok: false };
   }
 }
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ month: string }> }
 ) {
   const { month } = await params;
-  const stats = await getMonthlyStats(month);
+  const parsed = parseWrappedMonth(month);
+  if (!parsed) {
+    return new Response('Invalid month', { status: 400 });
+  }
 
-  const monthName = stats?.month_name || 'Unknown';
-  const year = stats?.year || new Date().getFullYear();
-  const totalEvents = stats?.total_events || 0;
+  const result = await getMonthlyStats(month);
+  const stats = result.ok ? result.stats : null;
+
+  const monthName = stats?.month_name || monthNameUTC(parsed.year, parsed.month);
+  const year = stats?.year || parsed.year;
+  const totalEvents = (stats?.total_events || 0).toLocaleString('en-US');
   const dailyAvg = stats?.daily_average?.toFixed(1) || '0';
-  const busiestDay = stats?.busiest_day?.count || 0;
+  const busiestDay = String(stats?.busiest_day?.count || 0);
 
   return new ImageResponse(
     <div
@@ -71,6 +83,7 @@ export async function GET(
           backgroundImage:
             'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 255, 0.03) 2px, rgba(0, 255, 255, 0.03) 4px)',
           pointerEvents: 'none',
+          display: 'flex',
         }}
       />
 
@@ -115,7 +128,7 @@ export async function GET(
             marginTop: 8,
           }}
         >
-          {monthName} {year}
+          {`${monthName} ${year}`}
         </div>
       </div>
 
@@ -136,7 +149,7 @@ export async function GET(
             textShadow: '0 0 30px #00ffff, 0 0 60px #00ffff',
           }}
         >
-          {totalEvents.toLocaleString()}
+          {totalEvents}
         </div>
         <div
           style={{
@@ -219,6 +232,9 @@ export async function GET(
     {
       width: 1200,
       height: 630,
+      headers: {
+        'Cache-Control': result.ok ? 'public, max-age=300, s-maxage=300' : 'no-store',
+      },
     }
   );
 }

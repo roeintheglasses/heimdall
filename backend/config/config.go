@@ -14,6 +14,7 @@ type Config struct {
 	RateLimitRPS   float64 // Requests per second for rate limiting
 	RateLimitBurst int     // Burst size for rate limiting
 	PrettyLogs     bool    // Use pretty console logs (for development)
+	WebhookSecret  string  // Shared secret expected in X-Heimdall-Secret (BACKEND_WEBHOOK_SECRET)
 }
 
 // Load reads configuration from environment variables
@@ -25,6 +26,7 @@ func Load() (*Config, error) {
 		RateLimitRPS:   10.0,
 		RateLimitBurst: 30,
 		PrettyLogs:     os.Getenv("PRETTY_LOGS") == "true",
+		WebhookSecret:  os.Getenv("BACKEND_WEBHOOK_SECRET"),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -60,6 +62,7 @@ func LoadWithDefaults() *Config {
 		RateLimitRPS:   10.0,
 		RateLimitBurst: 30,
 		PrettyLogs:     os.Getenv("PRETTY_LOGS") != "false", // Default to pretty logs in dev
+		WebhookSecret:  os.Getenv("BACKEND_WEBHOOK_SECRET"),
 	}
 
 	if cfg.DatabaseURL == "" {

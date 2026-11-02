@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { DashboardEvent } from '@/types/categories';
+import { safeUrl } from '@/lib/safeUrl';
 
 interface GenericEventDetailProps {
   event: DashboardEvent;
@@ -157,14 +158,14 @@ export default function GenericEventDetail({ event }: GenericEventDetailProps) {
 
                 {/* Value Display */}
                 <div className="space-y-2">
-                  {isUrl(value) ? (
+                  {isUrl(value) && safeUrl(value) ? (
                     <div className="flex items-center justify-between rounded border bg-background p-2">
                       <span className="mr-2 truncate font-mono text-sm text-muted-foreground">
                         {displayValue}
                       </span>
                       <Button variant="outline" size="sm" asChild className="shrink-0">
                         <a
-                          href={String(value)}
+                          href={safeUrl(value) ?? undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1"

@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { WrappedContent } from './WrappedContent';
 import { getGoServiceUrl } from '@/lib/api';
+import { monthNameUTC, parseWrappedMonth } from '@/lib/months';
 
 interface MonthlyStats {
   year: number;
@@ -24,33 +25,26 @@ interface MonthlyStats {
   category_breakdown: Record<string, number>;
 }
 
-async function getMonthlyStats(month: string): Promise<MonthlyStats | null> {
+type StatsResult = { ok: true; stats: MonthlyStats | null } | { ok: false };
+
+async function getMonthlyStats(month: string): Promise<StatsResult> {
   try {
     const goServiceUrl = getGoServiceUrl();
     const response = await fetch(`${goServiceUrl}/api/wrapped/${month}`, {
       next: { revalidate: 300 },
     });
 
+    if (response.status === 404) {
+      return { ok: true, stats: null };
+    }
     if (!response.ok) {
-      return null;
+      return { ok: false };
     }
 
-    return response.json();
+    return { ok: true, stats: (await response.json()) as MonthlyStats };
   } catch {
-    return null;
+    return { ok: false };
   }
-}
-
-function parseMonth(month: string): { year: number; month: number } | null {
-  const match = month.match(/^(\d{4})-(\d{2})$/);
-  if (!match) return null;
-
-  const year = parseInt(match[1], 10);
-  const monthNum = parseInt(match[2], 10);
-
-  if (monthNum < 1 || monthNum > 12) return null;
-
-  return { year, month: monthNum };
 }
 
 interface PageProps {
@@ -59,17 +53,16 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { month } = await params;
-  const parsed = parseMonth(month);
+  const parsed = parseWrappedMonth(month);
   if (!parsed) {
-    return { title: 'Invalid Month | Heimdall Wrapped' };
+    return { title: 'Invalid Month' };
   }
 
-  const stats = await getMonthlyStats(month);
-  const monthName =
-    stats?.month_name ||
-    new Date(parsed.year, parsed.month - 1).toLocaleDateString('en-US', { month: 'long' });
+  const result = await getMonthlyStats(month);
+  const stats = result.ok ? result.stats : null;
+  const monthName = stats?.month_name || monthNameUTC(parsed.year, parsed.month);
 
-  const title = `${monthName} ${parsed.year} Wrapped | Heimdall`;
+  const title = `${monthName} ${parsed.year} Wrapped`;
   const description = stats
     ? `${stats.total_events} events | ${stats.daily_average.toFixed(1)} avg/day | ${monthName} ${parsed.year}`
     : `View your ${monthName} ${parsed.year} development activity`;
@@ -101,12 +94,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function WrappedPage({ params }: PageProps) {
   const { month } = await params;
-  const parsed = parseMonth(month);
+  const parsed = parseWrappedMonth(month);
   if (!parsed) {
     notFound();
   }
 
-  const stats = await getMonthlyStats(month);
+  const result = await getMonthlyStats(month);
 
-  return <WrappedContent month={month} stats={stats} />;
+  return (
+    <WrappedContent month={month} stats={result.ok ? result.stats : null} error={!result.ok} />
+  );
 }

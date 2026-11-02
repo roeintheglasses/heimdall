@@ -4,14 +4,23 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"sort"
 	"strings"
 	"time"
 
+	"heimdall-backend/logger"
 	"heimdall-backend/models"
-
-	"github.com/rs/zerolog/log"
 )
+
+// queryTimeout bounds every repository call, including retries.
+const queryTimeout = 10 * time.Second
+
+// MaxEventsPageSize is the largest page the repository returns. The handler asks
+// for one row more than the client limit (500) to detect whether more rows exist.
+const MaxEventsPageSize = 501
 
 // EventRepository handles database operations for events
 type EventRepository struct {
@@ -23,20 +32,29 @@ func NewEventRepository(db *sql.DB) *EventRepository {
 	return &EventRepository{db: db}
 }
 
+// closeQuietly closes c and logs a failure; deferred cleanup has no caller to report to.
+func closeQuietly(ctx context.Context, c io.Closer) {
+	if err := c.Close(); err != nil {
+		logger.FromContext(ctx).Warn().Err(err).Msg("failed to close database rows")
+	}
+}
+
 // GetRecentEvents retrieves the most recent events from the database
-func (r *EventRepository) GetRecentEvents(limit int) ([]models.DashboardEvent, error) {
+func (r *EventRepository) GetRecentEvents(ctx context.Context, limit int) ([]models.DashboardEvent, error) {
 	filter := models.EventsFilter{Limit: limit}
-	events, _, err := r.GetEventsWithFilters(filter)
+	events, _, err := r.GetEventsWithFilters(ctx, &filter)
 	return events, err
 }
 
 // GetEventsWithFilters retrieves events with pagination and filtering
-func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]models.DashboardEvent, int, error) {
+func (r *EventRepository) GetEventsWithFilters(ctx context.Context, filter *models.EventsFilter) ([]models.DashboardEvent, int, error) {
+	f := *filter
+	filter = &f // do not mutate the caller's filter
 	if filter.Limit <= 0 {
 		filter.Limit = 50
 	}
-	if filter.Limit > 500 {
-		filter.Limit = 500
+	if filter.Limit > MaxEventsPageSize {
+		filter.Limit = MaxEventsPageSize
 	}
 
 	// Build WHERE clause dynamically
@@ -56,20 +74,31 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 		argIndex++
 	}
 
+	// The total ignores the cursor so it stays stable while paging.
+	countWhere := ""
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
+	if len(conditions) > 0 {
+		countWhere = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	hasCursor := !filter.Before.IsZero() && filter.BeforeID != ""
+	if hasCursor {
+		conditions = append(conditions, fmt.Sprintf("(created_at, id) < ($%d, $%d)", argIndex, argIndex+1))
+		args = append(args, filter.Before, filter.BeforeID)
+		argIndex += 2
+	}
+
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// Create context with timeout for retry operations
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	// Get total count with retry
-	// Note: whereClause is safely constructed from validated conditions with parameterized args
-	countQuery := "SELECT COUNT(*) FROM events " + whereClause // #nosec G201
-	countArgs := make([]interface{}, len(args))
-	copy(countArgs, args)
+	// Note: countWhere is built from fixed fragments with parameterized args
+	countQuery := "SELECT COUNT(*) FROM events " + countWhere // #nosec G201
 
 	total, countErr := WithRetry(ctx, DefaultRetryConfig, func() (int, error) {
 		var count int
@@ -84,22 +113,26 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 
 	// Get events with pagination and retry
 	// Note: whereClause is safely constructed from validated conditions with parameterized args
+	offset := filter.Offset
+	if hasCursor {
+		offset = 0
+	}
 	query := fmt.Sprintf(`
-		SELECT id, event_type, title, metadata, created_at
+		SELECT id, event_type, title, metadata, created_at, is_private
 		FROM events
 		%s
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 		LIMIT $%d OFFSET $%d
 	`, whereClause, argIndex, argIndex+1) // #nosec G201
 
-	args = append(args, filter.Limit, filter.Offset)
+	args = append(args, filter.Limit, offset)
 
 	events, queryErr := WithRetry(ctx, DefaultRetryConfig, func() ([]models.DashboardEvent, error) {
 		rows, err := r.db.QueryContext(ctx, query, args...)
 		if err != nil {
 			return nil, err
 		}
-		defer rows.Close()
+		defer closeQuietly(ctx, rows)
 
 		// Pre-allocate results slice to avoid growth allocations
 		results := make([]models.DashboardEvent, 0, filter.Limit)
@@ -107,14 +140,16 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 			var event models.DashboardEvent
 			var metadataBytes []byte
 
-			err := rows.Scan(&event.ID, &event.EventType, &event.Title, &metadataBytes, &event.CreatedAt)
+			err := rows.Scan(&event.ID, &event.EventType, &event.Title, &metadataBytes, &event.CreatedAt, &event.IsPrivate)
 			if err != nil {
 				return nil, fmt.Errorf("failed to scan event row: %w", err)
 			}
 
+			event.CreatedAt = event.CreatedAt.UTC()
+
 			if metadataBytes != nil {
 				if err := json.Unmarshal(metadataBytes, &event.Metadata); err != nil {
-					log.Warn().
+					logger.FromContext(ctx).Warn().
 						Str("event_id", event.ID).
 						Err(err).
 						Msg("failed to unmarshal event metadata, using empty metadata")
@@ -139,8 +174,8 @@ func (r *EventRepository) GetEventsWithFilters(filter models.EventsFilter) ([]mo
 }
 
 // GetStats retrieves aggregate statistics for all events
-func (r *EventRepository) GetStats() (models.EventStats, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func (r *EventRepository) GetStats(ctx context.Context) (models.EventStats, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	return WithRetry(ctx, DefaultRetryConfig, func() (models.EventStats, error) {
@@ -164,7 +199,8 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 			SELECT
 				COUNT(*) as total,
 				COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') as last_24h,
-				COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') as last_week
+				COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') as last_week,
+				MAX(created_at) FILTER (WHERE created_at <= NOW() + INTERVAL '5 minutes') as last_event_at
 			FROM events
 		),
 		service_counts AS (
@@ -192,16 +228,18 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 			c.total,
 			c.last_24h,
 			c.last_week,
+			c.last_event_at,
 			COALESCE((SELECT json_agg(json_build_object('service', service, 'count', count)) FROM service_counts), '[]'::json) as services,
 			COALESCE((SELECT json_agg(json_build_object('category', category, 'count', count)) FROM category_counts), '[]'::json) as categories
 		FROM counts c
 	`
 
 	var total, last24h, lastWeek int
+	var lastEventAt sql.NullTime
 	var servicesJSON, categoriesJSON []byte
 
 	err := r.db.QueryRowContext(ctx, consolidatedQuery).Scan(
-		&total, &last24h, &lastWeek, &servicesJSON, &categoriesJSON,
+		&total, &last24h, &lastWeek, &lastEventAt, &servicesJSON, &categoriesJSON,
 	)
 	if err != nil {
 		return stats, fmt.Errorf("failed to query consolidated stats: %w", err)
@@ -210,6 +248,10 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 	stats.TotalEvents = total
 	stats.Last24Hours = last24h
 	stats.LastWeek = lastWeek
+	if lastEventAt.Valid {
+		t := lastEventAt.Time.UTC()
+		stats.LastEventAt = &t
+	}
 
 	// Parse service counts from JSON
 	var serviceResults []struct {
@@ -217,7 +259,7 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 		Count   int    `json:"count"`
 	}
 	if unmarshalErr := json.Unmarshal(servicesJSON, &serviceResults); unmarshalErr != nil {
-		log.Warn().Err(unmarshalErr).Msg("failed to parse service counts JSON")
+		logger.FromContext(ctx).Warn().Err(unmarshalErr).Msg("failed to parse service counts JSON")
 	} else {
 		for _, s := range serviceResults {
 			stats.ServiceCounts[s.Service] = s.Count
@@ -230,7 +272,7 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 		Count    int    `json:"count"`
 	}
 	if unmarshalErr := json.Unmarshal(categoriesJSON, &categoryResults); unmarshalErr != nil {
-		log.Warn().Err(unmarshalErr).Msg("failed to parse category counts JSON")
+		logger.FromContext(ctx).Warn().Err(unmarshalErr).Msg("failed to parse category counts JSON")
 	} else {
 		for _, c := range categoryResults {
 			stats.CategoryCounts[c.Category] = c.Count
@@ -240,18 +282,18 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 	// Get events per day for last 30 days (separate query as it returns multiple rows)
 	dailyQuery := `
 		SELECT
-			TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
+			TO_CHAR((created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') as date,
 			COUNT(*) as count
 		FROM events
 		WHERE created_at >= NOW() - INTERVAL '30 days'
-		GROUP BY DATE(created_at)
-		ORDER BY DATE(created_at) ASC
+		GROUP BY (created_at AT TIME ZONE 'UTC')::date
+		ORDER BY (created_at AT TIME ZONE 'UTC')::date ASC
 	`
 	dailyRows, err := r.db.QueryContext(ctx, dailyQuery)
 	if err != nil {
 		return stats, fmt.Errorf("failed to query daily counts: %w", err)
 	}
-	defer dailyRows.Close()
+	defer closeQuietly(ctx, dailyRows)
 
 	for dailyRows.Next() {
 		var dc models.DailyCount
@@ -272,25 +314,25 @@ func (r *EventRepository) getStatsInternal(ctx context.Context) (models.EventSta
 }
 
 // GetYearlyDailyStats retrieves daily counts for the past 365 days
-func (r *EventRepository) GetYearlyDailyStats() ([]models.DailyCount, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func (r *EventRepository) GetYearlyDailyStats(ctx context.Context) ([]models.DailyCount, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	return WithRetry(ctx, DefaultRetryConfig, func() ([]models.DailyCount, error) {
 		query := `
 			SELECT
-				TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
+				TO_CHAR((created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') as date,
 				COUNT(*) as count
 			FROM events
 			WHERE created_at >= NOW() - INTERVAL '365 days'
-			GROUP BY DATE(created_at)
-			ORDER BY DATE(created_at) ASC
+			GROUP BY (created_at AT TIME ZONE 'UTC')::date
+			ORDER BY (created_at AT TIME ZONE 'UTC')::date ASC
 		`
 		rows, err := r.db.QueryContext(ctx, query)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query yearly stats: %w", err)
 		}
-		defer rows.Close()
+		defer closeQuietly(ctx, rows)
 
 		results := make([]models.DailyCount, 0, 365)
 		for rows.Next() {
@@ -310,16 +352,16 @@ func (r *EventRepository) GetYearlyDailyStats() ([]models.DailyCount, error) {
 }
 
 // CalculateStreak calculates the current and longest streak of consecutive days with activity
-func (r *EventRepository) CalculateStreak() (models.StreakInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func (r *EventRepository) CalculateStreak(ctx context.Context) (models.StreakInfo, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	return WithRetry(ctx, DefaultRetryConfig, func() (models.StreakInfo, error) {
-		// Get all distinct dates with events over the last 400 days, ordered descending.
+		// Distinct UTC dates with events over the last 400 days, newest first.
 		// A 400-day window bounds the query to prevent full-table scans as history grows,
 		// while being far beyond any realistic streak length.
 		query := `
-			SELECT DISTINCT DATE(created_at) as event_date
+			SELECT DISTINCT (created_at AT TIME ZONE 'UTC')::date AS event_date
 			FROM events
 			WHERE created_at > NOW() - INTERVAL '400 days'
 			ORDER BY event_date DESC
@@ -328,7 +370,7 @@ func (r *EventRepository) CalculateStreak() (models.StreakInfo, error) {
 		if err != nil {
 			return models.StreakInfo{}, fmt.Errorf("failed to query dates for streak: %w", err)
 		}
-		defer rows.Close()
+		defer closeQuietly(ctx, rows)
 
 		var dates []time.Time
 		for rows.Next() {
@@ -343,77 +385,81 @@ func (r *EventRepository) CalculateStreak() (models.StreakInfo, error) {
 			return models.StreakInfo{}, fmt.Errorf("error iterating dates: %w", err)
 		}
 
-		if len(dates) == 0 {
-			return models.StreakInfo{}, nil
-		}
-
-		streak := models.StreakInfo{
-			LastActiveDate: dates[0].Format("2006-01-02"),
-		}
-
-		// Calculate current streak (consecutive days from today or yesterday)
-		today := time.Now().UTC().Truncate(24 * time.Hour)
-		yesterday := today.AddDate(0, 0, -1)
-
-		currentStreak := 0
-		longestStreak := 0
-		tempStreak := 1
-
-		for i, date := range dates {
-			dateOnly := date.Truncate(24 * time.Hour)
-
-			// For current streak: must start from today or yesterday
-			if i == 0 {
-				if dateOnly.Equal(today) || dateOnly.Equal(yesterday) {
-					currentStreak = 1
-				}
-			}
-
-			if i > 0 {
-				prevDate := dates[i-1].Truncate(24 * time.Hour)
-				diff := prevDate.Sub(dateOnly).Hours() / 24
-
-				if diff == 1 {
-					// Consecutive day
-					tempStreak++
-					if currentStreak > 0 {
-						currentStreak++
-					}
-				} else {
-					// Gap found
-					if tempStreak > longestStreak {
-						longestStreak = tempStreak
-					}
-					tempStreak = 1
-					if currentStreak > 0 {
-						// Current streak is broken, save it
-						if currentStreak > longestStreak {
-							longestStreak = currentStreak
-						}
-						currentStreak = 0
-					}
-				}
-			}
-		}
-
-		// Check final streak
-		if tempStreak > longestStreak {
-			longestStreak = tempStreak
-		}
-		if currentStreak > longestStreak {
-			longestStreak = currentStreak
-		}
-
-		streak.CurrentStreak = currentStreak
-		streak.LongestStreak = longestStreak
-
-		return streak, nil
+		return computeStreak(dates, time.Now().UTC()), nil
 	})
 }
 
+// computeStreak derives streak info from distinct event dates (any order).
+// Dates after today are ignored. The current streak counts consecutive days back
+// from the latest date when that date is today or yesterday, and stops at the
+// first gap. The longest streak is the longest consecutive run in the input.
+func computeStreak(dates []time.Time, today time.Time) models.StreakInfo {
+	const day = 24 * 60 * 60
+	dayIndex := func(t time.Time) int64 {
+		u := t.UTC()
+		return time.Date(u.Year(), u.Month(), u.Day(), 0, 0, 0, 0, time.UTC).Unix() / day
+	}
+	todayIdx := dayIndex(today)
+
+	seen := make(map[int64]struct{}, len(dates))
+	idxs := make([]int64, 0, len(dates))
+	for _, d := range dates {
+		i := dayIndex(d)
+		if i > todayIdx {
+			continue
+		}
+		if _, ok := seen[i]; ok {
+			continue
+		}
+		seen[i] = struct{}{}
+		idxs = append(idxs, i)
+	}
+	if len(idxs) == 0 {
+		return models.StreakInfo{}
+	}
+	sort.Slice(idxs, func(a, b int) bool { return idxs[a] > idxs[b] })
+
+	info := models.StreakInfo{
+		LastActiveDate: time.Unix(idxs[0]*day, 0).UTC().Format("2006-01-02"),
+	}
+
+	run, longest := 1, 1
+	for i := 1; i < len(idxs); i++ {
+		if idxs[i-1]-idxs[i] == 1 {
+			run++
+		} else {
+			run = 1
+		}
+		if run > longest {
+			longest = run
+		}
+	}
+	info.LongestStreak = longest
+
+	if idxs[0] == todayIdx || idxs[0] == todayIdx-1 {
+		current := 1
+		for i := 1; i < len(idxs) && idxs[i-1]-idxs[i] == 1; i++ {
+			current++
+		}
+		info.CurrentStreak = current
+	}
+	return info
+}
+
+// monthlyAverageDays returns the number of days to divide a month's total by:
+// the elapsed days (including today) for the current UTC month, otherwise the
+// full length of the month.
+func monthlyAverageDays(year, month int, now time.Time) int {
+	now = now.UTC()
+	if now.Year() == year && int(now.Month()) == month {
+		return now.Day()
+	}
+	return time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.UTC).Day()
+}
+
 // GetMonthlyStats retrieves aggregate statistics for a specific month
-func (r *EventRepository) GetMonthlyStats(year, month int) (models.MonthlyStats, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func (r *EventRepository) GetMonthlyStats(ctx context.Context, year, month int) (models.MonthlyStats, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	return WithRetry(ctx, DefaultRetryConfig, func() (models.MonthlyStats, error) {
@@ -432,18 +478,18 @@ func (r *EventRepository) GetMonthlyStats(year, month int) (models.MonthlyStats,
 		// Get total events and daily counts for the month
 		dailyQuery := `
 			SELECT
-				TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
+				TO_CHAR((created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') as date,
 				COUNT(*) as count
 			FROM events
 			WHERE created_at >= $1 AND created_at < $2
-			GROUP BY DATE(created_at)
-			ORDER BY DATE(created_at) ASC
+			GROUP BY (created_at AT TIME ZONE 'UTC')::date
+			ORDER BY (created_at AT TIME ZONE 'UTC')::date ASC
 		`
 		dailyRows, err := r.db.QueryContext(ctx, dailyQuery, monthStart, monthEnd)
 		if err != nil {
 			return stats, fmt.Errorf("failed to query monthly daily counts: %w", err)
 		}
-		defer dailyRows.Close()
+		defer closeQuietly(ctx, dailyRows)
 
 		totalEvents := 0
 		var busiestDay models.DailyCount
@@ -468,9 +514,8 @@ func (r *EventRepository) GetMonthlyStats(year, month int) (models.MonthlyStats,
 		stats.BusiestDay = busiestDay
 
 		// Calculate daily average
-		daysInMonth := monthEnd.Sub(monthStart).Hours() / 24
-		if daysInMonth > 0 {
-			stats.DailyAverage = float64(totalEvents) / daysInMonth
+		if days := monthlyAverageDays(year, month, time.Now()); days > 0 {
+			stats.DailyAverage = float64(totalEvents) / float64(days)
 		}
 
 		// Get top services
@@ -488,7 +533,7 @@ func (r *EventRepository) GetMonthlyStats(year, month int) (models.MonthlyStats,
 		if err != nil {
 			return stats, fmt.Errorf("failed to query service counts: %w", err)
 		}
-		defer serviceRows.Close()
+		defer closeQuietly(ctx, serviceRows)
 
 		for serviceRows.Next() {
 			var sc models.ServiceCount
@@ -523,7 +568,7 @@ func (r *EventRepository) GetMonthlyStats(year, month int) (models.MonthlyStats,
 		if err != nil {
 			return stats, fmt.Errorf("failed to query category counts: %w", err)
 		}
-		defer catRows.Close()
+		defer closeQuietly(ctx, catRows)
 
 		for catRows.Next() {
 			var cat string
@@ -543,27 +588,39 @@ func (r *EventRepository) GetMonthlyStats(year, month int) (models.MonthlyStats,
 	})
 }
 
-// InsertEvent inserts a new event into the database
-func (r *EventRepository) InsertEvent(event *models.DashboardEvent) error {
+// InsertEvent inserts a new event into the database. It returns inserted=false
+// when an event with the same delivery id already exists. The insert is
+// idempotent, so retrying after a transient error cannot create duplicates.
+func (r *EventRepository) InsertEvent(ctx context.Context, event *models.DashboardEvent) (bool, error) {
 	metadataJSON, err := json.Marshal(event.Metadata)
 	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
+		return false, fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	query := `
-		INSERT INTO events (event_type, title, metadata, created_at)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO events (event_type, title, metadata, created_at, delivery_id, is_private)
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6)
+		ON CONFLICT (delivery_id) DO NOTHING
+		RETURNING id
 	`
 
 	// Use the event's CreatedAt timestamp (set by transformer from webhook timestamp)
-	return WithRetryNoResult(ctx, DefaultRetryConfig, func() error {
-		_, err := r.db.ExecContext(ctx, query, event.EventType, event.Title, metadataJSON, event.CreatedAt)
-		if err != nil {
-			return fmt.Errorf("failed to insert event: %w", err)
-		}
-		return nil
+	id, err := WithRetry(ctx, DefaultRetryConfig, func() (string, error) {
+		var id string
+		scanErr := r.db.QueryRowContext(ctx, query,
+			event.EventType, event.Title, metadataJSON, event.CreatedAt, event.DeliveryID, event.IsPrivate,
+		).Scan(&id)
+		return id, scanErr
 	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to insert event: %w", err)
+	}
+	event.ID = id
+	return true, nil
 }
