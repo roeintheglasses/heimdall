@@ -22,6 +22,22 @@ const queryTimeout = 10 * time.Second
 // for one row more than the client limit (500) to detect whether more rows exist.
 const MaxEventsPageSize = 501
 
+// notHiddenRepoCondition excludes events that belong to a repo with hidden=true
+// in repo_settings. An event matches by metadata full_name, or by the short repo
+// name when the row has no full_name (events stored before full_name existed).
+// Only the list query and its count use it. Aggregates keep counting everything.
+const notHiddenRepoCondition = `NOT EXISTS (
+		SELECT 1 FROM repo_settings rs
+		WHERE rs.hidden
+		AND (
+			events.metadata->>'full_name' = rs.full_name
+			OR (
+				COALESCE(events.metadata->>'full_name', '') = ''
+				AND events.metadata->>'repo' = split_part(rs.full_name, '/', 2)
+			)
+		)
+	)`
+
 // EventRepository handles database operations for events
 type EventRepository struct {
 	db *sql.DB
@@ -58,7 +74,7 @@ func (r *EventRepository) GetEventsWithFilters(ctx context.Context, filter *mode
 	}
 
 	// Build WHERE clause dynamically
-	var conditions []string
+	conditions := []string{notHiddenRepoCondition}
 	var args []interface{}
 	argIndex := 1
 
@@ -75,12 +91,9 @@ func (r *EventRepository) GetEventsWithFilters(ctx context.Context, filter *mode
 	}
 
 	// The total ignores the cursor so it stays stable while paging.
-	countWhere := ""
 	countArgs := make([]interface{}, len(args))
 	copy(countArgs, args)
-	if len(conditions) > 0 {
-		countWhere = "WHERE " + strings.Join(conditions, " AND ")
-	}
+	countWhere := "WHERE " + strings.Join(conditions, " AND ")
 
 	hasCursor := !filter.Before.IsZero() && filter.BeforeID != ""
 	if hasCursor {
@@ -89,10 +102,7 @@ func (r *EventRepository) GetEventsWithFilters(ctx context.Context, filter *mode
 		argIndex += 2
 	}
 
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = "WHERE " + strings.Join(conditions, " AND ")
-	}
+	whereClause := "WHERE " + strings.Join(conditions, " AND ")
 
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

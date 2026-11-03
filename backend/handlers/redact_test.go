@@ -123,3 +123,17 @@ func TestRedactEvent_EnvironmentNormalised(t *testing.T) {
 		}
 	}
 }
+
+func TestRedactDropsFullName(t *testing.T) {
+	e := models.DashboardEvent{
+		ID: "1", EventType: "github.push", IsPrivate: true, Title: "x",
+		Metadata: map[string]interface{}{"full_name": "octo/secret", "repo": "secret", "commit_count": 2},
+	}
+	got := redactEvent(&e)
+	if _, ok := got.Metadata["full_name"]; ok {
+		t.Error("full_name must not survive redaction")
+	}
+	if _, ok := got.Metadata["repo"]; ok {
+		t.Error("repo must not survive redaction")
+	}
+}
