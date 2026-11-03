@@ -28,6 +28,7 @@ func NewRegistry() *Registry {
 	r.Register("github.pr", TransformGitHubPR)
 	r.Register("github.issue", TransformGitHubIssue)
 	r.Register("github.release", TransformGitHubRelease)
+	r.Register("error.ci", TransformGitHubWorkflowRun)
 	r.Register("vercel.deploy", TransformVercelDeploy)
 	r.Register("railway.deploy", TransformRailwayDeploy)
 

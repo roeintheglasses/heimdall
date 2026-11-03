@@ -80,6 +80,53 @@ describe('detectEvent github', () => {
     });
   });
 
+  describe('workflow_run', () => {
+    const wf = (conclusion: unknown, action = 'completed', extra: object = {}) => ({
+      action,
+      workflow_run: { id: 77, run_attempt: 2, conclusion, ...extra },
+    });
+
+    it.each(['failure', 'timed_out', 'cancelled'])(
+      'forwards a completed %s run as error.ci',
+      async (c) => {
+        const result = await run('github', wf(c), {
+          githubEvent: 'workflow_run',
+          githubDelivery: 'd-1',
+        });
+        expect(result).toEqual({
+          kind: 'forward',
+          type: 'error.ci',
+          deliveryId: `github:run:77:2:${c}`,
+        });
+      }
+    );
+
+    it.each([
+      ['success', 'completed'],
+      ['skipped', 'completed'],
+      [null, 'completed'],
+      ['failure', 'requested'],
+      ['failure', 'in_progress'],
+    ])('ignores conclusion %s with action %s', async (c, action) => {
+      const result = await run('github', wf(c, action), { githubEvent: 'workflow_run' });
+      expect(result.kind).toBe('ignore');
+    });
+
+    it('ignores a payload without workflow_run', async () => {
+      const result = await run('github', { action: 'completed' }, { githubEvent: 'workflow_run' });
+      expect(result.kind).toBe('ignore');
+    });
+
+    it('falls back to the delivery header when the run has no id', async () => {
+      const result = await run(
+        'github',
+        { action: 'completed', workflow_run: { conclusion: 'failure' } },
+        { githubEvent: 'workflow_run', githubDelivery: 'd-5' }
+      );
+      expect(result).toEqual({ kind: 'forward', type: 'error.ci', deliveryId: 'github:d-5' });
+    });
+  });
+
   it('ignores unsupported events such as create', async () => {
     const result = await run('github', {}, { githubEvent: 'create' });
     expect(result.kind).toBe('ignore');

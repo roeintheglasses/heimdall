@@ -3,10 +3,28 @@ package transformers
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"heimdall-backend/models"
 )
+
+// maxCommitMessageLen caps the stored commit message in runes.
+const maxCommitMessageLen = 500
+
+func metaStr(meta map[string]interface{}, key string) string {
+	s, _ := meta[key].(string) //nolint:errcheck // zero value is the intended fallback
+	return strings.TrimSpace(s)
+}
+
+func firstNonEmptyStr(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
 
 // TransformVercelDeploy transforms a Vercel deployment event
 func TransformVercelDeploy(eventData json.RawMessage, timestamp time.Time) (models.DashboardEvent, error) {
@@ -74,6 +92,19 @@ func TransformVercelDeploy(eventData json.RawMessage, timestamp time.Time) (mode
 	// Build richer title with project, status, and environment
 	title := fmt.Sprintf("%s: %s to %s", projectName, status, environment)
 
+	// Commit context from the deployment meta, when Vercel sends it.
+	meta := deployEvent.Payload.Deployment.Meta
+	repo := metaStr(meta, "githubRepo")
+	org := firstNonEmptyStr(metaStr(meta, "githubOrg"), metaStr(meta, "githubCommitOrg"))
+	fullName := ""
+	if repo != "" && org != "" {
+		fullName = org + "/" + repo
+	}
+	commitMessage := metaStr(meta, "githubCommitMessage")
+	if r := []rune(commitMessage); len(r) > maxCommitMessageLen {
+		commitMessage = string(r[:maxCommitMessageLen])
+	}
+
 	// Get deployment URL
 	deployURL := ""
 	if deployEvent.Payload.Deployment.URL != "" {
@@ -95,6 +126,11 @@ func TransformVercelDeploy(eventData json.RawMessage, timestamp time.Time) (mode
 			"plan":           deployEvent.Payload.Plan,
 			"regions":        deployEvent.Payload.Regions,
 			"event_type":     deployEvent.Type,
+			"repo":           repo,
+			"full_name":      fullName,
+			"branch":         metaStr(meta, "githubCommitRef"),
+			"commit_sha":     metaStr(meta, "githubCommitSha"),
+			"commit_message": commitMessage,
 		},
 		CreatedAt: timestamp,
 	}, nil

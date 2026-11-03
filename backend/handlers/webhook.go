@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"heimdall-backend/alerts"
 	"heimdall-backend/database"
 	"heimdall-backend/logger"
 	"heimdall-backend/models"
@@ -36,6 +37,7 @@ type WebhookHandler struct {
 	repo     database.EventStore
 	registry *transformers.Registry
 	secret   string
+	notifier *alerts.Notifier
 }
 
 // NewWebhookHandler creates a new webhook handler. secret is the shared secret
@@ -47,6 +49,12 @@ func NewWebhookHandler(repo database.EventStore, registry *transformers.Registry
 		registry: registry,
 		secret:   secret,
 	}
+}
+
+// WithNotifier sets the failure alert notifier. A nil notifier disables alerts.
+func (h *WebhookHandler) WithNotifier(n *alerts.Notifier) *WebhookHandler {
+	h.notifier = n
+	return h
 }
 
 // secretMatches compares in constant time, independent of the input lengths.
@@ -186,6 +194,9 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		done = done.Str("title", dashboardEvent.Title)
 	}
 	done.Msg("processed event successfully")
+
+	// Only new events alert. The send is asynchronous and never affects the response.
+	h.notifier.Notify(&dashboardEvent)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "id": dashboardEvent.ID})
 }

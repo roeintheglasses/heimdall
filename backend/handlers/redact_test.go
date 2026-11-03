@@ -32,6 +32,8 @@ func TestRedactEvent_Titles(t *testing.T) {
 		{"pr no action", "github.pr", nil, "Private repository: pull request"},
 		{"issue", "github.issue", map[string]interface{}{"action": "closed"}, "Private repository: issue closed"},
 		{"release", "github.release", map[string]interface{}{"action": "published"}, "Private repository: release published"},
+		{"ci", "error.ci", map[string]interface{}{"conclusion": "timed_out"}, "Private repository: CI timed_out"},
+		{"ci no conclusion", "error.ci", nil, "Private repository: CI"},
 		{"vercel", "vercel.deploy", map[string]interface{}{"status": "success"}, "Private project: deployment SUCCESS"},
 		{"railway no status", "railway.deploy", nil, "Private project: deployment"},
 		{"other", "monitoring.alert", nil, "Private event"},
@@ -135,5 +137,22 @@ func TestRedactDropsFullName(t *testing.T) {
 	}
 	if _, ok := got.Metadata["repo"]; ok {
 		t.Error("repo must not survive redaction")
+	}
+}
+
+func TestRedactEvent_StripsCommitContext(t *testing.T) {
+	in := privateEvent("vercel.deploy", map[string]interface{}{
+		"status": "FAILED", "branch": "feat/x", "commit_sha": "abc", "commit_message": "secret",
+		"repo": "web", "full_name": "me/web", "project": "web", "deployment_url": "https://x",
+		"run_url": "https://github.com/me/web/actions/runs/1", "workflow": "CI", "conclusion": "failure",
+	})
+	got := redactEvent(&in)
+	for _, k := range []string{"branch", "commit_sha", "commit_message", "repo", "full_name", "project", "deployment_url", "run_url", "workflow"} {
+		if _, ok := got.Metadata[k]; ok {
+			t.Errorf("metadata key %q leaked", k)
+		}
+	}
+	if got.Metadata["status"] != "FAILED" || got.Metadata["conclusion"] != "failure" {
+		t.Errorf("allowlisted keys lost: %v", got.Metadata)
 	}
 }

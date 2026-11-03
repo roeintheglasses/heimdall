@@ -56,6 +56,7 @@ export const EVENT_TYPE_SERVICE_MAP: Record<string, string> = {
   'github.pr': 'github',
   'github.issue': 'github',
   'github.release': 'github',
+  'error.ci': 'github',
 
   // Vercel events
   'vercel.deploy': 'vercel',

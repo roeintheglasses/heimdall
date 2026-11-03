@@ -2,6 +2,7 @@ package transformers
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -128,5 +129,34 @@ func TestTransformVercelDeploy(t *testing.T) {
 				t.Errorf("expected timestamp %v, got %v", testTime, result.CreatedAt)
 			}
 		})
+	}
+}
+
+func TestTransformVercelDeploy_CommitContext(t *testing.T) {
+	long := strings.Repeat("é", 600)
+	input := `{"type":"deployment.error","payload":{"deployment":{"id":"d","name":"web","url":"web.vercel.app","meta":{
+		"githubCommitRef":"main","githubCommitSha":"abc123","githubCommitMessage":"` + long + `",
+		"githubRepo":"web","githubOrg":"me","githubRepoVisibility":"private"}}}}`
+	ev, err := TransformVercelDeploy(json.RawMessage(input), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k, want := range map[string]string{"branch": "main", "commit_sha": "abc123", "repo": "web", "full_name": "me/web"} {
+		if ev.Metadata[k] != want {
+			t.Errorf("metadata[%s] = %v, want %s", k, ev.Metadata[k], want)
+		}
+	}
+	if got := ev.Metadata["commit_message"].(string); len([]rune(got)) != 500 { //nolint:errcheck,forcetypeassert // test
+		t.Errorf("commit_message runes = %d, want 500", len([]rune(got)))
+	}
+
+	// githubCommitOrg is the fallback org, and no org means no full_name.
+	ev, _ = TransformVercelDeploy(json.RawMessage(`{"type":"deployment.created","payload":{"deployment":{"meta":{"githubRepo":"web","githubCommitOrg":"acme"}}}}`), time.Now()) //nolint:errcheck // valid input
+	if ev.Metadata["full_name"] != "acme/web" {
+		t.Errorf("full_name = %v", ev.Metadata["full_name"])
+	}
+	ev, _ = TransformVercelDeploy(json.RawMessage(`{"type":"deployment.created","payload":{"deployment":{"meta":{"githubRepo":"web"}}}}`), time.Now()) //nolint:errcheck // valid input
+	if ev.Metadata["full_name"] != "" || ev.Metadata["repo"] != "web" {
+		t.Errorf("unexpected metadata %v", ev.Metadata)
 	}
 }

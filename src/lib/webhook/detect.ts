@@ -62,6 +62,37 @@ function isRailwayDeploy(payload: Record<string, unknown>): boolean {
   return railwayDeployment(payload) !== null;
 }
 
+const CI_FAILURE_CONCLUSIONS = new Set(['failure', 'timed_out', 'cancelled']);
+
+/**
+ * Only completed runs that did not succeed become error.ci events. The id is built
+ * from the run, so two hooks on one repo, or a redelivery, collapse into one event,
+ * while a re-run (new run_attempt) is a new one.
+ */
+async function detectWorkflowRun(input: DetectInput): Promise<DetectResult> {
+  const { payload } = input;
+  const run = isObject(payload.workflow_run) ? payload.workflow_run : null;
+  const conclusion = run ? str(run.conclusion) : '';
+  if (payload.action !== 'completed' || !run || !CI_FAILURE_CONCLUSIONS.has(conclusion)) {
+    return { kind: 'ignore', reason: 'workflow_run is not a completed failure' };
+  }
+  const runId = typeof run.id === 'number' || typeof run.id === 'string' ? String(run.id) : '';
+  const attempt =
+    typeof run.run_attempt === 'number' || typeof run.run_attempt === 'string'
+      ? String(run.run_attempt)
+      : '1';
+  if (runId) {
+    return {
+      kind: 'forward',
+      type: 'error.ci',
+      deliveryId: clamp(`github:run:${runId}:${attempt}:${conclusion}`),
+    };
+  }
+  const delivery = input.githubDelivery?.trim();
+  const deliveryId = delivery ? `github:${delivery}` : await bodyHashId(input.rawBody);
+  return { kind: 'forward', type: 'error.ci', deliveryId: clamp(deliveryId) };
+}
+
 const ZERO_SHA = /^0+$/;
 
 /**
@@ -85,6 +116,7 @@ async function pushDeliveryId(payload: Record<string, unknown>): Promise<string 
 async function detectGitHub(input: DetectInput): Promise<DetectResult> {
   const name = input.githubEvent ?? '';
   if (name === 'ping') return { kind: 'pong' };
+  if (name === 'workflow_run') return detectWorkflowRun(input);
   const type = GITHUB_TYPES[name];
   if (!type) return { kind: 'ignore', reason: `unsupported github event` };
   if (name === 'push') {

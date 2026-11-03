@@ -9,7 +9,8 @@ import (
 )
 
 // publicMetadataKeys are the only metadata keys kept for private events.
-var publicMetadataKeys = []string{"status", "action", "commit_count", "merged"}
+// conclusion is a fixed GitHub enum (failure, timed_out, cancelled).
+var publicMetadataKeys = []string{"status", "action", "commit_count", "merged", "conclusion"}
 
 // redactEvent returns a copy of a private event with its details removed.
 // Public events are returned unchanged. The input is never modified.
@@ -110,6 +111,8 @@ func redactedTitle(eventType string, meta map[string]interface{}) string {
 		return joinWords("Private repository: issue", action)
 	case "github.release":
 		return joinWords("Private repository: release", action)
+	case "error.ci":
+		return joinWords("Private repository: CI", metaString(meta, "conclusion"))
 	case "vercel.deploy", "railway.deploy":
 		return joinWords("Private project: deployment", status)
 	}

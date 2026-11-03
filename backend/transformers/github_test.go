@@ -2,6 +2,7 @@ package transformers
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -338,5 +339,55 @@ func TestTransformGitHubRelease(t *testing.T) {
 				t.Errorf("expected timestamp %v, got %v", testTimestamp, result.CreatedAt)
 			}
 		})
+	}
+}
+
+func TestTransformGitHubWorkflowRun(t *testing.T) {
+	input := `{
+		"action": "completed",
+		"workflow_run": {
+			"name": "CI", "head_branch": "main", "head_sha": "abc123def",
+			"conclusion": "%s", "html_url": "https://github.com/me/app/actions/runs/9",
+			"run_number": 9, "event": "push"
+		},
+		"repository": {"name": "app", "full_name": "me/app", "html_url": "https://github.com/me/app", "private": false}
+	}`
+	tests := []struct {
+		conclusion string
+		wantTitle  string
+	}{
+		{"failure", "CI failed: CI on app/main"},
+		{"timed_out", "CI timed_out: CI on app/main"},
+		{"cancelled", "CI cancelled: CI on app/main"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.conclusion, func(t *testing.T) {
+			ev, err := TransformGitHubWorkflowRun(json.RawMessage(strings.Replace(input, "%s", tt.conclusion, 1)), testTimestamp)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ev.EventType != "error.ci" || ev.Title != tt.wantTitle || ev.IsPrivate {
+				t.Errorf("unexpected event: %+v", ev)
+			}
+			want := map[string]interface{}{
+				"repo": "app", "full_name": "me/app", "repository_url": "https://github.com/me/app",
+				"branch": "main", "commit_sha": "abc123def", "workflow": "CI", "conclusion": tt.conclusion,
+				"run_url": "https://github.com/me/app/actions/runs/9", "run_number": 9,
+				"status": strings.ToUpper(tt.conclusion), "event": "push",
+			}
+			for k, v := range want {
+				if ev.Metadata[k] != v {
+					t.Errorf("metadata[%s] = %v, want %v", k, ev.Metadata[k], v)
+				}
+			}
+		})
+	}
+
+	ev, err := TransformGitHubWorkflowRun(json.RawMessage(`{"workflow_run":{"conclusion":"failure"},"repository":{"name":"r"}}`), testTimestamp)
+	if err != nil || !ev.IsPrivate {
+		t.Errorf("missing private flag must be private: %v %+v", err, ev)
+	}
+	if _, err := TransformGitHubWorkflowRun(json.RawMessage(`[]`), testTimestamp); err == nil {
+		t.Error("expected error for non-object")
 	}
 }

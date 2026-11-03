@@ -147,6 +147,8 @@ Without `NEXT_PUBLIC_BASE_URL`, the app uses `https://$VERCEL_PROJECT_PRODUCTION
 | `RATE_LIMIT_BURST`       | Burst size per IP (default 30)                       | No       |
 | `LOG_LEVEL`              | `debug`, `info`, `warn`, or `error` (default `info`) | No       |
 | `PRETTY_LOGS`            | `true` for console-style logs                        | No       |
+| `ALERT_WEBHOOK_URL`      | Failure alerts go here. Unset means no alerts        | No       |
+| `ALERT_WEBHOOK_FORMAT`   | `discord`, `slack`, or `ntfy`. Overrides detection   | No       |
 
 Generate secrets with `openssl rand -hex 32`.
 
@@ -164,25 +166,37 @@ The Railway `token` query parameter appears in Vercel's platform request logs, s
 
 Response codes: 200 accepted, 202 ignored event type, 400 invalid JSON, 401 bad or missing credential, 413 body over 1 MiB, 500 server secret not set, 502 backend unreachable.
 
-GitHub events handled: `push`, `pull_request`, `issues`, `release`. A `ping` returns 200.
+GitHub events handled: `push`, `pull_request`, `issues`, `release`, and `workflow_run`. A `ping` returns 200. A `workflow_run` is stored as `error.ci` only when `action` is `completed` and the conclusion is `failure`, `timed_out`, or `cancelled`. Every other run, and every other GitHub event, gets 202 `ignored`. `npm run add-webhooks` subscribes hooks to `workflow_run`. It also lists hooks on a Heimdall host whose URL differs from the current one, without changing them.
 
 The Edge handler calls the Go backend with `X-Heimdall-Secret`. The backend returns 401 for a wrong secret and 503 when `BACKEND_WEBHOOK_SECRET` is unset. Each event has a `delivery_id`, so a redelivered webhook returns `{"status":"duplicate"}` and stores nothing.
 
 ## Event categories
 
-| Category       | Event types                                  |
-| -------------- | -------------------------------------------- |
-| Development    | `github.push`, `github.pr`, `github.release` |
-| Deployments    | `vercel.deploy`, `railway.deploy`            |
-| Issues         | `github.issue`, `error.*`                    |
-| Security       | `security.*`                                 |
-| Infrastructure | `monitoring.*`                               |
+| Category       | Event types                                      |
+| -------------- | ------------------------------------------------ |
+| Development    | `github.push`, `github.pr`, `github.release`     |
+| Deployments    | `vercel.deploy`, `railway.deploy`                |
+| Issues         | `github.issue`, `error.*` (including `error.ci`) |
+| Security       | `security.*`                                     |
+| Infrastructure | `monitoring.*`                                   |
 
 ## Privacy
 
 Events are private unless the source is known to be public: a GitHub repository with `private: false`, or a Vercel deployment from a public GitHub repository. Railway events are always private.
 
-`GET /api/events` and the dashboard show private events with a generic title and only these metadata keys: `status`, `action`, `commit_count`, `environment`, `merged`. Repository names, branches, commit messages, authors, and URLs are not returned. Stats, badges, `/me`, and wrapped pages count private activity in totals.
+`GET /api/events` and the dashboard show private events with a generic title and only these metadata keys: `status`, `action`, `commit_count`, `environment`, `merged`, `conclusion`. Repository names, branches, commit messages, authors, and URLs are not returned. Stats, badges, `/me`, and wrapped pages count private activity in totals.
+
+Vercel deployments also store `branch`, `commit_sha`, `commit_message` (cut to 500 characters), `repo`, and `full_name` from the deployment `meta`. These keys are not in the redaction list, so private deployments never show them. The hidden repo filter matches on `repo` and `full_name` for every event type, so hiding a repo also hides its Vercel deploys.
+
+## Failure alerts
+
+Set `ALERT_WEBHOOK_URL` on the backend to get a short message when a newly stored event is a failure. Duplicates never alert.
+
+- `vercel.deploy` with status `FAILED` (Vercel `deployment.error`). Canceled deploys do not alert.
+- `railway.deploy` with status `FAILED` (the backend maps Railway `FAILED`, `CRASHED`, and `ERROR` to `FAILED`).
+- Every `error.ci` event (a failed, timed out, or cancelled GitHub Actions run).
+
+The message names the provider, project or repo, branch, short SHA, status, and a link when there is one. It uses the full event, including private ones, so point the URL at your own channel. The body shape depends on the URL host: `discord.com` and `discordapp.com` get `{"content": ...}`, `hooks.slack.com` gets `{"text": ...}`, and `ntfy.sh` or a host containing `ntfy` gets plain text with a `Title` header. Other hosts get the Discord shape. Set `ALERT_WEBHOOK_FORMAT` to `discord`, `slack`, or `ntfy` to override. Sends run in the background with a 5 second timeout, at most 8 at a time. The URL is never logged.
 
 ## Endpoints
 
@@ -213,7 +227,8 @@ The `today` badge counts events in the last 24 hours.
 
 | Endpoint                   | Description                                                      |
 | -------------------------- | ---------------------------------------------------------------- |
-| `GET /api/health`          | Health check                                                     |
+| `GET /api/health`          | Health check. Pings Postgres (2 s limit), 503 when it fails      |
+| `GET /api/health/live`     | Liveness check. Always 200, no database call. Used by Docker     |
 | `GET /api/events`          | Events, newest first. See below                                  |
 | `GET /api/stats`           | Counts, streaks, activity. Add `?range=year` for the yearly view |
 | `GET /api/wrapped/YYYY-MM` | Monthly stats                                                    |
