@@ -90,7 +90,8 @@ export default function ActiveFilterChips({ className = '' }: ActiveFilterChipsP
             <Button
               variant="ghost"
               size="sm"
-              className="ml-0.5 h-auto p-0 hover:bg-transparent"
+              className="relative ml-0.5 h-auto p-0 after:absolute after:-inset-3 after:content-[''] hover:bg-transparent"
+              aria-label={`Remove filter ${filter.label}`}
               onClick={() => removeFilter(filter.type, filter.value)}
             >
               <X className="h-3 w-3 hover:opacity-70" />

@@ -167,7 +167,7 @@ export function YearlyHeatmap({ className = '', eventsPerYear }: YearlyHeatmapPr
   return (
     <div className={cn('space-y-3', className)}>
       {/* Stats header */}
-      <div className="flex flex-col gap-2 font-mono text-[10px] xs:flex-row xs:items-center xs:justify-between xs:text-xs">
+      <div className="flex flex-col gap-2 font-mono text-xs xs:flex-row xs:items-center xs:justify-between xs:text-xs">
         <div className="flex items-center gap-2 text-neon-cyan">
           <Calendar className="h-3 w-3" />
           <span>
@@ -199,7 +199,7 @@ export function YearlyHeatmap({ className = '', eventsPerYear }: YearlyHeatmapPr
             {monthLabels.map((label, i) => (
               <div
                 key={i}
-                className="font-mono text-[9px] text-muted-foreground xs:text-[10px]"
+                className="font-mono text-xs text-muted-foreground xs:text-xs"
                 style={{
                   marginLeft: i === 0 ? `${label.col * 12}px` : undefined,
                   width:
@@ -216,7 +216,7 @@ export function YearlyHeatmap({ className = '', eventsPerYear }: YearlyHeatmapPr
           {/* Heatmap grid */}
           <div className="flex gap-0.5">
             {/* Day labels */}
-            <div className="flex w-7 flex-col justify-between py-0.5 pr-1 font-mono text-[8px] text-muted-foreground xs:text-[9px]">
+            <div className="flex w-7 flex-col justify-between py-0.5 pr-1 font-mono text-xs text-muted-foreground xs:text-xs">
               <span></span>
               <span>Mon</span>
               <span></span>
@@ -237,7 +237,8 @@ export function YearlyHeatmap({ className = '', eventsPerYear }: YearlyHeatmapPr
                       className={cn(
                         'h-[10px] w-[10px] cursor-default border transition-all duration-200',
                         day.date ? getLevelStyles(day.level) : 'border-transparent bg-transparent',
-                        day.count > 0 && 'hover:scale-125 hover:shadow-[0_0_8px_currentColor]'
+                        day.count > 0 &&
+                          'hover:shadow-[0_0_8px_currentColor] motion-safe:hover:scale-125'
                       )}
                     />
                   ))}

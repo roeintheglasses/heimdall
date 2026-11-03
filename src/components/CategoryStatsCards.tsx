@@ -121,7 +121,7 @@ export default function CategoryStatsCards({
                 'border-2 bg-terminal-black p-3',
                 neonColors.border,
                 isSelected && [neonColors.shadow, 'ring-2 ring-neon-cyan'],
-                'hover:-translate-y-0.5 hover:shadow-retro-sm'
+                'hover:shadow-retro-sm motion-safe:hover:-translate-y-0.5'
               )}
               onClick={() => selectCategory(isSelected ? null : category.id)}
             >
@@ -167,7 +167,7 @@ export default function CategoryStatsCards({
                 neonColors.shadow,
                 '-translate-x-1 -translate-y-1 ring-2 ring-neon-cyan',
               ],
-              'hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-retro-sm'
+              'hover:shadow-retro-sm motion-safe:hover:-translate-x-0.5 motion-safe:hover:-translate-y-0.5'
             )}
             onClick={() => selectCategory(isSelected ? null : category.id)}
           >
@@ -185,7 +185,7 @@ export default function CategoryStatsCards({
               {isSelected && (
                 <Badge
                   variant="outline"
-                  className={cn('px-1.5 py-0 text-[10px]', neonColors.text, neonColors.border)}
+                  className={cn('px-1.5 py-0 text-xs', neonColors.text, neonColors.border)}
                 >
                   ACTIVE
                 </Badge>
@@ -220,14 +220,14 @@ export default function CategoryStatsCards({
                   >
                     {String(count).padStart(2, '0')}
                   </p>
-                  <p className="font-mono text-[10px] text-muted-foreground xs:text-xs">
+                  <p className="font-mono text-xs text-muted-foreground xs:text-xs">
                     {percentage}%
                   </p>
                 </div>
               </div>
 
               {/* Description */}
-              <p className="mb-3 line-clamp-2 font-mono text-[10px] leading-tight text-muted-foreground xs:text-xs">
+              <p className="mb-3 line-clamp-2 font-mono text-xs leading-tight text-muted-foreground xs:text-xs">
                 {category.description}
               </p>
 
@@ -242,7 +242,7 @@ export default function CategoryStatsCards({
                       <Badge
                         key={serviceId}
                         variant="outline"
-                        className="px-1.5 py-0 font-mono text-[10px]"
+                        className="px-1.5 py-0 font-mono text-xs"
                       >
                         {service.name.toUpperCase()}:{count}
                       </Badge>

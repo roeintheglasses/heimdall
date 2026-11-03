@@ -129,7 +129,8 @@ export default function MobileFilterSheet({
               variant="ghost"
               size="sm"
               onClick={() => onOpenChange(false)}
-              className="h-8 w-8 p-0 hover:bg-neon-cyan/10"
+              aria-label="Close filters"
+              className="h-11 w-11 p-0 hover:bg-neon-cyan/10"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -158,11 +159,14 @@ export default function MobileFilterSheet({
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neon-cyan" />
                 <Input
+                  id="mobile-search"
+                  aria-label="Search events"
                   value={localSearchValue}
                   onChange={(e) => setLocalSearchValue(e.target.value)}
                   placeholder="SEARCH_EVENTS..."
                   className={cn(
                     'h-12 border-2 bg-terminal-black pl-10 pr-10 font-mono text-base',
+                    'focus-visible:ring-2 focus-visible:ring-neon-green focus-visible:ring-offset-2 focus-visible:ring-offset-terminal-black',
                     localSearchValue
                       ? 'border-neon-green text-neon-green'
                       : 'border-muted-foreground/30'
@@ -173,7 +177,8 @@ export default function MobileFilterSheet({
                     variant="ghost"
                     size="sm"
                     onClick={handleClearSearch}
-                    className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 p-0"
+                    aria-label="Clear search"
+                    className="absolute right-0 top-1/2 h-11 w-11 -translate-y-1/2 p-0"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -227,7 +232,7 @@ export default function MobileFilterSheet({
                         {isSelected && <Check className="h-3 w-3" />}
                         {service.name.toUpperCase()}
                       </span>
-                      <Badge variant="secondary" className="text-[10px]">
+                      <Badge variant="secondary" className="text-xs">
                         {count}
                       </Badge>
                     </Button>
@@ -264,7 +269,7 @@ export default function MobileFilterSheet({
                         {isSelected && <Check className="h-3 w-3" />}
                         {category.name.toUpperCase()}
                       </span>
-                      <Badge variant="secondary" className="text-[10px]">
+                      <Badge variant="secondary" className="text-xs">
                         {count}
                       </Badge>
                     </Button>

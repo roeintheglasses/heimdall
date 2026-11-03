@@ -28,7 +28,7 @@ export default function FloatingActionButton({
         'shadow-[0_0_20px_rgba(0,255,255,0.3)]',
         'transition-all duration-300',
         'sm:hidden', // Only show on mobile
-        isOpen && 'rotate-45 bg-neon-cyan/20',
+        isOpen && 'bg-neon-cyan/20 motion-safe:rotate-45',
         className
       )}
       aria-label={isOpen ? 'Close filters' : 'Open filters'}
@@ -46,7 +46,7 @@ export default function FloatingActionButton({
             'absolute -right-1 -top-1',
             'h-4 w-4 rounded-full',
             'bg-neon-orange',
-            'animate-pulse',
+            'animate-pulse motion-reduce:animate-none',
             'border-2 border-terminal-black'
           )}
         />

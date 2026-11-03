@@ -858,6 +858,18 @@
     animation: none;
   }
 
+  /* Entry and exit animations from tailwindcss-animate (animate-in, sheets, dialogs) */
+  .animate-in,
+  .animate-out,
+  [class*='animate-in'],
+  [class*='animate-out'] {
+    animation: none !important;
+  }
+
+  .event-selected {
+    transform: none;
+  }
+
   .scanlines::before {
     display: none;
   }

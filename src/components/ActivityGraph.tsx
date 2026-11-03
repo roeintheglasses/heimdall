@@ -14,21 +14,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { DashboardEvent } from '@/types/categories';
 import { cn } from '@/lib/utils';
 import { Activity } from 'lucide-react';
+import { prefersReducedMotion } from '@/lib/motion';
+import { useNow } from '@/contexts/NowContext';
+import {
+  buildDailyBuckets,
+  totalInBuckets,
+  GRAPH_DAYS,
+  type DayBucket,
+} from '@/lib/activityBuckets';
 
 interface ActivityGraphProps {
   events: DashboardEvent[];
-  timeWindow?: '30m' | '1h' | '2h' | '6h';
   height?: number;
   className?: string;
 }
-
-// Time window configurations in minutes
-const TIME_WINDOWS = {
-  '30m': { minutes: 30, bucketSize: 2 },
-  '1h': { minutes: 60, bucketSize: 5 },
-  '2h': { minutes: 120, bucketSize: 10 },
-  '6h': { minutes: 360, bucketSize: 30 },
-};
 
 // Service colors matching the terminal aesthetic
 const SERVICE_COLORS = {
@@ -38,87 +37,34 @@ const SERVICE_COLORS = {
   other: 'hsl(30, 100%, 50%)', // neon-orange
 };
 
-interface BucketData {
-  time: string;
-  timestamp: number;
-  github: number;
-  vercel: number;
-  railway: number;
-  other: number;
-  total: number;
-}
+export default function ActivityGraph({ events, height = 200, className }: ActivityGraphProps) {
+  const now = useNow();
+  const animate = !prefersReducedMotion();
 
-export default function ActivityGraph({
-  events,
-  timeWindow = '1h',
-  height = 200,
-  className,
-}: ActivityGraphProps) {
-  const config = TIME_WINDOWS[timeWindow];
+  // One bucket per local day for the last 7 days, ending today
+  const chartData = useMemo(() => buildDailyBuckets(events, now, GRAPH_DAYS), [events, now]);
 
-  // Process events into time buckets
-  const chartData = useMemo(() => {
-    const now = new Date();
-    const startTime = new Date(now.getTime() - config.minutes * 60 * 1000);
-    const buckets: BucketData[] = [];
-
-    // Create empty buckets
-    const bucketCount = Math.ceil(config.minutes / config.bucketSize);
-    for (let i = 0; i < bucketCount; i++) {
-      const bucketTime = new Date(startTime.getTime() + i * config.bucketSize * 60 * 1000);
-      buckets.push({
-        time: bucketTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        timestamp: bucketTime.getTime(),
-        github: 0,
-        vercel: 0,
-        railway: 0,
-        other: 0,
-        total: 0,
-      });
-    }
-
-    // Fill buckets with event counts
-    events.forEach((event) => {
-      const eventTime = new Date(event.created_at).getTime();
-      if (eventTime < startTime.getTime()) return;
-
-      const bucketIndex = Math.floor(
-        (eventTime - startTime.getTime()) / (config.bucketSize * 60 * 1000)
-      );
-
-      if (bucketIndex >= 0 && bucketIndex < buckets.length) {
-        const eventType = event.event_type || '';
-        if (eventType.startsWith('github.')) {
-          buckets[bucketIndex].github++;
-        } else if (eventType.startsWith('vercel.')) {
-          buckets[bucketIndex].vercel++;
-        } else if (eventType.startsWith('railway.')) {
-          buckets[bucketIndex].railway++;
-        } else {
-          buckets[bucketIndex].other++;
-        }
-        buckets[bucketIndex].total++;
-      }
-    });
-
-    return buckets;
-  }, [events, config]);
-
-  // Calculate total events in time window
-  const totalEvents = useMemo(() => {
-    return chartData.reduce((sum, bucket) => sum + bucket.total, 0);
-  }, [chartData]);
+  const totalEvents = useMemo(() => totalInBuckets(chartData), [chartData]);
 
   // Get max value for Y axis
   const maxValue = useMemo(() => {
     return Math.max(1, ...chartData.map((b) => b.total));
   }, [chartData]);
 
+  const summary = useMemo(
+    () =>
+      `Events per day, last ${GRAPH_DAYS} days: ${chartData.map((b) => `${b.label} ${b.total}`).join(', ')}`,
+    [chartData]
+  );
+
+  // Nothing happened in the window, so there is nothing to draw
+  if (totalEvents === 0) return null;
+
   // Custom tooltip component
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload || !payload.length) return null;
 
-    const data = payload[0].payload as BucketData;
+    const data = payload[0].payload as DayBucket;
 
     return (
       <div className="border-2 border-neon-cyan bg-terminal-black p-3 font-mono text-xs">
@@ -142,19 +88,19 @@ export default function ActivityGraph({
       <div className="flex flex-col gap-2 border-b-2 border-neon-cyan bg-neon-cyan/10 px-3 py-2 xs:flex-row xs:items-center xs:justify-between xs:px-4">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-neon-cyan" />
-          <span className="font-mono text-[10px] text-neon-cyan xs:text-xs">
+          <span className="font-mono text-xs text-neon-cyan xs:text-xs">
             ACTIVITY::OSCILLOSCOPE
           </span>
         </div>
-        <div className="flex items-center gap-2 font-mono text-[10px] xs:gap-3 xs:text-xs">
-          <span className="text-muted-foreground">WINDOW: {timeWindow.toUpperCase()}</span>
+        <div className="flex items-center gap-2 font-mono text-xs xs:gap-3 xs:text-xs">
+          <span className="text-muted-foreground">WINDOW: {GRAPH_DAYS} DAYS</span>
           <span className="text-neon-green">{totalEvents} EVENTS</span>
         </div>
       </div>
 
       <CardContent className="p-3 xs:p-4">
         {/* Legend */}
-        <div className="mb-3 flex flex-wrap gap-2 font-mono text-[10px] xs:mb-4 xs:gap-4 xs:text-xs">
+        <div className="mb-3 flex flex-wrap gap-2 font-mono text-xs xs:mb-4 xs:gap-4 xs:text-xs">
           <div className="flex items-center gap-1">
             <div className="h-2.5 w-2.5 bg-neon-cyan xs:h-3 xs:w-3" />
             <span className="text-neon-cyan">GITHUB</span>
@@ -170,9 +116,13 @@ export default function ActivityGraph({
         </div>
 
         {/* Chart */}
-        <div style={{ height }}>
+        <div style={{ height }} role="img" aria-label={summary}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 5, left: -15, bottom: 0 }}>
+            <AreaChart
+              accessibilityLayer={false}
+              data={chartData}
+              margin={{ top: 10, right: 5, left: -15, bottom: 0 }}
+            >
               <defs>
                 <linearGradient id="colorGithub" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={SERVICE_COLORS.github} stopOpacity={0.4} />
@@ -195,16 +145,16 @@ export default function ActivityGraph({
               />
 
               <XAxis
-                dataKey="time"
-                tick={{ fill: 'hsl(180, 100%, 50%)', fontSize: 9 }}
+                dataKey="label"
+                tick={{ fill: 'hsl(180, 100%, 50%)', fontSize: 12 }}
                 axisLine={{ stroke: 'hsl(180, 100%, 50%, 0.3)' }}
                 tickLine={{ stroke: 'hsl(180, 100%, 50%, 0.3)' }}
-                interval="preserveStartEnd"
+                interval={0}
                 tickMargin={4}
               />
 
               <YAxis
-                tick={{ fill: 'hsl(180, 100%, 50%)', fontSize: 10 }}
+                tick={{ fill: 'hsl(180, 100%, 50%)', fontSize: 12 }}
                 axisLine={{ stroke: 'hsl(180, 100%, 50%, 0.3)' }}
                 tickLine={{ stroke: 'hsl(180, 100%, 50%, 0.3)' }}
                 allowDecimals={false}
@@ -215,6 +165,7 @@ export default function ActivityGraph({
 
               <Area
                 type="monotone"
+                isAnimationActive={animate}
                 dataKey="github"
                 stackId="1"
                 stroke={SERVICE_COLORS.github}
@@ -223,6 +174,7 @@ export default function ActivityGraph({
               />
               <Area
                 type="monotone"
+                isAnimationActive={animate}
                 dataKey="vercel"
                 stackId="1"
                 stroke={SERVICE_COLORS.vercel}
@@ -231,6 +183,7 @@ export default function ActivityGraph({
               />
               <Area
                 type="monotone"
+                isAnimationActive={animate}
                 dataKey="railway"
                 stackId="1"
                 stroke={SERVICE_COLORS.railway}

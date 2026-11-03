@@ -11,13 +11,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'bg-transparent border-neon-cyan text-neon-cyan shadow-retro-sm hover:bg-neon-cyan hover:text-terminal-black hover:shadow-retro hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none',
+          'bg-transparent border-neon-cyan text-neon-cyan shadow-retro-sm hover:bg-neon-cyan hover:text-terminal-black hover:shadow-retro motion-safe:hover:-translate-x-0.5 motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-x-0.5 motion-safe:active:translate-y-0.5 active:shadow-none',
         destructive:
-          'bg-transparent border-destructive text-destructive shadow-[2px_2px_0_hsl(0_100%_50%)] hover:bg-destructive hover:text-white hover:shadow-[4px_4px_0_hsl(0_100%_50%)] hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none',
+          'bg-transparent border-destructive text-destructive shadow-[2px_2px_0_hsl(0_100%_50%)] hover:bg-destructive hover:text-white hover:shadow-[4px_4px_0_hsl(0_100%_50%)] motion-safe:hover:-translate-x-0.5 motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-x-0.5 motion-safe:active:translate-y-0.5 active:shadow-none',
         outline:
           'border-border bg-transparent text-foreground hover:border-neon-cyan hover:text-neon-cyan hover:shadow-retro-sm',
         secondary:
-          'bg-transparent border-neon-magenta text-neon-magenta shadow-[2px_2px_0_hsl(300_100%_50%)] hover:bg-neon-magenta hover:text-terminal-black hover:shadow-retro-magenta hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none',
+          'bg-transparent border-neon-magenta text-neon-magenta shadow-[2px_2px_0_hsl(300_100%_50%)] hover:bg-neon-magenta hover:text-terminal-black hover:shadow-retro-magenta motion-safe:hover:-translate-x-0.5 motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-x-0.5 motion-safe:active:translate-y-0.5 active:shadow-none',
         ghost:
           'border-transparent hover:border-neon-cyan/50 hover:text-neon-cyan hover:bg-neon-cyan/10',
         link: 'border-transparent text-neon-cyan underline-offset-4 hover:underline',

@@ -123,7 +123,7 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
   return (
     <div className={cn('space-y-3 xs:space-y-4', className)}>
       {/* Stats summary - Terminal style */}
-      <div className="flex flex-col gap-2 font-mono text-[10px] xs:flex-row xs:items-center xs:justify-between xs:text-xs">
+      <div className="flex flex-col gap-2 font-mono text-xs xs:flex-row xs:items-center xs:justify-between xs:text-xs">
         <div className="flex items-center gap-2 text-neon-cyan">
           <Activity className="h-3 w-3" />
           <span>{String(totalEvents).padStart(4, '0')} EVENTS // 12 WEEKS</span>
@@ -161,7 +161,7 @@ export function ActivityHeatmap({ className = '' }: ActivityHeatmapProps) {
                 title={`${day.count} events on ${formatDate(day.date)}`}
                 className={cn(
                   'aspect-square w-full cursor-default border transition-all duration-200',
-                  'hover:z-10 hover:scale-110',
+                  'hover:z-10 motion-safe:hover:scale-110',
                   getLevelStyles(day.level),
                   day.count > 0 && 'hover:shadow-[0_0_10px_currentColor]'
                 )}

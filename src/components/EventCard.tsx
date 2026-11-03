@@ -6,19 +6,11 @@ import { useCategories } from '@/contexts/CategoryContext';
 import { DashboardEvent } from '@/types/categories';
 import { ServiceIcon } from '@/components/ServiceIcon';
 import { getServiceFromEventType } from '@/types/services';
+import EventTime from '@/components/EventTime';
+import { useNow } from '@/contexts/NowContext';
+import { displayTitle, eventTypeLabel } from '@/lib/eventDisplay';
+import { formatRelativeTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
-
-// Format relative timestamp - defined outside component for reuse
-function formatTimestamp(timestamp: string): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  return date.toLocaleDateString();
-}
 
 // Category to neon color mapping
 const CATEGORY_NEON_COLORS: Record<
@@ -57,7 +49,7 @@ const CATEGORY_NEON_COLORS: Record<
   },
 };
 
-function getNeonColors(categoryColor: string) {
+export function getNeonColors(categoryColor: string) {
   return CATEGORY_NEON_COLORS[categoryColor] || CATEGORY_NEON_COLORS.blue;
 }
 
@@ -65,6 +57,9 @@ interface EventCardProps {
   event: DashboardEvent;
   isSelected?: boolean;
   onSelect?: () => void;
+  /** Position among the list's selectable rows, used by keyboard navigation. */
+  navIndex?: number;
+  onFocus?: () => void;
 }
 
 // Get event-specific animation class
@@ -98,11 +93,18 @@ function getEventAnimation(eventType: string, isNew: boolean): string {
   }
 
   // Default animation
-  return 'animate-in slide-in-from-top-4 fade-in-0';
+  return 'animate-in slide-in-from-top-4 fade-in-0 motion-reduce:animate-none';
 }
 
-export default function EventCard({ event, isSelected = false, onSelect }: EventCardProps) {
+export default function EventCard({
+  event,
+  isSelected = false,
+  onSelect,
+  navIndex,
+  onFocus,
+}: EventCardProps) {
   const { getEventCategory } = useCategories();
+  const now = useNow();
 
   // Get animation class based on event type
   const animationClass = getEventAnimation(event.event_type || 'unknown', !!event.isNew);
@@ -112,33 +114,23 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
   const serviceInfo = getServiceFromEventType(event.event_type || 'unknown');
   const neonColors = getNeonColors(category.color);
 
-  // Format timestamp on each render to keep relative time fresh
-  // (useMemo would cache stale values like "5s ago" that never update)
-  const formattedTimestamp = formatTimestamp(event.created_at);
-
-  const getEventTypeLabel = (eventType: string) => {
-    switch (eventType) {
-      case 'github.push':
-        return 'PUSH';
-      case 'github.pr':
-        return 'PR';
-      case 'github.issue':
-        return 'ISSUE';
-      case 'github.release':
-        return 'RELEASE';
-      case 'error.ci':
-        return 'CI FAILED';
-      case 'vercel.deploy':
-        return 'DEPLOY';
-      case 'railway.deploy':
-        return 'DEPLOY';
-      default:
-        return (eventType?.split('.')[1] || 'EVENT').toUpperCase();
-    }
-  };
+  const typeLabel = eventTypeLabel(event.event_type || 'unknown');
+  const title = displayTitle(event);
+  const ariaLabel = [
+    typeLabel,
+    event.private ? 'private' : null,
+    title,
+    formatRelativeTime(event.created_at, now),
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <Card
+      role={onSelect ? 'button' : undefined}
+      aria-label={onSelect ? ariaLabel : undefined}
+      aria-haspopup={onSelect ? 'dialog' : undefined}
+      data-nav-index={navIndex}
       className={cn(
         // Base terminal styling
         'group relative overflow-hidden transition-all duration-200',
@@ -146,8 +138,11 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
         neonColors.border,
         // Left accent border
         'border-l-4',
-        // Hover effects
-        'hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-retro',
+        // Hover effects (no movement when reduced motion is requested)
+        'hover:shadow-retro motion-safe:hover:-translate-x-0.5 motion-safe:hover:-translate-y-0.5',
+        // Visible keyboard focus
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan',
+        'focus-visible:ring-offset-2 focus-visible:ring-offset-terminal-black',
         // New event animation (type-specific)
         event.isNew && animationClass,
         event.isNew && 'ring-2 ring-neon-cyan',
@@ -156,6 +151,7 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
         onSelect && 'cursor-pointer'
       )}
       onClick={onSelect}
+      onFocus={onFocus}
       tabIndex={onSelect ? 0 : undefined}
       onKeyDown={(e) => {
         if (onSelect && (e.key === 'Enter' || e.key === ' ')) {
@@ -174,19 +170,15 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
         {/* Event Type Badge */}
         <Badge
           variant="outline"
-          className={cn(
-            'shrink-0 px-1 py-0 text-[10px] xs:px-1.5 xs:text-xs',
-            neonColors.text,
-            neonColors.border
-          )}
+          className={cn('shrink-0 px-1 py-0 text-xs xs:px-1.5', neonColors.text, neonColors.border)}
         >
-          {getEventTypeLabel(event.event_type || 'unknown')}
+          {typeLabel}
         </Badge>
 
         {event.private && (
           <Badge
             variant="outline"
-            className="shrink-0 border-neon-orange px-1 py-0 text-[10px] text-neon-orange xs:px-1.5 xs:text-xs"
+            className="shrink-0 border-neon-orange px-1 py-0 text-xs text-neon-orange xs:px-1.5"
           >
             PRIVATE
           </Badge>
@@ -200,13 +192,14 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
           )}
         >
           <span className="mr-1 text-neon-magenta">&gt;</span>
-          {event.title}
+          {title}
         </span>
 
         {/* Timestamp */}
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground xs:text-xs">
-          {formattedTimestamp}
-        </span>
+        <EventTime
+          iso={event.created_at}
+          className="shrink-0 font-mono text-xs text-muted-foreground"
+        />
       </CardContent>
     </Card>
   );

@@ -1,6 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -107,13 +114,42 @@ function CategoryIcon({ iconName, className }: { iconName: string; className?: s
   return <IconComponent className={className} />;
 }
 
-export default function FilterPanel({
-  categoryStats,
-  serviceStats,
-  className = '',
-  defaultOpen = false,
-}: FilterPanelProps) {
+export interface FilterPanelHandle {
+  /** Opens the panel if needed and moves focus to the search input. */
+  focusSearch: () => void;
+}
+
+const FilterPanel = forwardRef<FilterPanelHandle, FilterPanelProps>(function FilterPanel(
+  { categoryStats, serviceStats, className = '', defaultOpen = false },
+  ref
+) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const focusAfterOpen = useRef(false);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focusSearch: () => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          return;
+        }
+        focusAfterOpen.current = true;
+        setIsOpen(true);
+      },
+    }),
+    []
+  );
+
+  // The collapsed panel does not render the input, so focus it once it mounts.
+  useEffect(() => {
+    if (!isOpen || !focusAfterOpen.current) return;
+    focusAfterOpen.current = false;
+    const frame = requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen]);
+
   const { filter, setFilter, hasActiveFilters, getActiveFilterCount, clearAllFilters } =
     useCategories();
   const {
@@ -260,7 +296,7 @@ export default function FilterPanel({
                         <Badge
                           variant="outline"
                           className={cn(
-                            'ml-1.5 h-4 border-0 px-1 text-[9px]',
+                            'ml-1.5 h-4 border-0 px-1 text-xs',
                             isSelected ? neonColors.text : 'bg-muted text-muted-foreground'
                           )}
                         >
@@ -284,7 +320,7 @@ export default function FilterPanel({
                     <TabsTrigger
                       value="all"
                       className={cn(
-                        'flex items-center gap-1 p-1.5 text-[10px]',
+                        'flex items-center gap-1 p-1.5 text-xs',
                         'border border-transparent font-mono',
                         'data-[state=active]:border-neon-cyan data-[state=active]:bg-neon-cyan/10',
                         'data-[state=active]:text-neon-cyan',
@@ -294,7 +330,7 @@ export default function FilterPanel({
                     >
                       <LayoutGrid className="h-3 w-3" />
                       ALL
-                      <span className="text-[8px] opacity-70">{totalEvents}</span>
+                      <span className="text-xs opacity-70">{totalEvents}</span>
                     </TabsTrigger>
                     {sortedCategories.map((category) => {
                       const count = categoryStats[category.id] || 0;
@@ -307,7 +343,7 @@ export default function FilterPanel({
                           key={category.id}
                           value={category.id}
                           className={cn(
-                            'flex items-center gap-1 p-1.5 text-[10px]',
+                            'flex items-center gap-1 p-1.5 text-xs',
                             'border border-transparent font-mono',
                             isSelected && [neonColors.border, neonColors.bg, neonColors.text],
                             !isSelected && 'text-muted-foreground',
@@ -318,7 +354,7 @@ export default function FilterPanel({
                           <span className="hidden sm:inline">
                             {category.name.slice(0, 3).toUpperCase()}
                           </span>
-                          <span className="text-[8px] opacity-70">{count}</span>
+                          <span className="text-xs opacity-70">{count}</span>
                         </TabsTrigger>
                       );
                     })}
@@ -341,14 +377,17 @@ export default function FilterPanel({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
+                    ref={searchInputRef}
                     type="text"
+                    aria-label="Search events"
                     placeholder="SEARCH_EVENTS..."
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
                     className={cn(
                       'h-9 border-2 bg-terminal-black pl-9 pr-8 font-mono text-xs',
                       'placeholder:text-muted-foreground/50',
-                      'focus:border-neon-green focus:ring-0 focus-visible:ring-0',
+                      'focus-visible:border-neon-green focus-visible:ring-2 focus-visible:ring-neon-green',
+                      'focus-visible:ring-offset-2 focus-visible:ring-offset-terminal-black',
                       searchValue
                         ? 'border-neon-green text-neon-green'
                         : 'border-muted-foreground/30 text-foreground'
@@ -359,9 +398,10 @@ export default function FilterPanel({
                       variant="ghost"
                       size="sm"
                       onClick={handleClearSearch}
-                      className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 p-0 hover:bg-neon-orange/10"
+                      aria-label="Clear search"
+                      className="absolute right-0 top-1/2 h-11 w-11 -translate-y-1/2 p-0 hover:bg-neon-orange/10"
                     >
-                      <X className="h-3 w-3 text-muted-foreground hover:text-neon-orange" />
+                      <X className="h-4 w-4 text-muted-foreground hover:text-neon-orange" />
                     </Button>
                   )}
                 </div>
@@ -382,4 +422,6 @@ export default function FilterPanel({
       </Collapsible>
     </div>
   );
-}
+});
+
+export default FilterPanel;

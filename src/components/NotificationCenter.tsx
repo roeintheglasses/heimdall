@@ -107,8 +107,10 @@ export default function NotificationCenter() {
         variant="ghost"
         size="sm"
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+        aria-expanded={isOpen}
         className={cn(
-          'relative h-8 w-8 border-2 p-0',
+          'relative h-11 w-11 border-2 p-0',
           'border-neon-cyan/50 hover:bg-neon-cyan/10',
           isOpen && 'border-neon-cyan bg-neon-cyan/10'
         )}
@@ -125,7 +127,7 @@ export default function NotificationCenter() {
             className={cn(
               'absolute -right-1 -top-1 h-4 min-w-4 px-1',
               'flex items-center justify-center',
-              'font-mono text-[10px] font-bold',
+              'font-mono text-xs font-bold',
               'bg-neon-orange text-terminal-black',
               'animate-pulse'
             )}
@@ -143,7 +145,7 @@ export default function NotificationCenter() {
             'w-[calc(100vw-2rem)] max-w-80 sm:max-w-96',
             'border-2 border-neon-cyan bg-terminal-black',
             'font-mono shadow-retro',
-            'duration-200 animate-in fade-in-0 slide-in-from-top-2'
+            'duration-200 animate-in fade-in-0 slide-in-from-top-2 motion-reduce:animate-none'
           )}
         >
           {/* Header */}
@@ -152,10 +154,7 @@ export default function NotificationCenter() {
               <Terminal className="h-4 w-4 text-neon-cyan" />
               <span className="text-xs text-neon-cyan">NOTIFICATIONS</span>
               {unreadCount > 0 && (
-                <Badge
-                  variant="outline"
-                  className="border-neon-orange text-[10px] text-neon-orange"
-                >
+                <Badge variant="outline" className="border-neon-orange text-xs text-neon-orange">
                   {unreadCount} NEW
                 </Badge>
               )}
@@ -197,14 +196,14 @@ export default function NotificationCenter() {
           {/* Filters */}
           {showFilters && (
             <div className="space-y-2 border-b border-neon-cyan/30 p-2">
-              <div className="text-[10px] text-muted-foreground">FILTER BY TYPE:</div>
+              <div className="text-xs text-muted-foreground">FILTER BY TYPE:</div>
               <div className="flex flex-wrap gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setFilter({ ...filter, type: 'all' })}
                   className={cn(
-                    'h-8 px-3 text-[10px]',
+                    'h-8 px-3 text-xs',
                     filter.type === 'all' && 'bg-neon-cyan/20 text-neon-cyan'
                   )}
                 >
@@ -217,7 +216,7 @@ export default function NotificationCenter() {
                     size="sm"
                     onClick={() => setFilter({ ...filter, type: type as NotificationType })}
                     className={cn(
-                      'h-8 px-3 text-[10px]',
+                      'h-8 px-3 text-xs',
                       filter.type === type && `bg-${config.color}/20 text-${config.color}`
                     )}
                   >
@@ -225,14 +224,14 @@ export default function NotificationCenter() {
                   </Button>
                 ))}
               </div>
-              <div className="text-[10px] text-muted-foreground">FILTER BY STATUS:</div>
+              <div className="text-xs text-muted-foreground">FILTER BY STATUS:</div>
               <div className="flex gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setFilter({ ...filter, read: 'all' })}
                   className={cn(
-                    'h-8 px-3 text-[10px]',
+                    'h-8 px-3 text-xs',
                     filter.read === 'all' && 'bg-neon-cyan/20 text-neon-cyan'
                   )}
                 >
@@ -243,7 +242,7 @@ export default function NotificationCenter() {
                   size="sm"
                   onClick={() => setFilter({ ...filter, read: false })}
                   className={cn(
-                    'h-8 px-3 text-[10px]',
+                    'h-8 px-3 text-xs',
                     filter.read === false && 'bg-neon-orange/20 text-neon-orange'
                   )}
                 >
@@ -254,7 +253,7 @@ export default function NotificationCenter() {
                   size="sm"
                   onClick={() => setFilter({ ...filter, read: true })}
                   className={cn(
-                    'h-8 px-3 text-[10px]',
+                    'h-8 px-3 text-xs',
                     filter.read === true && 'bg-neon-green/20 text-neon-green'
                   )}
                 >
@@ -319,16 +318,17 @@ export default function NotificationCenter() {
                                 e.stopPropagation();
                                 removeNotification(notification.id);
                               }}
-                              className="h-5 w-5 shrink-0 p-0 opacity-0 group-hover:opacity-100"
+                              aria-label={`Dismiss notification: ${notification.title}`}
+                              className="relative h-5 w-5 shrink-0 p-0 opacity-0 after:absolute after:-inset-3 after:content-[''] focus-visible:opacity-100 group-hover:opacity-100"
                             >
                               <X className="h-3 w-3" />
                             </Button>
                           </div>
-                          <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                             {notification.message}
                           </p>
                           <div className="mt-1 flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-xs text-muted-foreground">
                               {formatTime(notification.createdAt)}
                             </span>
                             {!notification.read && (
@@ -345,7 +345,7 @@ export default function NotificationCenter() {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-neon-cyan/30 px-3 py-2 text-[10px] text-muted-foreground">
+          <div className="border-t border-neon-cyan/30 px-3 py-2 text-xs text-muted-foreground">
             {notifications.length} notifications stored
           </div>
         </div>

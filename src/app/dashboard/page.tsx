@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,11 +9,26 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import dynamic from 'next/dynamic';
 import EventCard from '@/components/EventCard';
+import EventGroup from '@/components/EventGroup';
+import FilterUrlSync from '@/components/FilterUrlSync';
+import LiveRegion from '@/components/LiveRegion';
+import SiteNav from '@/components/SiteNav';
 import EventCardSkeleton from '@/components/EventCardSkeleton';
 import EventDetailDrawer from '@/components/EventDetailDrawer';
 import ConnectionStatus, { type StreamState } from '@/components/ConnectionStatus';
 import { getGoServiceUrl } from '@/lib/api';
-import { MAX_EVENTS, mergeNewest, mergeOlder } from '@/lib/eventList';
+import { MAX_EVENTS, mergeNewest } from '@/lib/eventList';
+import { backendTypeFor } from '@/lib/eventQuery';
+import { flatItems, groupEventRuns, type ListItem } from '@/lib/eventGrouping';
+import { buildDailyBuckets, totalInBuckets, GRAPH_DAYS } from '@/lib/activityBuckets';
+import { groupByDay } from '@/lib/time';
+import { scrollBehavior } from '@/lib/motion';
+import { NowProvider, useNow } from '@/contexts/NowContext';
+import { useLiveAnnouncer } from '@/hooks/useLiveAnnouncer';
+import { useGroupedView } from '@/hooks/useGroupedView';
+
+/** Most events held in memory while searching older events. */
+const SEARCH_EVENT_CAP = 1000;
 
 // Lazy load ActivityGraph (Recharts ~91KB) - only load when needed
 const ActivityGraph = dynamic(() => import('@/components/ActivityGraph'), {
@@ -24,7 +39,7 @@ const ActivityGraph = dynamic(() => import('@/components/ActivityGraph'), {
     </div>
   ),
 });
-import FilterPanel from '@/components/FilterPanel';
+import FilterPanel, { type FilterPanelHandle } from '@/components/FilterPanel';
 import CategoryStatsCards from '@/components/CategoryStatsCards';
 import { SoundToggleCompact } from '@/components/SoundToggle';
 import { ActivityTicker } from '@/components/ActivityTicker';
@@ -56,6 +71,12 @@ interface NextCursor {
   before_id: string;
 }
 
+interface TypedSearch {
+  type: string;
+  fetched: number;
+  exhausted: boolean;
+}
+
 // Dashboard component wrapped with CategoryProvider
 function DashboardContent() {
   const {
@@ -70,6 +91,10 @@ function DashboardContent() {
   const { selectCategory, clearFilters } = useCategoryOperations();
   const { playSuccess, playError, playNotification, playClick, toggleSound } = useSoundEffects();
   const { processEvent } = useNotifications();
+  const now = useNow();
+  const { message: liveMessage, announce } = useLiveAnnouncer();
+  const [grouped, setGrouped] = useGroupedView();
+  const filterPanelRef = useRef<FilterPanelHandle>(null);
 
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [streamState, setStreamState] = useState<StreamState>('connecting');
@@ -80,6 +105,13 @@ function DashboardContent() {
   const nextCursorRef = useRef<NextCursor | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [totalEvents, setTotalEvents] = useState(0);
+  // Older-event search: how many events the list may hold, and progress of the running search
+  const eventCapRef = useRef(MAX_EVENTS);
+  const eventsRef = useRef<DashboardEvent[]>([]);
+  const searchRunRef = useRef(0);
+  const [isSearchingOlder, setIsSearchingOlder] = useState(false);
+  const [searchProgress, setSearchProgress] = useState(0);
+  const [typedSearch, setTypedSearch] = useState<TypedSearch | null>(null);
 
   // API stats state - fetched from /api/stats for aggregate counts
   const [apiStats, setApiStats] = useState<{
@@ -95,6 +127,7 @@ function DashboardContent() {
   const [showTimeline, setShowTimeline] = useState(false);
   const [selectedEventIndex, setSelectedEventIndex] = useState<number | null>(null);
   const eventListRef = useRef<HTMLDivElement>(null);
+  const selectedRef = useRef<number | null>(null);
 
   // State for event detail drawer
   const [drawerEvent, setDrawerEvent] = useState<DashboardEvent | null>(null);
@@ -117,9 +150,9 @@ function DashboardContent() {
 
   // Sound and notification callbacks change identity when sound initializes.
   // Keep them in a ref so the fetch/SSE effect depends only on goServiceUrl.
-  const callbacksRef = useRef({ playSuccess, playError, playNotification, processEvent });
+  const callbacksRef = useRef({ playSuccess, playError, playNotification, processEvent, announce });
   useEffect(() => {
-    callbacksRef.current = { playSuccess, playError, playNotification, processEvent };
+    callbacksRef.current = { playSuccess, playError, playNotification, processEvent, announce };
   });
 
   // Ids of every event already in the list, used to skip duplicates from SSE
@@ -131,13 +164,16 @@ function DashboardContent() {
     for (const e of list) knownIdsRef.current.add(e.id);
   }, []);
 
-  // Load the next page of older events using the cursor from the previous page
-  const loadMoreEvents = useCallback(async () => {
+  // Load the next page of older events using the cursor from the previous page.
+  // Resolves with how many events arrived and whether more remain.
+  const loadOlderPage = useCallback(async (): Promise<{ loaded: number; more: boolean }> => {
     const cursor = nextCursorRef.current;
-    if (isLoadingMoreRef.current || !cursor) return;
+    if (isLoadingMoreRef.current || !cursor) return { loaded: 0, more: false };
 
     isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
+    let loaded = 0;
+    let more = false;
     try {
       const params = new URLSearchParams({
         limit: '100',
@@ -150,11 +186,13 @@ function DashboardContent() {
         const newEvents: DashboardEvent[] = data.events || data;
         if (newEvents.length > 0) {
           rememberIds(newEvents);
-          setEvents((prev) => mergeOlder(prev, newEvents));
+          setEvents((prev) => mergeNewest(prev, newEvents, eventCapRef.current));
+          loaded = newEvents.length;
         }
         const pagination = data.pagination;
         nextCursorRef.current = pagination?.next_cursor ?? null;
-        setHasMore(Boolean(pagination?.hasMore && pagination?.next_cursor));
+        more = Boolean(pagination?.hasMore && pagination?.next_cursor);
+        setHasMore(more);
         if (pagination) setTotalEvents(pagination.total);
       }
     } catch (err) {
@@ -163,7 +201,12 @@ function DashboardContent() {
       isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
+    return { loaded, more };
   }, [goServiceUrl, rememberIds]);
+
+  const loadMoreEvents = useCallback(() => {
+    void loadOlderPage();
+  }, [loadOlderPage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -200,7 +243,7 @@ function DashboardContent() {
             const data = await response.json();
             const page: DashboardEvent[] = data.events || data;
             rememberIds(page);
-            setEvents((prev) => mergeNewest(prev, page));
+            setEvents((prev) => mergeNewest(prev, page, eventCapRef.current));
             const pagination = data.pagination;
             if (pagination) {
               setTotalEvents(pagination.total);
@@ -273,8 +316,11 @@ function DashboardContent() {
           // Side effects run outside the state updater
           callbacksRef.current.playNotification();
           callbacksRef.current.processEvent(newEvent);
+          callbacksRef.current.announce({ type: newEvent.event_type, title: newEvent.title });
 
-          setEvents((prev) => mergeNewest(prev, [{ ...newEvent, isNew: true }]));
+          setEvents((prev) =>
+            mergeNewest(prev, [{ ...newEvent, isNew: true }], eventCapRef.current)
+          );
 
           // Remove the "new" flag after animation completes
           const timer = setTimeout(() => {
@@ -317,7 +363,7 @@ function DashboardContent() {
 
   const isConnected = streamState === 'live';
   // Once the in-memory cap is reached there is nothing more to load
-  const canLoadMore = hasMore && events.length < MAX_EVENTS;
+  const canLoadMore = hasMore && events.length < eventCapRef.current;
 
   // Use API stats for category counts (all events) with fallback to local calculation
   const categoryStats = useMemo(() => {
@@ -340,35 +386,87 @@ function DashboardContent() {
     return filterEvents(events);
   }, [events, filterEvents]);
 
+  useEffect(() => {
+    eventsRef.current = events;
+  }, [events]);
+
+  // Day sections, each holding rows (single events or collapsed groups).
+  // navIndex numbers the rows across sections for keyboard navigation.
+  const sections = useMemo(() => {
+    let navIndex = 0;
+    return groupByDay(filteredEvents, (e) => e.created_at, now).map((day) => {
+      const items: ListItem[] = grouped ? groupEventRuns(day.items) : flatItems(day.items);
+      return {
+        key: day.key,
+        label: day.label,
+        rows: items.map((item) => ({ item, navIndex: navIndex++ })),
+      };
+    });
+  }, [filteredEvents, grouped, now]);
+
+  const navItems = useMemo(
+    () => sections.flatMap((section) => section.rows.map((row) => row.item)),
+    [sections]
+  );
+
+  // Activity graph: hidden unless the last 7 days hold at least one loaded event
+  const graphHasData = useMemo(
+    () => totalInBuckets(buildDailyBuckets(events, now, GRAPH_DAYS)) > 0,
+    [events, now]
+  );
+
+  // Selection is an index into navItems; the ref lets key handlers read it without re-binding
+  const updateSelected = useCallback((index: number | null) => {
+    selectedRef.current = index;
+    setSelectedEventIndex(index);
+  }, []);
+
+  const navElement = useCallback(
+    (index: number) =>
+      eventListRef.current?.querySelector<HTMLElement>(`[data-nav-index="${index}"]`) ?? null,
+    []
+  );
+
+  const moveSelection = useCallback(
+    (index: number) => {
+      updateSelected(index);
+      const el = navElement(index);
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.scrollIntoView({ behavior: scrollBehavior(), block: 'nearest' });
+    },
+    [navElement, updateSelected]
+  );
+
   // Keyboard shortcuts handlers
   const handleNextEvent = useCallback(() => {
+    if (navItems.length === 0) return;
     playClick();
-    setSelectedEventIndex((prev) => {
-      if (prev === null) return 0;
-      return Math.min(prev + 1, filteredEvents.length - 1);
-    });
-  }, [filteredEvents.length, playClick]);
+    const current = selectedRef.current;
+    moveSelection(current === null ? 0 : Math.min(current + 1, navItems.length - 1));
+  }, [navItems.length, playClick, moveSelection]);
 
   const handlePrevEvent = useCallback(() => {
+    if (navItems.length === 0) return;
     playClick();
-    setSelectedEventIndex((prev) => {
-      if (prev === null) return filteredEvents.length - 1;
-      return Math.max(prev - 1, 0);
-    });
-  }, [filteredEvents.length, playClick]);
+    const current = selectedRef.current;
+    moveSelection(current === null ? navItems.length - 1 : Math.max(current - 1, 0));
+  }, [navItems.length, playClick, moveSelection]);
 
+  // Enter: open the selected event's drawer, or expand/collapse the selected group
   const handleExpandEvent = useCallback(() => {
-    // Could be used to expand selected event
-    playClick();
-  }, [playClick]);
+    const current = selectedRef.current;
+    if (current === null) return;
+    navElement(current)?.click();
+  }, [navElement]);
 
   const handleClearSelection = useCallback(() => {
-    setSelectedEventIndex(null);
+    updateSelected(null);
     playClick();
-  }, [playClick]);
+  }, [updateSelected, playClick]);
 
   const handleFocusSearch = useCallback(() => {
-    // Focus is now handled by FilterPanel internally
+    filterPanelRef.current?.focusSearch();
     playClick();
   }, [playClick]);
 
@@ -419,41 +517,142 @@ function DashboardContent() {
     categoryCount: categories.length,
   });
 
-  // Handle event click from ticker/timeline
+  // Handle event click from ticker/timeline: select its row and scroll to it
   const handleEventClick = useCallback(
     (event: DashboardEvent) => {
-      const index = filteredEvents.findIndex((e) => e.id === event.id);
+      const index = navItems.findIndex((item) =>
+        item.kind === 'event'
+          ? item.event.id === event.id
+          : item.group.events.some((e) => e.id === event.id)
+      );
       if (index !== -1) {
-        setSelectedEventIndex(index);
-        // Scroll event into view
-        eventListRef.current?.children[index]?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
+        updateSelected(index);
+        navElement(index)?.scrollIntoView({ behavior: scrollBehavior(), block: 'center' });
       }
     },
-    [filteredEvents]
+    [navItems, navElement, updateSelected]
   );
+
+  // Backend `type` filter, when the service and category filters narrow to one event type
+  const filtersActive = hasActiveFilters();
+  const backendType = useMemo(
+    () =>
+      backendTypeFor({
+        selectedService: filter.selectedService,
+        selectedCategory: filter.selectedCategory,
+      }),
+    [filter.selectedService, filter.selectedCategory]
+  );
+  const typedState = typedSearch && typedSearch.type === backendType ? typedSearch : null;
+
+  // Keep loading older pages until the cap or the end. A single event type is
+  // fetched from the backend directly, so it reaches back past the loaded list.
+  const searchOlderEvents = useCallback(async () => {
+    const runId = ++searchRunRef.current;
+    const isCurrent = () => runId === searchRunRef.current;
+    eventCapRef.current = SEARCH_EVENT_CAP;
+    setIsSearchingOlder(true);
+    setSearchProgress(0);
+    try {
+      if (backendType) {
+        let cursor: NextCursor | null = null;
+        let fetched = 0;
+        while (isCurrent()) {
+          const params = new URLSearchParams({ limit: '200', type: backendType });
+          if (cursor) {
+            params.set('before', cursor.before);
+            params.set('before_id', cursor.before_id);
+          }
+          const response = await fetch(`${goServiceUrl}/api/events?${params.toString()}`);
+          if (!response.ok || !isCurrent()) break;
+          const data = await response.json();
+          const page: DashboardEvent[] = data.events || data;
+          rememberIds(page);
+          setEvents((prev) => mergeNewest(prev, page, eventCapRef.current));
+          fetched += page.length;
+          cursor = data.pagination?.next_cursor ?? null;
+          const exhausted = !cursor || !data.pagination?.hasMore;
+          setSearchProgress(fetched);
+          setTypedSearch({ type: backendType, fetched, exhausted });
+          if (exhausted || fetched >= SEARCH_EVENT_CAP) break;
+        }
+      } else {
+        let count = eventsRef.current.length;
+        while (isCurrent() && count < SEARCH_EVENT_CAP) {
+          const { loaded, more } = await loadOlderPage();
+          count += loaded;
+          setSearchProgress(count);
+          if (!more) break;
+        }
+      }
+    } catch (err) {
+      console.error('Error searching older events:', err);
+    } finally {
+      if (isCurrent()) setIsSearchingOlder(false);
+    }
+  }, [backendType, goServiceUrl, loadOlderPage, rememberIds]);
+
+  // Changing filters cancels a running search; unmounting does too
+  useEffect(() => {
+    searchRunRef.current++;
+    setIsSearchingOlder(false);
+  }, [backendType]);
+  useEffect(() => {
+    const runs = searchRunRef;
+    return () => {
+      runs.current++;
+    };
+  }, []);
+
+  const canSearchOlder =
+    filtersActive &&
+    hasMore &&
+    !isSearchingOlder &&
+    (backendType
+      ? !(typedState && (typedState.exhausted || typedState.fetched >= SEARCH_EVENT_CAP))
+      : events.length < SEARCH_EVENT_CAP);
+
+  let searchedSummary = '';
+  if (filtersActive && !isLoading && events.length > 0) {
+    if (isSearchingOlder) {
+      searchedSummary = `Searching older events... ${searchProgress} loaded`;
+    } else if (typedState) {
+      const noun = `${typedState.type} events`;
+      searchedSummary = typedState.exhausted
+        ? `Searched all ${typedState.fetched} ${noun}`
+        : `Searched the latest ${typedState.fetched} ${noun}`;
+    } else if (totalEvents > events.length) {
+      searchedSummary = `Searched the latest ${events.length} of ${totalEvents} events`;
+    } else {
+      searchedSummary = `Searched all ${events.length} events`;
+    }
+  }
 
   return (
     <div className="min-h-screen bg-terminal-black">
+      <Suspense fallback={null}>
+        <FilterUrlSync />
+      </Suspense>
+      <LiveRegion message={liveMessage} />
+
       {/* Header - Terminal style */}
       <header className="sticky top-0 z-50 w-full border-b-2 border-neon-cyan bg-terminal-black/95 backdrop-blur-sm">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-2 border-2 border-neon-cyan/50 font-mono text-neon-cyan hover:bg-neon-cyan/10"
-              >
-                <ArrowLeft className="h-4 w-4" />
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="h-11 min-w-11 gap-2 border-2 border-neon-cyan/50 font-mono text-neon-cyan hover:bg-neon-cyan/10"
+            >
+              <Link href="/" aria-label="Back to home">
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">BACK</span>
-              </Button>
-            </Link>
+              </Link>
+            </Button>
 
             <div className="flex items-center gap-2 xs:gap-3">
-              <div className="border-2 border-neon-cyan bg-neon-cyan/10 p-1.5 xs:p-2">
+              <div className="hidden border-2 border-neon-cyan bg-neon-cyan/10 p-1.5 xs:block xs:p-2">
                 <Shield className="h-4 w-4 text-neon-cyan xs:h-5 xs:w-5" />
               </div>
               <div>
@@ -463,14 +662,15 @@ function DashboardContent() {
               </div>
               <Badge
                 variant="outline"
-                className="hidden border-2 border-neon-magenta font-mono text-xs text-neon-magenta md:inline-flex"
+                className="hidden border-2 border-neon-magenta font-mono text-xs text-neon-magenta 2xl:inline-flex"
               >
                 DASHBOARD
               </Badge>
             </div>
+            <SiteNav current="dashboard" className="ml-2 hidden xl:flex" />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 xs:gap-3">
+          <div className="flex items-center gap-2 xs:gap-3">
             {/* Timeline toggle */}
             <Button
               variant="ghost"
@@ -495,7 +695,7 @@ function DashboardContent() {
               className="hidden gap-1 border-2 border-neon-magenta/50 font-mono text-xs text-neon-magenta hover:bg-neon-magenta/10 sm:flex"
             >
               <Keyboard className="h-3 w-3" />
-              <span className="hidden lg:inline">KEYS</span>
+              <span className="hidden 2xl:inline">KEYS</span>
             </Button>
 
             {/* Notification Center */}
@@ -507,13 +707,18 @@ function DashboardContent() {
         </div>
       </header>
 
-      {/* Activity Ticker */}
+      {/* Page links on small screens, where the header has no room for them */}
+      <div className="border-b border-neon-cyan/30 bg-terminal-black px-2 xl:hidden">
+        <SiteNav current="dashboard" />
+      </div>
+
+      {/* Activity Ticker: it repeats the list, so it only shows where there is room */}
       {!isLoading && events.length > 0 && (
         <ActivityTicker
           events={events}
           speed="medium"
           onEventClick={handleEventClick}
-          className="sticky top-16 z-40"
+          className="sticky top-16 z-40 max-md:hidden"
         />
       )}
 
@@ -560,7 +765,7 @@ function DashboardContent() {
 
         {/* Category Stats Cards */}
         <div
-          className="mb-6 animate-in fade-in-0 slide-in-from-top-4"
+          className="mb-6 animate-in fade-in-0 slide-in-from-top-4 motion-reduce:animate-none"
           style={{ animationDelay: '200ms' }}
         >
           {isLoading ? (
@@ -590,21 +795,22 @@ function DashboardContent() {
         </div>
 
         {/* Activity Graph */}
-        {!isLoading && events.length > 0 && (
+        {!isLoading && graphHasData && (
           <div
-            className="mb-6 animate-in fade-in-0 slide-in-from-top-4"
+            className="mb-6 animate-in fade-in-0 slide-in-from-top-4 motion-reduce:animate-none"
             style={{ animationDelay: '250ms' }}
           >
-            <ActivityGraph events={events} timeWindow="1h" height={180} />
+            <ActivityGraph events={events} height={180} />
           </div>
         )}
 
         {/* Filters Panel - Collapsible */}
         <div
-          className="mb-6 animate-in fade-in-0 slide-in-from-top-4"
+          className="mb-6 animate-in fade-in-0 slide-in-from-top-4 motion-reduce:animate-none"
           style={{ animationDelay: '300ms' }}
         >
           <FilterPanel
+            ref={filterPanelRef}
             categoryStats={categoryStats}
             serviceStats={serviceStats}
             defaultOpen={false}
@@ -616,10 +822,10 @@ function DashboardContent() {
           {/* Events Header */}
           <div className="flex items-center justify-between">
             <div>
-              <div className="mb-1 flex items-center gap-2 font-mono text-sm text-neon-green">
-                <Database className="h-4 w-4" />
+              <h2 className="mb-1 flex items-center gap-2 font-mono text-sm text-neon-green">
+                <Database className="h-4 w-4" aria-hidden="true" />
                 <span>EVENTS::STREAM</span>
-              </div>
+              </h2>
               <p className="font-mono text-xs text-muted-foreground">
                 <span className="text-neon-magenta">&gt;</span> Latest webhook events // Edge
                 pipeline
@@ -657,7 +863,7 @@ function DashboardContent() {
 
           {/* Events List */}
           <div
-            className="animate-in fade-in-0 slide-in-from-bottom-8"
+            className="animate-in fade-in-0 slide-in-from-bottom-8 motion-reduce:animate-none"
             style={{ animationDelay: '400ms' }}
           >
             <Card className="border-2 border-neon-green bg-terminal-black">
@@ -668,8 +874,54 @@ function DashboardContent() {
                   <div className="h-3 w-3 border border-neon-yellow/50 bg-neon-yellow" />
                   <div className="h-3 w-3 border border-neon-green/50 bg-neon-green" />
                 </div>
-                <span className="font-mono text-xs text-neon-green">EVENTS.LOG</span>
+                <div className="flex items-center gap-3">
+                  {!showTimeline && (
+                    <div role="group" aria-label="List view" className="flex items-center">
+                      {[
+                        { label: 'GROUPED', value: true },
+                        { label: 'FLAT', value: false },
+                      ].map((option) => (
+                        <button
+                          key={option.label}
+                          type="button"
+                          aria-pressed={grouped === option.value}
+                          onClick={() => setGrouped(option.value)}
+                          className={cn(
+                            'min-h-9 border border-neon-green/50 px-2 font-mono text-xs',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan',
+                            grouped === option.value
+                              ? 'bg-neon-green/20 text-neon-green'
+                              : 'text-muted-foreground hover:text-neon-green'
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <span className="font-mono text-xs text-neon-green">EVENTS.LOG</span>
+                </div>
               </div>
+
+              {/* How much was searched, and a way to look further back */}
+              {(searchedSummary || canSearchOlder) && (
+                <div className="flex flex-wrap items-center gap-3 border-b border-neon-green/30 px-4 py-2 font-mono text-xs">
+                  <p role="status" className="text-muted-foreground">
+                    {searchedSummary}
+                  </p>
+                  {canSearchOlder && (
+                    <Button
+                      onClick={searchOlderEvents}
+                      variant="outline"
+                      size="sm"
+                      className="min-h-11 gap-2 border-neon-cyan font-mono text-xs text-neon-cyan hover:bg-neon-cyan/10"
+                    >
+                      <Database className="h-3 w-3" aria-hidden="true" />
+                      SEARCH OLDER EVENTS
+                    </Button>
+                  )}
+                </div>
+              )}
               <CardContent className="p-0">
                 {isLoading ? (
                   // Loading skeleton for events
@@ -710,23 +962,50 @@ function DashboardContent() {
                     <EventTimeline events={filteredEvents} onEventClick={handleEventClick} />
                   </div>
                 ) : (
-                  <div ref={eventListRef} className="space-y-3 p-4 sm:space-y-4 sm:p-6">
-                    {filteredEvents.map((event, index) => (
-                      <div
-                        key={event.id}
-                        className="animate-in fade-in-0 slide-in-from-bottom-2"
-                        style={{ animationDelay: `${Math.min(index, 10) * 50}ms` }}
+                  <div ref={eventListRef} className="p-4 sm:p-6">
+                    {sections.map((section) => (
+                      <section
+                        key={section.key}
+                        aria-labelledby={`day-${section.key}`}
+                        className="mb-6 last:mb-0"
                       >
-                        <EventCard
-                          event={event}
-                          isSelected={selectedEventIndex === index}
-                          onSelect={() => {
-                            setSelectedEventIndex(index);
-                            playClick();
-                            handleViewDetails(event);
-                          }}
-                        />
-                      </div>
+                        <h3
+                          id={`day-${section.key}`}
+                          className="mb-3 border-b border-neon-cyan/20 pb-1 font-mono text-xs uppercase tracking-wider text-neon-cyan"
+                        >
+                          {section.label}
+                        </h3>
+                        <ul className="space-y-3 sm:space-y-4">
+                          {section.rows.map(({ item, navIndex }) => (
+                            <li
+                              key={item.id}
+                              className="animate-in fade-in-0 slide-in-from-bottom-2 motion-reduce:animate-none"
+                              style={{ animationDelay: `${Math.min(navIndex, 10) * 50}ms` }}
+                            >
+                              {item.kind === 'event' ? (
+                                <EventCard
+                                  event={item.event}
+                                  navIndex={navIndex}
+                                  isSelected={selectedEventIndex === navIndex}
+                                  onFocus={() => updateSelected(navIndex)}
+                                  onSelect={() => {
+                                    updateSelected(navIndex);
+                                    handleViewDetails(item.event);
+                                  }}
+                                />
+                              ) : (
+                                <EventGroup
+                                  group={item.group}
+                                  navIndex={navIndex}
+                                  isSelected={selectedEventIndex === navIndex}
+                                  onFocus={() => updateSelected(navIndex)}
+                                  onViewDetails={handleViewDetails}
+                                />
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
                     ))}
                     {/* Load More button */}
                     {canLoadMore && (
@@ -801,7 +1080,9 @@ export default function Dashboard() {
   return (
     <CategoryProvider>
       <NotificationProvider>
-        <DashboardContent />
+        <NowProvider>
+          <DashboardContent />
+        </NowProvider>
       </NotificationProvider>
     </CategoryProvider>
   );

@@ -50,13 +50,15 @@ export default function RepositoryFilter({
         <GitBranch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="text"
+          aria-label="Filter by repository"
           placeholder="FILTER_REPOS..."
           value={localValue}
           onChange={(e) => setLocalValue(e.target.value)}
           className={cn(
             'h-9 border-2 bg-terminal-black pl-9 pr-8 font-mono text-xs',
             'placeholder:text-muted-foreground/50',
-            'focus:border-neon-cyan focus:ring-0 focus-visible:ring-0',
+            'focus-visible:border-neon-cyan focus-visible:ring-2 focus-visible:ring-neon-cyan',
+            'focus-visible:ring-offset-2 focus-visible:ring-offset-terminal-black',
             localValue
               ? 'border-neon-cyan text-neon-cyan'
               : 'border-muted-foreground/30 text-foreground'
@@ -67,9 +69,10 @@ export default function RepositoryFilter({
             variant="ghost"
             size="sm"
             onClick={handleClear}
-            className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 p-0 hover:bg-neon-orange/10"
+            aria-label="Clear repository filter"
+            className="absolute right-0 top-1/2 h-11 w-11 -translate-y-1/2 p-0 hover:bg-neon-orange/10"
           >
-            <X className="h-3 w-3 text-muted-foreground hover:text-neon-orange" />
+            <X className="h-4 w-4 text-muted-foreground hover:text-neon-orange" />
           </Button>
         )}
       </div>

@@ -73,7 +73,7 @@ export function StreakCounter({
       container: 'gap-2 p-2',
       icon: 'h-4 w-4',
       number: 'text-2xl',
-      label: 'text-[10px]',
+      label: 'text-xs',
     },
     md: {
       container: 'gap-3 p-3',
@@ -171,7 +171,7 @@ export function StreakCounter({
             <div
               className={cn(
                 'font-mono text-neon-cyan/80',
-                styles.label === 'text-[10px]' ? 'text-xs' : 'text-sm'
+                styles.label === 'text-xs' ? 'text-xs' : 'text-sm'
               )}
             >
               {formatLastActive(streak.last_active_date)}

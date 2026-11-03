@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Shield, Activity, ArrowRight, Terminal } from 'lucide-react';
 import { HeatmapBackground } from '@/components/HeatmapBackground';
+import SiteNav from '@/components/SiteNav';
 import { SoundToggle } from '@/components/SoundToggle';
 import { TerminalPrompt } from '@/components/TerminalText';
 import {
@@ -77,33 +78,41 @@ export default function Home() {
   const toneClass = TONE_CLASS[view.tone];
 
   return (
-    <div className="relative h-screen overflow-hidden bg-terminal-black">
+    <div className="relative min-h-dvh overflow-x-hidden bg-terminal-black">
       {/* Background layer - Activity heatmap */}
       <HeatmapBackground />
 
       {/* Content layer */}
-      <div className="relative z-10 flex h-full flex-col">
+      <div className="relative z-10 flex min-h-dvh flex-col">
         {/* Header - Terminal style */}
         <header className="shrink-0 border-b-2 border-neon-cyan bg-terminal-black/95 backdrop-blur-sm">
           <div className="container flex h-16 items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="border-2 border-neon-cyan bg-neon-cyan/10 p-2">
-                <Shield className="h-5 w-5 text-neon-cyan" />
+                <Shield className="h-5 w-5 text-neon-cyan" aria-hidden="true" />
               </div>
               <span className="text-glow-cyan font-mono text-xl font-bold text-neon-cyan">
                 HEIMDALL
               </span>
             </div>
-            <SoundToggle />
+            <div className="flex items-center gap-2">
+              <SiteNav className="hidden sm:flex" />
+              <SoundToggle />
+            </div>
           </div>
         </header>
 
         {/* Hero Section - Terminal boot sequence */}
-        <section className="container flex flex-1 flex-col justify-center px-4 py-6 sm:px-6 sm:py-10">
+        <main className="container flex flex-1 flex-col justify-center px-4 py-6 sm:px-6 sm:py-10">
           <div className="mx-auto max-w-4xl text-center">
-            {/* ASCII Art Logo */}
-            <div className="-mx-4 mb-6 overflow-x-auto px-4 xs:mb-8">
-              <pre className="text-glow-cyan inline-block text-left font-mono text-[5px] leading-tight text-neon-cyan xs:text-[7px] sm:text-xs md:text-sm">
+            <h1 className="sr-only">Heimdall: real-time webhook monitoring dashboard</h1>
+
+            {/* ASCII Art Logo: decorative, and too small to read on narrow screens */}
+            <div className="-mx-4 mb-6 hidden overflow-x-auto px-4 min-[400px]:block xs:mb-8">
+              <pre
+                aria-hidden="true"
+                className="text-glow-cyan inline-block text-left font-mono text-[8px] leading-tight text-neon-cyan sm:text-xs md:text-sm"
+              >
                 {HEIMDALL_ASCII}
               </pre>
             </div>
@@ -191,20 +200,22 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col justify-center gap-3 sm:flex-row sm:gap-4">
-              <Link href="/dashboard" className="w-full sm:w-auto">
-                <Button
-                  variant="neon"
-                  size="lg"
-                  className="w-full gap-2 font-mono shadow-retro sm:w-auto"
-                >
-                  <Activity className="h-4 w-4" />
+              <Button
+                asChild
+                variant="neon"
+                size="lg"
+                className="min-h-11 w-full gap-2 font-mono shadow-retro sm:w-auto"
+              >
+                <Link href="/dashboard">
+                  <Activity className="h-4 w-4" aria-hidden="true" />
                   LAUNCH DASHBOARD
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
             </div>
+            <SiteNav className="mt-4 justify-center sm:hidden" />
           </div>
-        </section>
+        </main>
 
         {/* Footer */}
         <footer className="shrink-0 py-3">

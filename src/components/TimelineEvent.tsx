@@ -104,7 +104,7 @@ export function TimelineEvent({
             colors.bg,
             colors.border,
             isSelected && [colors.glow, 'scale-150'],
-            !isSelected && 'hover:scale-125',
+            !isSelected && 'motion-safe:hover:scale-125',
             isStacked && 'ring-2 ring-terminal-black'
           )}
         />
@@ -115,7 +115,7 @@ export function TimelineEvent({
             className={cn(
               'absolute -right-1 -top-1 h-4 w-4 rounded-full',
               'flex items-center justify-center',
-              'font-mono text-[8px] font-bold',
+              'font-mono text-xs font-bold',
               'border bg-terminal-black',
               colors.border,
               colors.bg.replace('bg-', 'text-')

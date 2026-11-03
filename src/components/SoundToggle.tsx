@@ -13,8 +13,8 @@ export function SoundToggle({ className, size = 'md' }: SoundToggleProps) {
   const { isEnabled, toggle, initialized } = useSound();
 
   const sizeClasses = {
-    sm: 'w-8 h-8 p-1.5',
-    md: 'w-10 h-10 p-2',
+    sm: 'w-11 h-11 p-2.5',
+    md: 'w-11 h-11 p-2.5',
     lg: 'w-12 h-12 p-2.5',
   };
 
@@ -38,7 +38,7 @@ export function SoundToggle({ className, size = 'md' }: SoundToggleProps) {
           ? 'border-neon-cyan text-neon-cyan shadow-retro-sm hover:shadow-retro'
           : 'border-muted-foreground text-muted-foreground hover:border-neon-cyan hover:text-neon-cyan',
         // Hover effects
-        'hover:translate-x-[-1px] hover:translate-y-[-1px]',
+        'motion-safe:hover:translate-x-[-1px] motion-safe:hover:translate-y-[-1px]',
         'active:translate-x-[1px] active:translate-y-[1px] active:shadow-none',
         // Focus
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-terminal-black',
@@ -77,7 +77,7 @@ export function SoundToggleCompact({ className }: { className?: string }) {
       onClick={toggle}
       disabled={!initialized}
       className={cn(
-        'inline-flex items-center gap-1.5 px-2 py-1',
+        'inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 px-2 py-1',
         'font-mono text-xs uppercase tracking-wider',
         'border transition-all duration-100',
         isEnabled
@@ -92,12 +92,12 @@ export function SoundToggleCompact({ className }: { className?: string }) {
       {isEnabled ? (
         <>
           <Volume2 size={12} />
-          <span>SFX ON</span>
+          <span className="hidden sm:inline">SFX ON</span>
         </>
       ) : (
         <>
           <VolumeX size={12} />
-          <span>SFX OFF</span>
+          <span className="hidden sm:inline">SFX OFF</span>
         </>
       )}
     </button>

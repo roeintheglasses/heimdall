@@ -88,6 +88,8 @@ export function ActivityTicker({
 
   return (
     <div
+      // The ticker repeats the event list, so it stays out of the tab order and the accessibility tree
+      aria-hidden="true"
       className={cn(
         'ticker-container relative overflow-hidden',
         'border-y-2 border-neon-cyan/30 bg-terminal-black/80',
@@ -161,9 +163,11 @@ function TickerItem({ enrichedEvent, onClick, isFirst }: TickerItemProps) {
 
   return (
     <button
+      type="button"
+      tabIndex={-1}
       onClick={onClick}
       className={cn(
-        'flex min-h-[32px] items-center gap-1.5 px-1 font-mono text-[10px] transition-opacity xs:gap-2 xs:px-0 xs:text-xs',
+        'flex min-h-[32px] items-center gap-1.5 px-1 font-mono text-xs transition-opacity xs:gap-2 xs:px-0 xs:text-xs',
         'group cursor-pointer hover:opacity-80'
       )}
     >
