@@ -25,7 +25,13 @@ const TONE_CLASS: Record<StatusView['tone'], string> = {
 };
 
 function useSystemStatus(): SystemStatus {
-  const [status, setStatus] = useState<SystemStatus>({ backend: 'loading', lastEventAt: null });
+  const [status, setStatus] = useState<SystemStatus>({
+    backend: 'loading',
+    lastEventAt: null,
+    statsAvailable: false,
+  });
+  // Re-render each minute so "Last event: 3m ago" stays current between polls.
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,11 +41,20 @@ function useSystemStatus(): SystemStatus {
     } catch {
       // No backend URL in this build: the health route still reports the backend state.
     }
-    fetchSystemStatus(base).then((next) => {
-      if (!cancelled) setStatus(next);
-    });
+    const load = () => {
+      fetchSystemStatus(base).then((next) => {
+        if (!cancelled) setStatus(next);
+      });
+    };
+    load();
+    // Poll once a minute so a backend that goes down while the page is open is shown.
+    const timer = setInterval(() => {
+      load();
+      setTick((t) => t + 1);
+    }, 60_000);
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
   }, []);
 
@@ -167,7 +182,8 @@ export default function Home() {
                   {system.backend === 'up' && (
                     <span className="text-muted-foreground">
                       {' '}
-                      {'//'} Last event: {formatLastEvent(system.lastEventAt)}
+                      {'//'} Last event:{' '}
+                      {formatLastEvent(system.lastEventAt, new Date(), system.statsAvailable)}
                     </span>
                   )}
                 </p>

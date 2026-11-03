@@ -39,6 +39,7 @@ describe('fetchSystemStatus', () => {
     await expect(fetchSystemStatus('http://b/')).resolves.toEqual({
       backend: 'up',
       lastEventAt: '2026-11-03T09:00:00Z',
+      statsAvailable: true,
     });
   });
 
@@ -47,7 +48,19 @@ describe('fetchSystemStatus', () => {
     await expect(fetchSystemStatus('http://b')).resolves.toEqual({
       backend: 'down',
       lastEventAt: null,
+      statsAvailable: false,
     });
+  });
+
+  it('marks stats unavailable when the stats request fails', async () => {
+    global.fetch = jest.fn(async (url: RequestInfo | URL) =>
+      String(url).endsWith('/api/health') ? json({ backend: 'up' }) : json({}, false)
+    ) as typeof fetch;
+    const status = await fetchSystemStatus('http://b');
+    expect(status).toEqual({ backend: 'up', lastEventAt: null, statsAvailable: false });
+    expect(formatLastEvent(status.lastEventAt, new Date(), status.statsAvailable)).toBe(
+      'unavailable'
+    );
   });
 
   it('reports unreachable when the health route fails', async () => {
