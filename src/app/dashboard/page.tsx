@@ -591,6 +591,8 @@ function DashboardContent() {
           const response = await fetch(`${goServiceUrl}/api/events?${params.toString()}`);
           if (!response.ok || !isCurrent()) break;
           const data = await response.json();
+          // A newer search may have started while the body was being read
+          if (!isCurrent()) break;
           const page: DashboardEvent[] = data.events || data;
           // Keep only rows that are new, and stop once the list is full
           keepNewRows(kept, page, inList, SEARCH_EVENT_CAP);

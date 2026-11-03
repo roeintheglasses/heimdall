@@ -113,6 +113,10 @@ export default function ActivityGraph({ events, height = 200, className }: Activ
             <div className="h-2.5 w-2.5 bg-neon-green xs:h-3 xs:w-3" />
             <span className="text-neon-green">RAILWAY</span>
           </div>
+          <div className="flex items-center gap-1">
+            <div className="h-2.5 w-2.5 bg-neon-orange xs:h-3 xs:w-3" />
+            <span className="text-neon-orange">OTHER</span>
+          </div>
         </div>
 
         {/* Chart */}
@@ -135,6 +139,10 @@ export default function ActivityGraph({ events, height = 200, className }: Activ
                 <linearGradient id="colorRailway" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={SERVICE_COLORS.railway} stopOpacity={0.4} />
                   <stop offset="95%" stopColor={SERVICE_COLORS.railway} stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="colorOther" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={SERVICE_COLORS.other} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={SERVICE_COLORS.other} stopOpacity={0} />
                 </linearGradient>
               </defs>
 
@@ -189,6 +197,15 @@ export default function ActivityGraph({ events, height = 200, className }: Activ
                 stroke={SERVICE_COLORS.railway}
                 strokeWidth={2}
                 fill="url(#colorRailway)"
+              />
+              <Area
+                type="monotone"
+                isAnimationActive={animate}
+                dataKey="other"
+                stackId="1"
+                stroke={SERVICE_COLORS.other}
+                strokeWidth={2}
+                fill="url(#colorOther)"
               />
             </AreaChart>
           </ResponsiveContainer>

@@ -1,4 +1,4 @@
-import { filtersEqual, parseFilters, serializeFilters, EMPTY_URL_FILTERS } from './filterUrl';
+import { parseFilters, serializeFilters, EMPTY_URL_FILTERS } from './filterUrl';
 import { backendTypeFor } from './eventQuery';
 
 const parse = (qs: string) => parseFilters(new URLSearchParams(qs));
@@ -65,13 +65,6 @@ describe('serializeFilters', () => {
   });
 });
 
-describe('filtersEqual', () => {
-  it('compares every field', () => {
-    expect(filtersEqual(EMPTY_URL_FILTERS, { ...EMPTY_URL_FILTERS })).toBe(true);
-    expect(filtersEqual(EMPTY_URL_FILTERS, { ...EMPTY_URL_FILTERS, repo: 'x' })).toBe(false);
-  });
-});
-
 describe('backendTypeFor', () => {
   it('maps a service with one event type to that type', () => {
     expect(backendTypeFor({ selectedService: 'vercel', selectedCategory: null })).toBe(
@@ -92,5 +85,15 @@ describe('backendTypeFor', () => {
     expect(backendTypeFor({ selectedService: 'github', selectedCategory: null })).toBeNull();
     expect(backendTypeFor({ selectedService: null, selectedCategory: 'issues' })).toBeNull();
     expect(backendTypeFor({ selectedService: null, selectedCategory: null })).toBeNull();
+  });
+});
+
+describe('serializeFilters round trip', () => {
+  it('settles on the same query string for values longer than the cap', () => {
+    const long = { ...EMPTY_URL_FILTERS, repo: 'r'.repeat(300), search: 's'.repeat(300) };
+    const once = serializeFilters(long, new URLSearchParams()).toString();
+    const twice = serializeFilters(long, new URLSearchParams(once)).toString();
+    expect(twice).toBe(once);
+    expect(parseFilters(new URLSearchParams(once)).repo).toHaveLength(200);
   });
 });

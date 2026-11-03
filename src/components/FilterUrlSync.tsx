@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCategories } from '@/contexts/CategoryContext';
-import { filtersEqual, parseFilters, serializeFilters, type UrlFilters } from '@/lib/filterUrl';
+import { parseFilters, serializeFilters, type UrlFilters } from '@/lib/filterUrl';
 
 /**
  * Keeps service, category, repo and search in the URL. On load the URL is
@@ -45,8 +45,10 @@ export default function FilterUrlSync() {
       repo: filter.repositoryFilter.trim(),
       search: filter.searchQuery.trim(),
     };
-    if (filtersEqual(current, parseFilters(searchParams))) return;
-    const next = serializeFilters(current, new URLSearchParams(searchParams.toString())).toString();
+    // Compare query strings, so values that parseFilters would cut still settle
+    const currentQs = searchParams.toString();
+    const next = serializeFilters(current, new URLSearchParams(currentQs)).toString();
+    if (next === currentQs) return;
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
   }, [ready, filter, pathname, router, searchParams]);
 

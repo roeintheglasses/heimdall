@@ -55,7 +55,7 @@ export default function RepositoryFilter({
           value={localValue}
           onChange={(e) => setLocalValue(e.target.value)}
           className={cn(
-            'h-9 border-2 bg-terminal-black pl-9 pr-8 font-mono text-xs',
+            'h-9 border-2 bg-terminal-black pl-9 pr-12 font-mono text-xs',
             'placeholder:text-muted-foreground/50',
             'focus-visible:border-neon-cyan focus-visible:ring-2 focus-visible:ring-neon-cyan',
             'focus-visible:ring-offset-2 focus-visible:ring-offset-terminal-black',

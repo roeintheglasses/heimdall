@@ -32,13 +32,16 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
   }, [isOpen, onClose]);
 
   const closeRef = useRef<HTMLButtonElement>(null);
+  const mobileCloseRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
   // Move focus into the dialog on open and give it back on close
   useEffect(() => {
     if (!isOpen) return;
     previouslyFocused.current = document.activeElement as HTMLElement | null;
-    closeRef.current?.focus();
+    // Only one close button is displayed at a time; a hidden one has no offsetParent
+    const target = closeRef.current?.offsetParent ? closeRef.current : mobileCloseRef.current;
+    target?.focus();
     return () => previouslyFocused.current?.focus?.();
   }, [isOpen]);
 
@@ -69,6 +72,7 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
               <span className="text-sm font-bold">TOUCH_MODE</span>
             </div>
             <button
+              ref={mobileCloseRef}
               type="button"
               onClick={onClose}
               aria-label="Close keyboard shortcuts"

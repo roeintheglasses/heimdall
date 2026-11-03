@@ -60,12 +60,3 @@ export function serializeFilters(filters: UrlFilters, base?: URLSearchParams): U
   if (filters.search.trim()) params.set('q', filters.search.trim().slice(0, MAX_TEXT));
   return params;
 }
-
-export function filtersEqual(a: UrlFilters, b: UrlFilters): boolean {
-  return (
-    a.service === b.service &&
-    a.category === b.category &&
-    a.repo === b.repo &&
-    a.search === b.search
-  );
-}
