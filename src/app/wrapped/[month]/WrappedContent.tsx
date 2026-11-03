@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import SiteNav from '@/components/SiteNav';
 import { MIN_WRAPPED_YEAR, formatMonthKey, shiftMonth } from '@/lib/months';
 
 interface DailyCount {
@@ -118,7 +119,8 @@ export function WrappedContent({ month, stats, error = false }: WrappedContentPr
 
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+      <div className="relative flex min-h-screen flex-col items-center justify-center p-4">
+        <SiteNav current="wrapped" className="absolute left-2 top-2 sm:left-4 sm:top-4" />
         <div className="text-center font-mono">
           <div className="mb-4 text-6xl text-neon-orange">!</div>
           <h1 className="mb-2 text-xl text-neon-cyan">BACKEND_UNAVAILABLE</h1>
@@ -135,7 +137,8 @@ export function WrappedContent({ month, stats, error = false }: WrappedContentPr
 
   if (!stats) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+      <div className="relative flex min-h-screen flex-col items-center justify-center p-4">
+        <SiteNav current="wrapped" className="absolute left-2 top-2 sm:left-4 sm:top-4" />
         <div className="text-center font-mono">
           <div className="mb-4 text-6xl text-neon-orange">?</div>
           <h1 className="mb-2 text-xl text-neon-cyan">NO_DATA_FOUND</h1>
@@ -152,34 +155,37 @@ export function WrappedContent({ month, stats, error = false }: WrappedContentPr
 
   return (
     <div className="min-h-screen bg-terminal-black p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-3xl space-y-6">
-        {/* Navigation */}
+      <main className="mx-auto max-w-3xl space-y-6">
+        <SiteNav current="wrapped" className="-ml-3" />
+        {/* Month navigation */}
         <div className="flex items-center justify-between">
           {navMonths.prev ? (
-            <Link href={`/wrapped/${navMonths.prev}`}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1 font-mono text-xs text-muted-foreground hover:text-neon-cyan"
-              >
-                <ChevronLeft className="h-4 w-4" />
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="min-h-11 gap-1 font-mono text-xs text-muted-foreground hover:text-neon-cyan"
+            >
+              <Link href={`/wrapped/${navMonths.prev}`}>
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 PREV
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           ) : (
             <span />
           )}
           {navMonths.next && (
-            <Link href={`/wrapped/${navMonths.next}`}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1 font-mono text-xs text-muted-foreground hover:text-neon-cyan"
-              >
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="min-h-11 gap-1 font-mono text-xs text-muted-foreground hover:text-neon-cyan"
+            >
+              <Link href={`/wrapped/${navMonths.next}`}>
                 NEXT
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
           )}
         </div>
 
@@ -213,7 +219,7 @@ export function WrappedContent({ month, stats, error = false }: WrappedContentPr
               <div className="font-mono text-2xl font-bold tabular-nums text-neon-green">
                 {stats.daily_average.toFixed(1)}
               </div>
-              <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
                 Avg / Day
               </div>
             </CardContent>
@@ -224,7 +230,7 @@ export function WrappedContent({ month, stats, error = false }: WrappedContentPr
               <div className="font-mono text-2xl font-bold tabular-nums text-neon-yellow">
                 {stats.busiest_day.count}
               </div>
-              <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
                 Best Day
               </div>
             </CardContent>
@@ -273,7 +279,7 @@ export function WrappedContent({ month, stats, error = false }: WrappedContentPr
                   key={day.day}
                   title={`Day ${day.day}: ${day.count} events`}
                   className={cn(
-                    'h-4 w-4 border transition-all hover:scale-125',
+                    'h-4 w-4 border transition-all motion-safe:hover:scale-125',
                     day.level === 0 && 'border-neon-cyan/10 bg-terminal-gray/50',
                     day.level === 1 && 'border-neon-green/40 bg-neon-green/20',
                     day.level === 2 && 'border-neon-green/60 bg-neon-green/40',
@@ -404,7 +410,7 @@ export function WrappedContent({ month, stats, error = false }: WrappedContentPr
             &lt; Back to profile
           </Link>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

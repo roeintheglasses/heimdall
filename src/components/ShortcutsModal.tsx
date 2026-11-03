@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { SHORTCUT_DEFINITIONS } from '@/hooks/useKeyboardShortcuts';
 import { cn } from '@/lib/utils';
 import { X, Keyboard, Terminal } from 'lucide-react';
@@ -31,6 +31,20 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
     };
   }, [isOpen, onClose]);
 
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const mobileCloseRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+
+  // Move focus into the dialog on open and give it back on close
+  useEffect(() => {
+    if (!isOpen) return;
+    previouslyFocused.current = document.activeElement as HTMLElement | null;
+    // Only one close button is displayed at a time; a hidden one has no offsetParent
+    const target = closeRef.current?.offsetParent ? closeRef.current : mobileCloseRef.current;
+    target?.focus();
+    return () => previouslyFocused.current?.focus?.();
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -42,6 +56,9 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         {/* Mobile message */}
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard shortcuts"
           className={cn(
             'relative w-full max-w-sm sm:hidden',
             'border-2 border-neon-cyan bg-terminal-black',
@@ -55,8 +72,11 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
               <span className="text-sm font-bold">TOUCH_MODE</span>
             </div>
             <button
+              ref={mobileCloseRef}
+              type="button"
               onClick={onClose}
-              className="p-1 text-neon-cyan transition-colors hover:bg-neon-cyan/20"
+              aria-label="Close keyboard shortcuts"
+              className="flex h-11 w-11 items-center justify-center text-neon-cyan transition-colors hover:bg-neon-cyan/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
             >
               <X className="h-4 w-4" />
             </button>
@@ -73,6 +93,9 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
 
         {/* Desktop modal */}
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard shortcuts"
           className={cn(
             'relative hidden w-full max-w-lg sm:block',
             'border-2 border-neon-cyan bg-terminal-black',
@@ -88,8 +111,11 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
               <span className="text-sm font-bold">KEYBOARD_SHORTCUTS.TXT</span>
             </div>
             <button
+              ref={closeRef}
+              type="button"
               onClick={onClose}
-              className="p-1 text-neon-cyan transition-colors hover:bg-neon-cyan/20"
+              aria-label="Close keyboard shortcuts"
+              className="flex h-11 w-11 items-center justify-center text-neon-cyan transition-colors hover:bg-neon-cyan/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
             >
               <X className="h-4 w-4" />
             </button>

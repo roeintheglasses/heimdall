@@ -56,7 +56,7 @@ export function CRTMonitorFrame({
                         : 'bg-neon-orange shadow-[0_0_8px_hsl(30_100%_50%)]'
                     )}
                   />
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
                     PWR
                   </span>
                 </div>
@@ -69,7 +69,7 @@ export function CRTMonitorFrame({
                 <span className="text-glow-cyan font-pixel text-xs tracking-wider text-neon-cyan lg:text-sm">
                   HEIMDALL
                 </span>
-                <span className="font-mono text-[10px] text-muted-foreground">2000</span>
+                <span className="font-mono text-xs text-muted-foreground">2000</span>
               </div>
             )}
 
@@ -99,7 +99,7 @@ export function CRTMonitorFrame({
 
         {/* Stand hint (optional visual) */}
         <div className="flex justify-center pt-2">
-          <div className="font-mono text-[10px] text-muted-foreground/50">
+          <div className="font-mono text-xs text-muted-foreground/50">
             Press ? for keyboard shortcuts
           </div>
         </div>
@@ -150,7 +150,7 @@ export function PowerLED({
         )}
       />
       {showLabel && (
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
           {isConnected ? 'ONLINE' : 'OFFLINE'}
         </span>
       )}

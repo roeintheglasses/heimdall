@@ -119,7 +119,7 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
                 <span className="font-bold uppercase">All</span>
                 <Badge
                   variant="outline"
-                  className="h-auto min-h-0 border-neon-cyan/30 px-1.5 py-0 text-[10px]"
+                  className="h-auto min-h-0 border-neon-cyan/30 px-1.5 py-0 text-xs"
                 >
                   {totalEvents}
                 </Badge>
@@ -157,7 +157,7 @@ export default function CategoryFilter({ categoryStats, className = '' }: Catego
                     <Badge
                       variant="outline"
                       className={cn(
-                        'h-auto min-h-0 px-1.5 py-0 text-[10px]',
+                        'h-auto min-h-0 px-1.5 py-0 text-xs',
                         isSelected ? neonColors.border : 'border-muted-foreground/30'
                       )}
                     >

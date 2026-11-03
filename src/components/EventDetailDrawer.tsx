@@ -17,6 +17,7 @@ import { getServiceFromEventType } from '@/types/services';
 import { ServiceIcon } from '@/components/ServiceIcon';
 import { cn } from '@/lib/utils';
 import { safeUrl } from '@/lib/safeUrl';
+import { displayTitle } from '@/lib/eventDisplay';
 import { Terminal, Copy, Check, ExternalLink, FileJson, List, Info, Clock, X } from 'lucide-react';
 
 // Service-specific event detail components
@@ -200,12 +201,15 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
             variant="ghost"
             size="sm"
             onClick={() => onOpenChange(false)}
-            className="h-7 w-7 p-0 text-neon-cyan hover:bg-neon-cyan/20"
+            aria-label="Close event details"
+            className="h-11 w-11 p-0 text-neon-cyan hover:bg-neon-cyan/20"
           >
             <X className="h-4 w-4" />
           </Button>
         </SheetHeader>
-        <SheetDescription className="sr-only">Detailed view of {event.title}</SheetDescription>
+        <SheetDescription className="sr-only">
+          Detailed view of {displayTitle(event)}
+        </SheetDescription>
 
         {/* Event Header */}
         <div className="border-b border-neon-cyan/30 px-3 py-2 xs:px-4 xs:py-3">
@@ -223,7 +227,7 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
             <div className="min-w-0 flex-1">
               <h3 className="mb-1 font-mono text-sm leading-tight text-foreground">
                 <span className="mr-2 text-neon-magenta">&gt;</span>
-                {event.title}
+                {displayTitle(event)}
               </h3>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="text-xs">
@@ -254,21 +258,21 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
           <TabsList className="mx-3 mt-3 grid w-auto grid-cols-3 border border-neon-cyan/30 bg-terminal-black xs:mx-4 xs:mt-4">
             <TabsTrigger
               value="overview"
-              className="text-[10px] data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan xs:text-xs"
+              className="text-xs data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan xs:text-xs"
             >
               <Info className="h-3 w-3 xs:mr-1" />
               <span className="hidden xs:inline">Overview</span>
             </TabsTrigger>
             <TabsTrigger
               value="details"
-              className="text-[10px] data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan xs:text-xs"
+              className="text-xs data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan xs:text-xs"
             >
               <List className="h-3 w-3 xs:mr-1" />
               <span className="hidden xs:inline">Details</span>
             </TabsTrigger>
             <TabsTrigger
               value="raw"
-              className="text-[10px] data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan xs:text-xs"
+              className="text-xs data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan xs:text-xs"
             >
               <FileJson className="h-3 w-3 xs:mr-1" />
               <span className="hidden xs:inline">Raw</span>
@@ -330,7 +334,8 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
                               variant="ghost"
                               size="sm"
                               onClick={() => copyToClipboard(field.value, field.label)}
-                              className="h-7 w-7 shrink-0 p-0"
+                              aria-label={`Copy ${field.label}`}
+                              className="relative h-7 w-7 shrink-0 p-0 after:absolute after:-inset-2 after:content-['']"
                             >
                               {copiedField === field.label ? (
                                 <Check className="h-3 w-3 text-neon-green" />

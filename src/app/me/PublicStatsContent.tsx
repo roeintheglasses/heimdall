@@ -5,6 +5,7 @@ import { Terminal, Copy, Check, ExternalLink, Github, Cloud, Server } from 'luci
 import { YearlyHeatmap } from '@/components/YearlyHeatmap';
 import { StreakCounter } from '@/components/StreakCounter';
 import { Button } from '@/components/ui/button';
+import SiteNav from '@/components/SiteNav';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -62,7 +63,8 @@ export function PublicStatsContent({ initialStats }: PublicStatsContentProps) {
 
   if (!stats) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+      <div className="relative flex min-h-screen flex-col items-center justify-center p-4">
+        <SiteNav current="stats" className="absolute left-2 top-2 sm:left-4 sm:top-4" />
         <div className="text-center font-mono">
           <div className="mb-4 text-6xl text-neon-orange">!</div>
           <h1 className="mb-2 text-xl text-neon-cyan">DATA_UNAVAILABLE</h1>
@@ -83,7 +85,8 @@ export function PublicStatsContent({ initialStats }: PublicStatsContentProps) {
 
   return (
     <div className="min-h-screen bg-terminal-black p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl space-y-6">
+      <main className="mx-auto max-w-4xl space-y-6">
+        <SiteNav current="stats" className="-ml-3" />
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -223,7 +226,7 @@ export function PublicStatsContent({ initialStats }: PublicStatsContentProps) {
             View Full Dashboard
           </a>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
@@ -235,7 +238,7 @@ function QuickStatCard({ label, value }: { label: string; value: number }) {
         <div className="font-mono text-2xl font-bold tabular-nums text-neon-cyan">
           {value.toLocaleString()}
         </div>
-        <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
           {label}
         </div>
       </CardContent>

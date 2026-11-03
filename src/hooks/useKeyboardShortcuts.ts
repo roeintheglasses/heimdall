@@ -3,6 +3,9 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
+const INTERACTIVE_SELECTOR =
+  'button, a[href], select, summary, [role="button"], [role="tab"], [role="menuitem"], [role="checkbox"], [role="switch"]';
+
 export interface ShortcutHandlers {
   // Navigation
   onNextEvent?: () => void;
@@ -46,6 +49,15 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
+
+      // Leave shortcuts alone while a dialog (drawer, shortcuts modal) has focus
+      if (target.closest?.('[role="dialog"]')) return;
+
+      // Never steal Enter from something that already handles it
+      if (e.key === 'Enter' && target.closest?.(INTERACTIVE_SELECTOR)) return;
+
+      // Browser and OS shortcuts such as Cmd+F keep working
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       const key = e.key.toLowerCase();
 
@@ -168,11 +180,11 @@ export const SHORTCUT_DEFINITIONS = {
   navigation: [
     { key: 'j', description: 'Select next event' },
     { key: 'k', description: 'Select previous event' },
-    { key: 'Enter', description: 'Expand selected event' },
+    { key: 'Enter', description: 'Open the selected event (or expand a group)' },
     { key: 'Esc', description: 'Clear selection' },
   ],
   filtering: [
-    { key: 'f, /', description: 'Focus search input' },
+    { key: '/ or f', description: 'Focus search input' },
     { key: '1-5', description: 'Filter by category' },
     { key: '0', description: 'Clear all filters' },
   ],

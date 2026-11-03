@@ -103,7 +103,7 @@ export default function ServiceFilter({ serviceStats, className = '' }: ServiceF
           <Badge
             variant="outline"
             className={cn(
-              'ml-2 border-0 text-[10px]',
+              'ml-2 border-0 text-xs',
               !filter.selectedService ? 'bg-neon-cyan/20 text-neon-cyan' : 'bg-muted'
             )}
           >
@@ -142,10 +142,7 @@ export default function ServiceFilter({ serviceStats, className = '' }: ServiceF
               {count > 0 && (
                 <Badge
                   variant="outline"
-                  className={cn(
-                    'ml-2 border-0 text-[10px]',
-                    isSelected ? neonColors.text : 'bg-muted'
-                  )}
+                  className={cn('ml-2 border-0 text-xs', isSelected ? neonColors.text : 'bg-muted')}
                 >
                   {count}
                 </Badge>
@@ -181,9 +178,7 @@ export default function ServiceFilter({ serviceStats, className = '' }: ServiceF
                     <span className={cn('text-sm font-bold', neonColors.text)}>
                       {selectedService.name.toUpperCase()}
                     </span>
-                    <Badge
-                      className={cn('text-[10px]', neonColors.text, neonColors.border, 'border')}
-                    >
+                    <Badge className={cn('text-xs', neonColors.text, neonColors.border, 'border')}>
                       {serviceStats[selectedService.id]} EVENTS
                     </Badge>
                   </div>

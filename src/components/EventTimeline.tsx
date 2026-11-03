@@ -102,7 +102,7 @@ export function EventTimeline({ events, onEventClick, className }: EventTimeline
     <div className={cn('space-y-3 xs:space-y-4', className)}>
       {/* Header with controls */}
       <div className="flex flex-col gap-2 xs:flex-row xs:items-center xs:justify-between xs:gap-4">
-        <div className="flex items-center gap-2 font-mono text-[10px] text-neon-magenta xs:text-xs">
+        <div className="flex items-center gap-2 font-mono text-xs text-neon-magenta xs:text-xs">
           <Terminal className="h-3 w-3" />
           <span>TIMELINE::VIEW</span>
         </div>
@@ -215,7 +215,7 @@ export function EventTimeline({ events, onEventClick, className }: EventTimeline
             className="absolute bottom-8 top-0 z-20 w-0.5 bg-neon-green"
             style={{ left: `${nowPosition * 100}%` }}
           >
-            <div className="absolute -top-1 left-1/2 -translate-x-1/2 bg-neon-green px-1 py-0.5 font-mono text-[8px] font-bold text-terminal-black">
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 bg-neon-green px-1 py-0.5 font-mono text-xs font-bold text-terminal-black">
               NOW
             </div>
           </div>
@@ -230,7 +230,7 @@ export function EventTimeline({ events, onEventClick, className }: EventTimeline
               style={{ left: `${tick.position * 100}%` }}
             >
               <div className="h-2 w-px bg-neon-cyan/50" />
-              <span className="mt-0.5 -translate-x-1/2 font-mono text-[10px] text-muted-foreground">
+              <span className="mt-0.5 -translate-x-1/2 font-mono text-xs text-muted-foreground">
                 {tick.label}
               </span>
             </div>
@@ -239,10 +239,7 @@ export function EventTimeline({ events, onEventClick, className }: EventTimeline
 
         {/* Event count badge */}
         <div className="absolute right-2 top-2 z-30">
-          <Badge
-            variant="outline"
-            className="border-neon-cyan/50 font-mono text-[10px] text-neon-cyan"
-          >
+          <Badge variant="outline" className="border-neon-cyan/50 font-mono text-xs text-neon-cyan">
             {visibleEvents.length} EVENTS
           </Badge>
         </div>
@@ -329,7 +326,7 @@ export function EventTimelineCompact({ events, onEventClick, className }: EventT
               key={enrichedEvent.original.id}
               onClick={() => onEventClick?.(enrichedEvent.original)}
               className={cn(
-                'h-2 w-2 rounded-full transition-transform hover:scale-150',
+                'h-2 w-2 rounded-full transition-transform motion-safe:hover:scale-150',
                 categoryColors[enrichedEvent.categoryInfo.id] || 'bg-neon-cyan'
               )}
               title={enrichedEvent.original.title}
@@ -339,10 +336,10 @@ export function EventTimelineCompact({ events, onEventClick, className }: EventT
       </div>
 
       {/* Labels */}
-      <div className="absolute bottom-0.5 left-2 font-mono text-[8px] text-muted-foreground">
+      <div className="absolute bottom-0.5 left-2 font-mono text-xs text-muted-foreground">
         OLDER
       </div>
-      <div className="absolute bottom-0.5 right-2 font-mono text-[8px] text-muted-foreground">
+      <div className="absolute bottom-0.5 right-2 font-mono text-xs text-muted-foreground">
         NEWER
       </div>
     </div>
