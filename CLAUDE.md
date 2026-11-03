@@ -97,6 +97,8 @@ Backend (Railway):
 - `RATE_LIMIT_RPS` and `RATE_LIMIT_BURST`: per-IP limits. Defaults 10 and 30.
 - `LOG_LEVEL`: `debug`, `info`, `warn`, or `error`. Default `info`.
 - `PRETTY_LOGS`: `true` for console-style logs.
+- `ALERT_WEBHOOK_URL`: optional. Failure alerts are POSTed here. Unset means no alerts. Treat it as a secret and never log it.
+- `ALERT_WEBHOOK_FORMAT`: optional, `discord`, `slack`, or `ntfy`. Overrides detection from the URL host.
 
 ## Webhook authentication
 
@@ -114,7 +116,9 @@ A missing server secret returns 500. A missing or wrong credential returns 401. 
 
 Edge to Go: the Edge handler sends `X-Heimdall-Secret: $BACKEND_WEBHOOK_SECRET`. The Go service compares it in constant time. A missing or wrong value returns 401. The Go service rejects timestamps older than 7 days or more than 5 minutes ahead. It treats timestamps above 1e12 as milliseconds.
 
-GitHub events other than `push`, `pull_request`, `issues`, and `release` get 202 `{"status":"ignored"}`. A GitHub `ping` gets 200.
+GitHub events other than `push`, `pull_request`, `issues`, `release`, and `workflow_run` get 202 `{"status":"ignored"}`. A GitHub `ping` gets 200.
+
+`workflow_run` becomes `error.ci` only when `action` is `completed` and `workflow_run.conclusion` is `failure`, `timed_out`, or `cancelled`. Any other run gets 202 `ignored`. The delivery id is `github:run:<run id>:<attempt>:<conclusion>`, so a second hook on the same repo or a redelivery is a duplicate, and a re-run is a new event. `error.ci` metadata: `repo`, `full_name`, `repository_url`, `branch`, `commit_sha`, `workflow`, `conclusion`, `run_url`, `run_number`, `status` (upper-cased conclusion), `event`. Privacy follows `repository.private`.
 
 Each forwarded payload carries a `delivery_id`. The backend has a unique index on it and answers duplicates with 200 `{"status":"duplicate"}`. For GitHub `push` events the id is `github:push:<repository.full_name>:<ref>:<after>` when all three are present, so two webhooks on one repo store a push once. Other GitHub events use `github:<X-GitHub-Delivery>`. Without a delivery header they fall back to a body hash.
 
@@ -127,6 +131,7 @@ GitHub events carry `full_name` (`owner/name`) in metadata next to the short `re
 | `github.push`, `github.pr`           | Development    |
 | `github.release`                     | Development    |
 | `github.issue`                       | Issues         |
+| `error.ci`                           | Issues         |
 | `vercel.deploy`, `railway.deploy`    | Deployments    |
 | `error.*`                            | Issues         |
 | `security.*`                         | Security       |
@@ -138,7 +143,15 @@ The mapping lives in `src/types/categories.ts`.
 
 Each event has a `private` flag. It is true unless the source is known to be public: a GitHub repository with `private: false`, or a Vercel deployment from a public GitHub repository. Railway events are always private. Rows from before the flag existed are private.
 
-`GET /api/events` redacts private events. It keeps `id`, `event_type`, `created_at`, and `private`, replaces the title with a generic one (for example `Private repository: 3 commits pushed`), and keeps only the metadata keys `status`, `action`, `commit_count`, `environment`, and `merged`. `/api/stats` and `/api/wrapped` are aggregates and include private events.
+`GET /api/events` redacts private events. It keeps `id`, `event_type`, `created_at`, and `private`, replaces the title with a generic one (for example `Private repository: 3 commits pushed`), and keeps only the metadata keys `status`, `action`, `commit_count`, `environment`, `merged`, and `conclusion` (a fixed enum). A private `error.ci` title is `Private repository: CI <conclusion>`. `/api/stats` and `/api/wrapped` are aggregates and include private events.
+
+## Vercel commit context
+
+`vercel.deploy` metadata also carries `branch` (`githubCommitRef`), `commit_sha` (`githubCommitSha`), `commit_message` (`githubCommitMessage`, cut to 500 runes), `repo` (`githubRepo`), and `full_name` (`org/repo`, using `githubOrg` or else `githubCommitOrg`, only when both parts are known). They are read from `payload.deployment.meta`. None are in the redaction allowlist. The hidden repo filter matches `repo` and `full_name` on any event type, so hiding a repo also hides its Vercel deploys.
+
+## Failure alerts
+
+`backend/alerts` posts a short message to `ALERT_WEBHOOK_URL` after a new (not duplicate) insert in `backend/handlers/webhook.go` when the event is a failure: `vercel.deploy` with status `FAILED` (canceled is not a failure), `railway.deploy` with status `FAILED` (the transformer maps FAILED, CRASHED, and ERROR to it), or any `error.ci`. The send runs in a goroutine with its own 5 second context, at most 8 at once (extra alerts are dropped with a warning), and never changes the webhook response. The message uses the unredacted event. Body by URL host: `discord.com` or `discordapp.com` gives `{"content": msg}`, `hooks.slack.com` gives `{"text": msg}`, `ntfy.sh` or a host containing `ntfy` gives plain text with a `Title` header, anything else gives the Discord shape. `ALERT_WEBHOOK_FORMAT` overrides this. Text is cut to 1,800 characters. Logs never include the URL.
 
 ## Repo settings and hidden repos
 
@@ -168,14 +181,15 @@ Frontend API:
 
 - `POST /api/webhook` webhook ingestion (Edge).
 - `GET /api/events/stream` SSE stream. Node runtime, closed by the server after 290 seconds. Clients reconnect and re-fetch the first page. At most 50 clients per instance, then 503.
-- `GET /api/health` frontend health, with a backend ping.
+- `GET /api/health` frontend health, with a backend ping. The landing page reads it, plus `last_event_at` from the backend stats, for its status line.
 - `GET /api/badge?type=last|today|streak|total&style=flat|flat-square&color=...` SVG badge. `today` shows events in the last 24 hours.
 - `GET /api/og/stats` and `GET /api/og/wrapped/YYYY-MM` PNG Open Graph images.
 - `GET /api/debug/env` environment check. Needs the `x-debug-key` header.
 
 Go backend:
 
-- `GET /api/health`
+- `GET /api/health` pings Postgres with a 2 second timeout. Returns 503 with `status: "unhealthy"` and a `reason` when the ping fails.
+- `GET /api/health/live` always returns 200 and never touches the database. The Docker HEALTHCHECK uses it, so a Neon cold start does not restart the container.
 - `GET /api/events` with `limit` (default 50, max 500), `type`, `since`, `offset`, and cursor params `before` (RFC 3339) plus `before_id`. Send both cursor params or neither. The response has `pagination.next_cursor`, which is null on the last page. With a cursor, `offset` is ignored.
 - `GET /api/stats` with optional `range=year`.
 - `GET /api/wrapped/YYYY-MM`

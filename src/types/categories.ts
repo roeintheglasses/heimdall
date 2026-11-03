@@ -115,6 +115,7 @@ export const EVENT_TYPE_CATEGORY_MAP: Record<string, string> = {
   'github.release': 'development',
   'vercel.deploy': 'deployments',
   'railway.deploy': 'deployments',
+  'error.ci': 'issues',
   'error.system': 'issues',
   'error.build': 'issues',
   'security.vulnerability': 'security',

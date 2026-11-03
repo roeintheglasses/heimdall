@@ -251,6 +251,65 @@ func TransformGitHubRelease(eventData json.RawMessage, timestamp time.Time) (mod
 	}, nil
 }
 
+// TransformGitHubWorkflowRun transforms a completed, unsuccessful GitHub Actions
+// run into an error.ci event. The Edge handler only forwards runs whose
+// conclusion is failure, timed_out or cancelled.
+func TransformGitHubWorkflowRun(eventData json.RawMessage, timestamp time.Time) (models.DashboardEvent, error) {
+	var runEvent struct {
+		Action      string `json:"action"`
+		WorkflowRun struct {
+			Name       string `json:"name"`
+			HeadBranch string `json:"head_branch"`
+			HeadSHA    string `json:"head_sha"`
+			Conclusion string `json:"conclusion"`
+			HTMLURL    string `json:"html_url"`
+			RunNumber  int    `json:"run_number"`
+			Event      string `json:"event"`
+		} `json:"workflow_run"`
+		Repository struct {
+			Name     string `json:"name"`
+			FullName string `json:"full_name"`
+			HTMLURL  string `json:"html_url"`
+			Private  *bool  `json:"private"`
+		} `json:"repository"`
+	}
+
+	if err := json.Unmarshal(eventData, &runEvent); err != nil {
+		return models.DashboardEvent{}, fmt.Errorf("failed to unmarshal workflow_run event: %w", err)
+	}
+
+	run := runEvent.WorkflowRun
+	word := "failed"
+	if run.Conclusion == "timed_out" || run.Conclusion == "cancelled" {
+		word = run.Conclusion
+	}
+	repo := runEvent.Repository.Name
+	workflow := run.Name
+	if workflow == "" {
+		workflow = "workflow"
+	}
+
+	return models.DashboardEvent{
+		EventType: "error.ci",
+		IsPrivate: isGitHubPrivate(runEvent.Repository.Private),
+		Title:     fmt.Sprintf("CI %s: %s on %s/%s", word, workflow, repo, run.HeadBranch),
+		Metadata: map[string]interface{}{
+			"repo":           repo,
+			"full_name":      runEvent.Repository.FullName,
+			"repository_url": runEvent.Repository.HTMLURL,
+			"branch":         run.HeadBranch,
+			"commit_sha":     run.HeadSHA,
+			"workflow":       run.Name,
+			"conclusion":     run.Conclusion,
+			"run_url":        run.HTMLURL,
+			"run_number":     run.RunNumber,
+			"status":         strings.ToUpper(run.Conclusion),
+			"event":          run.Event,
+		},
+		CreatedAt: timestamp,
+	}, nil
+}
+
 // isGitHubPrivate applies the default-private rule: an event is public only
 // when the payload says repository.private is explicitly false.
 func isGitHubPrivate(private *bool) bool {

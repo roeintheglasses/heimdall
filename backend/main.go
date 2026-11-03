@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"heimdall-backend/alerts"
 	"heimdall-backend/config"
 	"heimdall-backend/database"
 	"heimdall-backend/handlers"
@@ -74,11 +75,15 @@ func main() {
 	transformerRegistry := transformers.NewRegistry()
 
 	// Create handlers
-	healthHandler := handlers.NewHealthHandler(cfg)
+	healthHandler := handlers.NewHealthHandler(cfg, db)
 	eventsHandler := handlers.NewEventsHandler(eventRepo)
 	statsHandler := handlers.NewStatsHandler(eventRepo, log)
 	wrappedHandler := handlers.NewWrappedHandler(eventRepo, log)
-	webhookHandler := handlers.NewWebhookHandler(eventRepo, transformerRegistry, cfg.WebhookSecret)
+	alertNotifier := alerts.FromEnv(log)
+	if alertNotifier != nil {
+		log.Info().Msg("failure alerts enabled")
+	}
+	webhookHandler := handlers.NewWebhookHandler(eventRepo, transformerRegistry, cfg.WebhookSecret).WithNotifier(alertNotifier)
 
 	// Create rate limiter for webhook endpoint (stricter limits for writes)
 	webhookRateLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
@@ -97,6 +102,7 @@ func main() {
 	// API routes
 	api := r.PathPrefix("/api").Subrouter()
 	api.Handle("/health", healthHandler).Methods("GET", "OPTIONS")
+	api.Handle("/health/live", handlers.LiveHandler{}).Methods("GET", "OPTIONS")
 	api.Handle("/events", readRateLimiter.Limit(eventsHandler)).Methods("GET", "OPTIONS")
 	api.Handle("/stats", readRateLimiter.Limit(statsHandler)).Methods("GET", "OPTIONS")
 	api.Handle("/wrapped/{month}", readRateLimiter.Limit(wrappedHandler)).Methods("GET", "OPTIONS")
@@ -135,6 +141,7 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Error().Err(err).Msg("server forced to shutdown")
 	}
+	alertNotifier.Wait()
 
 	log.Info().Msg("server exited gracefully")
 }

@@ -26,7 +26,7 @@ const { promisify } = require('util');
 // Configuration
 const GITHUB_API_BASE = 'https://api.github.com';
 const DEFAULT_WEBHOOK_URL = 'https://heimdall-ashen.vercel.app/api/webhook';
-const WEBHOOK_EVENTS = ['push', 'pull_request', 'issues', 'release'];
+const WEBHOOK_EVENTS = ['push', 'pull_request', 'issues', 'release', 'workflow_run'];
 
 // Colors for console output
 const colors = {
@@ -51,6 +51,8 @@ class GitHubWebhookManager {
       updated: 0,
       errors: 0,
     };
+    // Hooks that point at a Heimdall host but not at the current URL. Reported only.
+    this.staleHooks = [];
   }
 
   log(message, color = 'reset') {
@@ -185,12 +187,31 @@ class GitHubWebhookManager {
     return response.data;
   }
 
+  // Report hooks whose host contains "heimdall" but whose URL differs from the current one.
+  // The script never changes or deletes them.
+  collectStaleHooks(repo, hooks) {
+    for (const hook of hooks) {
+      const hookUrl = hook.config && hook.config.url;
+      if (!hookUrl || hookUrl === this.webhookUrl) continue;
+      let host = '';
+      try {
+        host = new URL(hookUrl).hostname.toLowerCase();
+      } catch {
+        continue;
+      }
+      if (host.includes('heimdall')) {
+        this.staleHooks.push({ repo: repo.full_name, id: hook.id, url: hookUrl });
+      }
+    }
+  }
+
   async processRepository(repo) {
     this.stats.total++;
 
     try {
       // Check if webhook already exists
       const existingHooks = await this.getExistingWebhooks(repo);
+      this.collectStaleHooks(repo, existingHooks);
       const heimdallHook = existingHooks.find(
         (hook) => hook.config && hook.config.url === this.webhookUrl
       );
@@ -264,6 +285,25 @@ class GitHubWebhookManager {
     this.log(`  ✅ Webhooks added: ${this.stats.added}`, 'green');
     this.log(`  🔄 Webhooks updated: ${this.stats.updated}`, 'yellow');
     this.log(`  ❌ Errors: ${this.stats.errors}`, 'red');
+
+    if (this.staleHooks.length > 0) {
+      this.log(
+        `\n⚠️  ${this.staleHooks.length} hook(s) point at a Heimdall host with a different URL (not changed):`,
+        'yellow'
+      );
+      for (const h of this.staleHooks) {
+        // Query strings can carry tokens, so print only the origin and path.
+        let shown = h.url;
+        try {
+          const u = new URL(h.url);
+          shown = `${u.origin}${u.pathname}`;
+        } catch {
+          shown = '(unparseable URL)';
+        }
+        this.log(`  • ${h.repo} (hook ${h.id}): ${shown}`, 'yellow');
+      }
+      this.log('  Remove them in the repository settings if they are no longer needed.', 'yellow');
+    }
 
     if (this.stats.errors === 0) {
       this.log('\n🎉 All done! Your repositories are now connected to Heimdall.', 'green');

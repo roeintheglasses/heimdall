@@ -126,6 +126,8 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
         return 'ISSUE';
       case 'github.release':
         return 'RELEASE';
+      case 'error.ci':
+        return 'CI FAILED';
       case 'vercel.deploy':
         return 'DEPLOY';
       case 'railway.deploy':

@@ -126,7 +126,7 @@ func fetchRepos(ctx context.Context, base, token string) ([]repo, error) {
 // another account could be the real source.
 const updateEventsSQL = `
 UPDATE events SET is_private = $2
-WHERE event_type LIKE 'github.%'
+WHERE (event_type LIKE 'github.%' OR event_type = 'error.ci')
 AND is_private IS DISTINCT FROM $2
 AND (
 	metadata->>'full_name' = $1

@@ -1,12 +1,50 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Shield, Activity, ArrowRight, Terminal } from 'lucide-react';
 import { HeatmapBackground } from '@/components/HeatmapBackground';
 import { SoundToggle } from '@/components/SoundToggle';
 import { TerminalPrompt } from '@/components/TerminalText';
+import {
+  fetchSystemStatus,
+  formatLastEvent,
+  statusView,
+  type SystemStatus,
+  type StatusView,
+} from '@/lib/status';
+import { getGoServiceUrl } from '@/lib/api';
+
+const TONE_CLASS: Record<StatusView['tone'], string> = {
+  ok: 'text-neon-green',
+  warn: 'text-neon-yellow',
+  bad: 'text-neon-pink',
+  neutral: 'text-muted-foreground',
+};
+
+function useSystemStatus(): SystemStatus {
+  const [status, setStatus] = useState<SystemStatus>({ backend: 'loading', lastEventAt: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    let base = '';
+    try {
+      base = getGoServiceUrl();
+    } catch {
+      // No backend URL in this build: the health route still reports the backend state.
+    }
+    fetchSystemStatus(base).then((next) => {
+      if (!cancelled) setStatus(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return status;
+}
 
 // ASCII Art Logo
 const HEIMDALL_ASCII = `
@@ -19,6 +57,10 @@ const HEIMDALL_ASCII = `
 `.trim();
 
 export default function Home() {
+  const system = useSystemStatus();
+  const view = statusView(system.backend);
+  const toneClass = TONE_CLASS[view.tone];
+
   return (
     <div className="relative h-screen overflow-hidden bg-terminal-black">
       {/* Background layer - Activity heatmap */}
@@ -121,7 +163,13 @@ export default function Home() {
                 </p>
                 <p>
                   <span className="text-neon-magenta">&gt;</span> Status:{' '}
-                  <span className="text-neon-green">OPERATIONAL</span>
+                  <span className={toneClass}>{view.label}</span>
+                  {system.backend === 'up' && (
+                    <span className="text-muted-foreground">
+                      {' '}
+                      {'//'} Last event: {formatLastEvent(system.lastEventAt)}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -147,7 +195,7 @@ export default function Home() {
           <div className="container px-4 text-center sm:px-6">
             <p className="font-mono text-xs text-muted-foreground">
               <span className="text-neon-magenta">&gt;</span> HEIMDALL_DASHBOARD //{' '}
-              <span className="text-neon-green">OPERATIONAL</span>
+              <span className={toneClass}>{view.label}</span>
             </p>
           </div>
         </footer>

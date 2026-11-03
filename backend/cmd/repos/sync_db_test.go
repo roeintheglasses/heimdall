@@ -35,6 +35,7 @@ func TestSyncReposDB(t *testing.T) {
 		('github.push', 'c', '{"repo":"pub","repository_url":"https://github.com/other/pub"}', true),
 		('github.push', 'd', '{"repo":"dup"}', true),
 		('github.push', 'e', '{"repo":"sec","full_name":"me/sec"}', false),
+		('error.ci', 'g', '{"repo":"sec","full_name":"me/sec"}', false),
 		('vercel.deploy', 'f', '{"repo":"pub"}', true)`); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +51,7 @@ func TestSyncReposDB(t *testing.T) {
 		t.Fatal(err)
 	}
 	var n int
-	if err = db.QueryRowContext(ctx, `SELECT count(*) FROM events WHERE is_private = false`).Scan(&n); err != nil || n != 1 {
+	if err = db.QueryRowContext(ctx, `SELECT count(*) FROM events WHERE is_private = false`).Scan(&n); err != nil || n != 2 {
 		t.Fatalf("dry run changed data: public rows = %d, err = %v", n, err)
 	}
 
@@ -59,7 +60,7 @@ func TestSyncReposDB(t *testing.T) {
 	}
 	// b has no full_name or repository_url, so it may belong to another account's
 	// "pub" and must not become public. b2's URL proves it is me/pub.
-	want := map[string]bool{"a": false, "b": true, "b2": false, "c": true, "d": true, "e": true, "f": true}
+	want := map[string]bool{"a": false, "b": true, "b2": false, "c": true, "d": true, "e": true, "f": true, "g": true}
 	rows, err := db.QueryContext(ctx, `SELECT title, is_private FROM events`)
 	if err != nil {
 		t.Fatal(err)

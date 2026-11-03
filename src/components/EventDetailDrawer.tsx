@@ -23,6 +23,7 @@ import { Terminal, Copy, Check, ExternalLink, FileJson, List, Info, Clock, X } f
 import GitHubEventDetail from '@/components/event-details/GitHubEventDetail';
 import VercelEventDetail from '@/components/event-details/VercelEventDetail';
 import RailwayEventDetail from '@/components/event-details/RailwayEventDetail';
+import CIEventDetail from '@/components/event-details/CIEventDetail';
 import GenericEventDetail from '@/components/event-details/GenericEventDetail';
 import PrivateEventDetail from '@/components/event-details/PrivateEventDetail';
 
@@ -70,6 +71,8 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
         return 'ISSUE';
       case 'github.release':
         return 'RELEASE';
+      case 'error.ci':
+        return 'CI FAILED';
       case 'vercel.deploy':
         return 'DEPLOY';
       case 'railway.deploy':
@@ -94,6 +97,10 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
 
     if (event.private) {
       return <PrivateEventDetail event={event} />;
+    }
+
+    if (eventType === 'error.ci') {
+      return <CIEventDetail event={event} />;
     }
 
     if (eventType.startsWith('github.')) {
@@ -126,6 +133,11 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
       add('Repository', metadata.repository_url);
       add('Commit', metadata.commit_url);
       add('Pull Request', metadata.pr_url);
+    }
+
+    if (event.event_type === 'error.ci') {
+      add('Run', metadata.run_url);
+      add('Repository', metadata.repository_url);
     }
 
     if (event.event_type?.startsWith('vercel.')) {
