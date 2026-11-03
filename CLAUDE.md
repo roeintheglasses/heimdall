@@ -27,7 +27,7 @@ Key files:
 - `src/app/api/webhook/route.ts` verifies the provider credential, detects the event type, and forwards the event. Helpers live in `src/lib/webhook/` (`verify.ts`, `detect.ts`, `forward.ts`).
 - `backend/handlers/webhook.go` authenticates the Edge call, validates the payload, and stores it. `backend/transformers/` turns provider payloads into `DashboardEvent`.
 - `backend/handlers/redact.go` strips details from private events in `GET /api/events`.
-- `src/app/api/events/stream/route.ts` is the SSE endpoint. It polls the backend and broadcasts new events.
+- `src/app/api/events/stream/route.ts` is the SSE endpoint. It polls the backend every 15 seconds (`POLL_INTERVAL_MS`) and broadcasts new events. Poll timeout is 4 s, heartbeat 25 s.
 - `src/app/dashboard/page.tsx` is the dashboard. `src/app/page.tsx` is the landing page.
 - `src/contexts/CategoryContext.tsx` does client-side categorization and filtering.
 - `backend/cmd/migrate` applies SQL migrations from `backend/database/migrations`.
@@ -59,7 +59,7 @@ npm run test-railway-webhook
 go build -o main .
 go run main.go
 go vet ./...
-go test -race ./...
+go test -race ./...         # DB tests skip without TEST_DATABASE_URL
 
 # Migrations (from backend/)
 DATABASE_URL=... go run ./cmd/migrate up
@@ -74,6 +74,18 @@ DATABASE_URL=... go run ./cmd/dedupe -apply -export deleted.jsonl
 ```
 
 The migrate tool takes `up`, `down`, `version`, `force <version>`, and `steps <n>`. Flags: `-database` (default: `DATABASE_URL`) and `-path` (default: `database/migrations`). In the Docker image the binary is `./migrate`.
+
+## Database tests
+
+`backend/internal/testdb.Open` opens `TEST_DATABASE_URL` and truncates `events` and `repo_settings`. Without the variable the tests skip. With `HEIMDALL_REQUIRE_DB=1` they fail instead, and CI sets it so the tests cannot skip silently. CI runs a `postgres:16` service, applies migrations with `cmd/migrate`, and runs `go test -race -p 1`. `-p 1` is needed because packages share one database. Run them locally:
+
+```bash
+docker run -d --rm --name hd-pg -e POSTGRES_PASSWORD=pw -p 55433:5432 postgres:16
+cd backend
+TEST_DATABASE_URL='postgres://postgres:pw@localhost:55433/postgres?sslmode=disable' \
+  sh -c 'go run ./cmd/migrate -database "$TEST_DATABASE_URL" up && HEIMDALL_REQUIRE_DB=1 go test -race -p 1 ./...'
+docker stop hd-pg
+```
 
 ## Environment variables
 
@@ -99,6 +111,8 @@ Backend (Railway):
 - `PRETTY_LOGS`: `true` for console-style logs.
 - `ALERT_WEBHOOK_URL`: optional. Failure alerts are POSTed here. Unset means no alerts. Treat it as a secret and never log it.
 - `ALERT_WEBHOOK_FORMAT`: optional, `discord`, `slack`, or `ntfy`. Overrides detection from the URL host.
+- `GITHUB_TOKEN`: only for `cmd/repos sync`. The service does not read it.
+- `TEST_DATABASE_URL` and `HEIMDALL_REQUIRE_DB`: test only, see Database tests.
 
 ## Webhook authentication
 
@@ -120,7 +134,7 @@ GitHub events other than `push`, `pull_request`, `issues`, `release`, and `workf
 
 `workflow_run` becomes `error.ci` only when `action` is `completed` and `workflow_run.conclusion` is `failure`, `timed_out`, or `cancelled`. Any other run gets 202 `ignored`. The delivery id is `github:run:<run id>:<attempt>:<conclusion>`, so a second hook on the same repo or a redelivery is a duplicate, and a re-run is a new event. `error.ci` metadata: `repo`, `full_name`, `repository_url`, `branch`, `commit_sha`, `workflow`, `conclusion`, `run_url`, `run_number`, `status` (upper-cased conclusion), `event`. Privacy follows `repository.private`.
 
-Each forwarded payload carries a `delivery_id`. The backend has a unique index on it and answers duplicates with 200 `{"status":"duplicate"}`. For GitHub `push` events the id is `github:push:<repository.full_name>:<ref>:<after>` when all three are present, so two webhooks on one repo store a push once. Other GitHub events use `github:<X-GitHub-Delivery>`. Without a delivery header they fall back to a body hash.
+Each forwarded payload carries a `delivery_id`. The backend has a unique index on it and answers duplicates with 200 `{"status":"duplicate"}`. For GitHub `push` events the id is `github:push:<sha256 of full_name, ref, before, after>` when all four are present and `after` is not all zeros, so two webhooks on one repo store a push once. Other GitHub events use `github:<X-GitHub-Delivery>`. Without a delivery header they fall back to a body hash.
 
 GitHub events carry `full_name` (`owner/name`) in metadata next to the short `repo`. `full_name` is not in the redaction allowlist.
 

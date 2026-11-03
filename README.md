@@ -107,6 +107,21 @@ The migrate tool also accepts `force <version>` and `steps <n>`. It reads `DATAB
 
 The repos tool reads `DATABASE_URL` (or `-database`). `sync` also needs `GITHUB_TOKEN` and takes `-dry-run`. The Docker image ships it as `./repos`. The dedupe tool is a dry run unless you pass `-apply -export <file>`.
 
+### Database tests
+
+Integration tests run against a real Postgres. They skip unless `TEST_DATABASE_URL` is set, and they truncate `events` and `repo_settings`, so never point them at real data. Set `HEIMDALL_REQUIRE_DB=1` to make them fail instead of skip when the URL is missing (CI does this).
+
+```bash
+docker run -d --rm --name hd-pg -e POSTGRES_PASSWORD=pw -p 55433:5432 postgres:16
+cd backend
+export TEST_DATABASE_URL='postgres://postgres:pw@localhost:55433/postgres?sslmode=disable'
+go run ./cmd/migrate -database "$TEST_DATABASE_URL" up
+HEIMDALL_REQUIRE_DB=1 go test -race -p 1 ./...
+docker stop hd-pg
+```
+
+Use `-p 1` so packages do not truncate the shared database at the same time. The tests cover duplicate inserts, cursor paging, filters, redaction, hidden repos, the health check, and the duplicate push query. Shared helpers live in `backend/internal/testdb`.
+
 ### Webhook scripts
 
 | Command                        | Description                       |
@@ -149,6 +164,9 @@ Without `NEXT_PUBLIC_BASE_URL`, the app uses `https://$VERCEL_PROJECT_PRODUCTION
 | `PRETTY_LOGS`            | `true` for console-style logs                        | No       |
 | `ALERT_WEBHOOK_URL`      | Failure alerts go here. Unset means no alerts        | No       |
 | `ALERT_WEBHOOK_FORMAT`   | `discord`, `slack`, or `ntfy`. Overrides detection   | No       |
+| `GITHUB_TOKEN`           | Only for `cmd/repos sync`. Not read by the service   | No       |
+| `TEST_DATABASE_URL`      | Database for integration tests (see Database tests)  | No       |
+| `HEIMDALL_REQUIRE_DB`    | `1` makes DB tests fail instead of skip              | No       |
 
 Generate secrets with `openssl rand -hex 32`.
 
@@ -197,6 +215,8 @@ Set `ALERT_WEBHOOK_URL` on the backend to get a short message when a newly store
 - Every `error.ci` event (a failed, timed out, or cancelled GitHub Actions run).
 
 The message names the provider, project or repo, branch, short SHA, status, and a link when there is one. It uses the full event, including private ones, so point the URL at your own channel. The body shape depends on the URL host: `discord.com` and `discordapp.com` get `{"content": ...}`, `hooks.slack.com` gets `{"text": ...}`, and `ntfy.sh` or a host containing `ntfy` gets plain text with a `Title` header. Other hosts get the Discord shape. Set `ALERT_WEBHOOK_FORMAT` to `discord`, `slack`, or `ntfy` to override. Sends run in the background with a 5 second timeout, at most 8 at a time. The URL is never logged.
+
+The SSE stream polls the backend every 15 seconds and sends a heartbeat every 25 seconds.
 
 ## Endpoints
 

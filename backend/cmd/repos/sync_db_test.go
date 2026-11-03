@@ -3,29 +3,17 @@ package main
 import (
 	"bytes"
 	"context"
-	"database/sql"
-	"os"
 	"testing"
 
-	_ "github.com/lib/pq"
+	"heimdall-backend/internal/testdb"
 )
 
 // TestSyncReposDB needs a migrated database. Set TEST_DATABASE_URL to run it.
 // It rewrites the events and repo_settings tables, so never point it at real data.
 func TestSyncReposDB(t *testing.T) {
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("TEST_DATABASE_URL not set")
-	}
 	ctx := context.Background()
-	db, err := sql.Open("postgres", url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = db.Close() }()
-	if _, err = db.ExecContext(ctx, `TRUNCATE events, repo_settings`); err != nil {
-		t.Fatal(err)
-	}
+	db := testdb.Open(t)
+	var err error
 	if _, err = db.ExecContext(ctx, `
 		INSERT INTO repo_settings (full_name, visibility, hidden) VALUES ('me/pub', 'private', true);
 		INSERT INTO events (event_type, title, metadata, is_private) VALUES
