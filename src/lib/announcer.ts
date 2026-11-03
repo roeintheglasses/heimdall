@@ -3,6 +3,8 @@ import { eventNoun } from '@/lib/eventDisplay';
 export interface Announcement {
   type: string;
   title: string;
+  /** A ready-made message, used as is when it is the only item in a batch. */
+  text?: string;
 }
 
 export const ANNOUNCE_INTERVAL_MS = 5000;
@@ -10,6 +12,7 @@ export const ANNOUNCE_INTERVAL_MS = 5000;
 export const ANNOUNCE_COALESCE_MS = 300;
 
 export function formatAnnouncement(items: Announcement[]): string {
+  if (items.length === 1 && items[0].text) return items[0].text;
   if (items.length === 1) return `New ${eventNoun(items[0].type)}: ${items[0].title}`;
   return `${items.length} new events`;
 }

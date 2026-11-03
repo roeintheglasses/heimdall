@@ -2,16 +2,11 @@ import { render, screen } from '@testing-library/react';
 import SiteNav from './SiteNav';
 
 describe('SiteNav', () => {
-  it('links to the dashboard, stats and the current wrapped month', () => {
+  it('links to the dashboard, stats and the wrapped index, which redirects to the current month', () => {
     render(<SiteNav current="dashboard" />);
-    const now = new Date();
-    const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard');
     expect(screen.getByRole('link', { name: 'Stats' })).toHaveAttribute('href', '/me');
-    expect(screen.getByRole('link', { name: 'Wrapped' })).toHaveAttribute(
-      'href',
-      `/wrapped/${month}`
-    );
+    expect(screen.getByRole('link', { name: 'Wrapped' })).toHaveAttribute('href', '/wrapped');
   });
 
   it('marks only the current page with aria-current', () => {

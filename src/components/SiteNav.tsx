@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { formatMonthKey } from '@/lib/months';
 import { cn } from '@/lib/utils';
 
 export type NavPage = 'dashboard' | 'stats' | 'wrapped';
@@ -10,16 +9,11 @@ interface SiteNavProps {
   className?: string;
 }
 
-/** Wrapped months are UTC, matching parseWrappedMonth. */
-function currentWrappedMonth(now: Date = new Date()): string {
-  return formatMonthKey(now.getUTCFullYear(), now.getUTCMonth() + 1);
-}
-
 export default function SiteNav({ current, className }: SiteNavProps) {
   const items: Array<{ page: NavPage; label: string; href: string }> = [
     { page: 'dashboard', label: 'Dashboard', href: '/dashboard' },
     { page: 'stats', label: 'Stats', href: '/me' },
-    { page: 'wrapped', label: 'Wrapped', href: `/wrapped/${currentWrappedMonth()}` },
+    { page: 'wrapped', label: 'Wrapped', href: '/wrapped' },
   ];
 
   return (
@@ -39,11 +33,7 @@ export default function SiteNav({ current, className }: SiteNavProps) {
                 : 'text-muted-foreground hover:text-neon-cyan'
             )}
           >
-            <Link
-              href={item.href}
-              aria-current={isCurrent ? 'page' : undefined}
-              suppressHydrationWarning
-            >
+            <Link href={item.href} aria-current={isCurrent ? 'page' : undefined}>
               {item.label}
             </Link>
           </Button>

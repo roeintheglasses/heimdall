@@ -19,6 +19,7 @@ import ConnectionStatus, { type StreamState } from '@/components/ConnectionStatu
 import { getGoServiceUrl } from '@/lib/api';
 import { MAX_EVENTS, mergeNewest } from '@/lib/eventList';
 import { backendTypeFor } from '@/lib/eventQuery';
+import { indexOfId, keepNewRows } from '@/lib/listSelection';
 import { flatItems, groupEventRuns, type ListItem } from '@/lib/eventGrouping';
 import { buildDailyBuckets, totalInBuckets, GRAPH_DAYS } from '@/lib/activityBuckets';
 import { groupByDay } from '@/lib/time';
@@ -73,7 +74,8 @@ interface NextCursor {
 
 interface TypedSearch {
   type: string;
-  fetched: number;
+  /** Rows of this type that were not already in the main list. Never merged into it. */
+  events: DashboardEvent[];
   exhausted: boolean;
 }
 
@@ -101,7 +103,7 @@ function DashboardContent() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const isLoadingMoreRef = useRef(false);
+  const olderInFlightRef = useRef<Promise<{ loaded: number; more: boolean }> | null>(null);
   const nextCursorRef = useRef<NextCursor | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [totalEvents, setTotalEvents] = useState(0);
@@ -125,9 +127,10 @@ function DashboardContent() {
   // New state for Phase 2 features
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
-  const [selectedEventIndex, setSelectedEventIndex] = useState<number | null>(null);
+  // Selection is stored by item id, so inserts, regrouping and filters cannot move it to another event
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const eventListRef = useRef<HTMLDivElement>(null);
-  const selectedRef = useRef<number | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
 
   // State for event detail drawer
   const [drawerEvent, setDrawerEvent] = useState<DashboardEvent | null>(null);
@@ -166,42 +169,47 @@ function DashboardContent() {
 
   // Load the next page of older events using the cursor from the previous page.
   // Resolves with how many events arrived and whether more remain.
-  const loadOlderPage = useCallback(async (): Promise<{ loaded: number; more: boolean }> => {
+  const loadOlderPage = useCallback((): Promise<{ loaded: number; more: boolean }> => {
+    // A load already in flight is shared, so a search that starts meanwhile keeps going
+    if (olderInFlightRef.current) return olderInFlightRef.current;
     const cursor = nextCursorRef.current;
-    if (isLoadingMoreRef.current || !cursor) return { loaded: 0, more: false };
+    if (!cursor) return Promise.resolve({ loaded: 0, more: false });
 
-    isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
-    let loaded = 0;
-    let more = false;
-    try {
-      const params = new URLSearchParams({
-        limit: '100',
-        before: cursor.before,
-        before_id: cursor.before_id,
-      });
-      const response = await fetch(`${goServiceUrl}/api/events?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        const newEvents: DashboardEvent[] = data.events || data;
-        if (newEvents.length > 0) {
-          rememberIds(newEvents);
-          setEvents((prev) => mergeNewest(prev, newEvents, eventCapRef.current));
-          loaded = newEvents.length;
+    const run = (async () => {
+      let loaded = 0;
+      let more = false;
+      try {
+        const params = new URLSearchParams({
+          limit: '100',
+          before: cursor.before,
+          before_id: cursor.before_id,
+        });
+        const response = await fetch(`${goServiceUrl}/api/events?${params.toString()}`);
+        if (response.ok) {
+          const data = await response.json();
+          const newEvents: DashboardEvent[] = data.events || data;
+          if (newEvents.length > 0) {
+            rememberIds(newEvents);
+            setEvents((prev) => mergeNewest(prev, newEvents, eventCapRef.current));
+            loaded = newEvents.length;
+          }
+          const pagination = data.pagination;
+          nextCursorRef.current = pagination?.next_cursor ?? null;
+          more = Boolean(pagination?.hasMore && pagination?.next_cursor);
+          setHasMore(more);
+          if (pagination) setTotalEvents(pagination.total);
         }
-        const pagination = data.pagination;
-        nextCursorRef.current = pagination?.next_cursor ?? null;
-        more = Boolean(pagination?.hasMore && pagination?.next_cursor);
-        setHasMore(more);
-        if (pagination) setTotalEvents(pagination.total);
+      } catch (err) {
+        console.error('Error loading more events:', err);
+      } finally {
+        olderInFlightRef.current = null;
+        setIsLoadingMore(false);
       }
-    } catch (err) {
-      console.error('Error loading more events:', err);
-    } finally {
-      isLoadingMoreRef.current = false;
-      setIsLoadingMore(false);
-    }
-    return { loaded, more };
+      return { loaded, more };
+    })();
+    olderInFlightRef.current = run;
+    return run;
   }, [goServiceUrl, rememberIds]);
 
   const loadMoreEvents = useCallback(() => {
@@ -381,10 +389,30 @@ function DashboardContent() {
     return calculateServiceStats(events);
   }, [apiStats, events, calculateServiceStats]);
 
+  // Backend `type` filter, when the service and category filters narrow to one event type
+  const filtersActive = hasActiveFilters();
+  const backendType = useMemo(
+    () =>
+      backendTypeFor({
+        selectedService: filter.selectedService,
+        selectedCategory: filter.selectedCategory,
+      }),
+    [filter.selectedService, filter.selectedCategory]
+  );
+
   // Filter events using category context
+  // Typed search results are shown only while the active filter still maps to their type
+  const typedState = typedSearch && typedSearch.type === backendType ? typedSearch : null;
+  const displayEvents = useMemo(
+    () =>
+      typedState
+        ? mergeNewest(events, typedState.events, events.length + typedState.events.length)
+        : events,
+    [events, typedState]
+  );
   const filteredEvents = useMemo(() => {
-    return filterEvents(events);
-  }, [events, filterEvents]);
+    return filterEvents(displayEvents);
+  }, [displayEvents, filterEvents]);
 
   useEffect(() => {
     eventsRef.current = events;
@@ -415,11 +443,15 @@ function DashboardContent() {
     [events, now]
   );
 
-  // Selection is an index into navItems; the ref lets key handlers read it without re-binding
-  const updateSelected = useCallback((index: number | null) => {
-    selectedRef.current = index;
-    setSelectedEventIndex(index);
+  const updateSelected = useCallback((id: string | null) => {
+    selectedIdRef.current = id;
+    setSelectedId(id);
   }, []);
+
+  const selectedIndex = useMemo(() => {
+    const index = indexOfId(navItems, selectedId);
+    return index === -1 ? null : index;
+  }, [navItems, selectedId]);
 
   const navElement = useCallback(
     (index: number) =>
@@ -429,36 +461,40 @@ function DashboardContent() {
 
   const moveSelection = useCallback(
     (index: number) => {
-      updateSelected(index);
+      updateSelected(navItems[index].id);
       const el = navElement(index);
       if (!el) return;
       el.focus({ preventScroll: true });
       el.scrollIntoView({ behavior: scrollBehavior(), block: 'nearest' });
     },
-    [navElement, updateSelected]
+    [navItems, navElement, updateSelected]
   );
+
+  const currentIndex = useCallback(() => {
+    return indexOfId(navItems, selectedIdRef.current);
+  }, [navItems]);
 
   // Keyboard shortcuts handlers
   const handleNextEvent = useCallback(() => {
     if (navItems.length === 0) return;
     playClick();
-    const current = selectedRef.current;
-    moveSelection(current === null ? 0 : Math.min(current + 1, navItems.length - 1));
-  }, [navItems.length, playClick, moveSelection]);
+    const current = currentIndex();
+    moveSelection(current === -1 ? 0 : Math.min(current + 1, navItems.length - 1));
+  }, [navItems.length, playClick, moveSelection, currentIndex]);
 
   const handlePrevEvent = useCallback(() => {
     if (navItems.length === 0) return;
     playClick();
-    const current = selectedRef.current;
-    moveSelection(current === null ? navItems.length - 1 : Math.max(current - 1, 0));
-  }, [navItems.length, playClick, moveSelection]);
+    const current = currentIndex();
+    moveSelection(current === -1 ? navItems.length - 1 : Math.max(current - 1, 0));
+  }, [navItems.length, playClick, moveSelection, currentIndex]);
 
   // Enter: open the selected event's drawer, or expand/collapse the selected group
   const handleExpandEvent = useCallback(() => {
-    const current = selectedRef.current;
-    if (current === null) return;
+    const current = currentIndex();
+    if (current === -1) return;
     navElement(current)?.click();
-  }, [navElement]);
+  }, [navElement, currentIndex]);
 
   const handleClearSelection = useCallback(() => {
     updateSelected(null);
@@ -526,37 +562,26 @@ function DashboardContent() {
           : item.group.events.some((e) => e.id === event.id)
       );
       if (index !== -1) {
-        updateSelected(index);
+        updateSelected(navItems[index].id);
         navElement(index)?.scrollIntoView({ behavior: scrollBehavior(), block: 'center' });
       }
     },
     [navItems, navElement, updateSelected]
   );
 
-  // Backend `type` filter, when the service and category filters narrow to one event type
-  const filtersActive = hasActiveFilters();
-  const backendType = useMemo(
-    () =>
-      backendTypeFor({
-        selectedService: filter.selectedService,
-        selectedCategory: filter.selectedCategory,
-      }),
-    [filter.selectedService, filter.selectedCategory]
-  );
-  const typedState = typedSearch && typedSearch.type === backendType ? typedSearch : null;
-
   // Keep loading older pages until the cap or the end. A single event type is
   // fetched from the backend directly, so it reaches back past the loaded list.
   const searchOlderEvents = useCallback(async () => {
     const runId = ++searchRunRef.current;
     const isCurrent = () => runId === searchRunRef.current;
-    eventCapRef.current = SEARCH_EVENT_CAP;
+    if (!backendType) eventCapRef.current = SEARCH_EVENT_CAP;
     setIsSearchingOlder(true);
     setSearchProgress(0);
     try {
       if (backendType) {
         let cursor: NextCursor | null = null;
-        let fetched = 0;
+        const kept = new Map<string, DashboardEvent>();
+        const inList = new Set(eventsRef.current.map((e) => e.id));
         while (isCurrent()) {
           const params = new URLSearchParams({ limit: '200', type: backendType });
           if (cursor) {
@@ -567,14 +592,13 @@ function DashboardContent() {
           if (!response.ok || !isCurrent()) break;
           const data = await response.json();
           const page: DashboardEvent[] = data.events || data;
-          rememberIds(page);
-          setEvents((prev) => mergeNewest(prev, page, eventCapRef.current));
-          fetched += page.length;
+          // Keep only rows that are new, and stop once the list is full
+          keepNewRows(kept, page, inList, SEARCH_EVENT_CAP);
           cursor = data.pagination?.next_cursor ?? null;
           const exhausted = !cursor || !data.pagination?.hasMore;
-          setSearchProgress(fetched);
-          setTypedSearch({ type: backendType, fetched, exhausted });
-          if (exhausted || fetched >= SEARCH_EVENT_CAP) break;
+          setSearchProgress(kept.size);
+          setTypedSearch({ type: backendType, events: [...kept.values()], exhausted });
+          if (exhausted || kept.size >= SEARCH_EVENT_CAP) break;
         }
       } else {
         let count = eventsRef.current.length;
@@ -590,7 +614,7 @@ function DashboardContent() {
     } finally {
       if (isCurrent()) setIsSearchingOlder(false);
     }
-  }, [backendType, goServiceUrl, loadOlderPage, rememberIds]);
+  }, [backendType, goServiceUrl, loadOlderPage]);
 
   // Changing filters cancels a running search; unmounting does too
   useEffect(() => {
@@ -609,7 +633,7 @@ function DashboardContent() {
     hasMore &&
     !isSearchingOlder &&
     (backendType
-      ? !(typedState && (typedState.exhausted || typedState.fetched >= SEARCH_EVENT_CAP))
+      ? !(typedState && (typedState.exhausted || typedState.events.length >= SEARCH_EVENT_CAP))
       : events.length < SEARCH_EVENT_CAP);
 
   let searchedSummary = '';
@@ -617,16 +641,28 @@ function DashboardContent() {
     if (isSearchingOlder) {
       searchedSummary = `Searching older events... ${searchProgress} loaded`;
     } else if (typedState) {
+      const count = displayEvents.filter((e) => e.event_type === typedState.type).length;
       const noun = `${typedState.type} events`;
       searchedSummary = typedState.exhausted
-        ? `Searched all ${typedState.fetched} ${noun}`
-        : `Searched the latest ${typedState.fetched} ${noun}`;
+        ? `Searched all ${count} ${noun}`
+        : `Searched the latest ${count} ${noun}`;
     } else if (totalEvents > events.length) {
       searchedSummary = `Searched the latest ${events.length} of ${totalEvents} events`;
     } else {
       searchedSummary = `Searched all ${events.length} events`;
     }
   }
+
+  // Announce only the final result of a search, through the throttled live region
+  const summaryRef = useRef(searchedSummary);
+  summaryRef.current = searchedSummary;
+  const wasSearchingRef = useRef(false);
+  useEffect(() => {
+    if (wasSearchingRef.current && !isSearchingOlder && summaryRef.current) {
+      announce({ type: 'search', title: '', text: summaryRef.current });
+    }
+    wasSearchingRef.current = isSearchingOlder;
+  }, [isSearchingOlder, announce]);
 
   return (
     <div className="min-h-screen bg-terminal-black">
@@ -906,9 +942,7 @@ function DashboardContent() {
               {/* How much was searched, and a way to look further back */}
               {(searchedSummary || canSearchOlder) && (
                 <div className="flex flex-wrap items-center gap-3 border-b border-neon-green/30 px-4 py-2 font-mono text-xs">
-                  <p role="status" className="text-muted-foreground">
-                    {searchedSummary}
-                  </p>
+                  <p className="text-muted-foreground">{searchedSummary}</p>
                   {canSearchOlder && (
                     <Button
                       onClick={searchOlderEvents}
@@ -986,10 +1020,10 @@ function DashboardContent() {
                                 <EventCard
                                   event={item.event}
                                   navIndex={navIndex}
-                                  isSelected={selectedEventIndex === navIndex}
-                                  onFocus={() => updateSelected(navIndex)}
+                                  isSelected={selectedIndex === navIndex}
+                                  onFocus={() => updateSelected(item.id)}
                                   onSelect={() => {
-                                    updateSelected(navIndex);
+                                    updateSelected(item.id);
                                     handleViewDetails(item.event);
                                   }}
                                 />
@@ -997,8 +1031,8 @@ function DashboardContent() {
                                 <EventGroup
                                   group={item.group}
                                   navIndex={navIndex}
-                                  isSelected={selectedEventIndex === navIndex}
-                                  onFocus={() => updateSelected(navIndex)}
+                                  isSelected={selectedIndex === navIndex}
+                                  onFocus={() => updateSelected(item.id)}
                                   onViewDetails={handleViewDetails}
                                 />
                               )}

@@ -116,3 +116,11 @@ describe('useLiveAnnouncer', () => {
     expect(result.current.message.text).toBe('New pull request: c');
   });
 });
+
+describe('ready-made messages', () => {
+  it('uses the text of a lone item as is', () => {
+    expect(formatAnnouncement([{ type: 'search', title: '', text: 'Searched all 5 events' }])).toBe(
+      'Searched all 5 events'
+    );
+  });
+});
