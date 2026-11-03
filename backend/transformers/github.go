@@ -3,6 +3,7 @@ package transformers
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"heimdall-backend/models"
@@ -15,7 +16,9 @@ func TransformGitHubPush(eventData json.RawMessage, timestamp time.Time) (models
 		Repository struct {
 			Name    string `json:"name"`
 			HTMLURL string `json:"html_url"`
+			Private *bool  `json:"private"`
 		} `json:"repository"`
+		Deleted    bool `json:"deleted"`
 		HeadCommit struct {
 			ID      string `json:"id"`
 			Message string `json:"message"`
@@ -42,10 +45,15 @@ func TransformGitHubPush(eventData json.RawMessage, timestamp time.Time) (models
 		return models.DashboardEvent{}, fmt.Errorf("failed to unmarshal push event: %w", err)
 	}
 
-	// Extract branch name from ref (refs/heads/main -> main)
+	// Extract short ref name (refs/heads/main -> main, refs/tags/v1 -> v1)
+	refType := "branch"
 	branch := pushEvent.Ref
-	if len(branch) > 11 && branch[:11] == "refs/heads/" {
-		branch = branch[11:]
+	switch {
+	case strings.HasPrefix(branch, "refs/heads/"):
+		branch = strings.TrimPrefix(branch, "refs/heads/")
+	case strings.HasPrefix(branch, "refs/tags/"):
+		branch = strings.TrimPrefix(branch, "refs/tags/")
+		refType = "tag"
 	}
 
 	// Count commits
@@ -54,19 +62,32 @@ func TransformGitHubPush(eventData json.RawMessage, timestamp time.Time) (models
 		commitCount = 1
 	}
 
-	// Build richer title
-	commitWord := "commit"
-	if commitCount > 1 {
-		commitWord = "commits"
+	repo := pushEvent.Repository.Name
+	var title string
+	switch {
+	case pushEvent.Deleted && refType == "tag":
+		title = fmt.Sprintf("Tag %s deleted in %s", branch, repo)
+	case pushEvent.Deleted:
+		title = fmt.Sprintf("Branch %s deleted in %s", branch, repo)
+	case refType == "tag":
+		title = fmt.Sprintf("Tag %s pushed to %s", branch, repo)
+	default:
+		commitWord := "commit"
+		if commitCount > 1 {
+			commitWord = "commits"
+		}
+		title = fmt.Sprintf("%d %s pushed to %s/%s", commitCount, commitWord, repo, branch)
 	}
-	title := fmt.Sprintf("%d %s pushed to %s/%s", commitCount, commitWord, pushEvent.Repository.Name, branch)
 
 	return models.DashboardEvent{
 		EventType: "github.push",
 		Title:     title,
+		IsPrivate: isGitHubPrivate(pushEvent.Repository.Private),
 		Metadata: map[string]interface{}{
-			"repo":           pushEvent.Repository.Name,
-			"branch":         pushEvent.Ref,
+			"repo":           repo,
+			"branch":         branch,
+			"ref_type":       refType,
+			"deleted":        pushEvent.Deleted,
 			"message":        pushEvent.HeadCommit.Message,
 			"author":         pushEvent.HeadCommit.Author.Name,
 			"commit_sha":     pushEvent.HeadCommit.ID,
@@ -102,6 +123,7 @@ func TransformGitHubPR(eventData json.RawMessage, timestamp time.Time) (models.D
 		Repository struct {
 			Name    string `json:"name"`
 			HTMLURL string `json:"html_url"`
+			Private *bool  `json:"private"`
 		} `json:"repository"`
 	}
 
@@ -121,6 +143,7 @@ func TransformGitHubPR(eventData json.RawMessage, timestamp time.Time) (models.D
 	return models.DashboardEvent{
 		EventType: "github.pr",
 		Title:     title,
+		IsPrivate: isGitHubPrivate(prEvent.Repository.Private),
 		Metadata: map[string]interface{}{
 			"repo":           prEvent.Repository.Name,
 			"repository_url": prEvent.Repository.HTMLURL,
@@ -151,7 +174,8 @@ func TransformGitHubIssue(eventData json.RawMessage, timestamp time.Time) (model
 			HTMLURL string `json:"html_url"`
 		} `json:"issue"`
 		Repository struct {
-			Name string `json:"name"`
+			Name    string `json:"name"`
+			Private *bool  `json:"private"`
 		} `json:"repository"`
 	}
 
@@ -161,6 +185,7 @@ func TransformGitHubIssue(eventData json.RawMessage, timestamp time.Time) (model
 
 	return models.DashboardEvent{
 		EventType: "github.issue",
+		IsPrivate: isGitHubPrivate(issueEvent.Repository.Private),
 		Title:     fmt.Sprintf("Issue #%d %s: %s", issueEvent.Issue.Number, issueEvent.Action, issueEvent.Issue.Title),
 		Metadata: map[string]interface{}{
 			"repo":      issueEvent.Repository.Name,
@@ -188,7 +213,8 @@ func TransformGitHubRelease(eventData json.RawMessage, timestamp time.Time) (mod
 			Draft   bool   `json:"draft"`
 		} `json:"release"`
 		Repository struct {
-			Name string `json:"name"`
+			Name    string `json:"name"`
+			Private *bool  `json:"private"`
 		} `json:"repository"`
 	}
 
@@ -203,6 +229,7 @@ func TransformGitHubRelease(eventData json.RawMessage, timestamp time.Time) (mod
 
 	return models.DashboardEvent{
 		EventType: "github.release",
+		IsPrivate: isGitHubPrivate(releaseEvent.Repository.Private),
 		Title:     fmt.Sprintf("Release %s: %s", releaseEvent.Release.TagName, title),
 		Metadata: map[string]interface{}{
 			"repo":        releaseEvent.Repository.Name,
@@ -214,4 +241,10 @@ func TransformGitHubRelease(eventData json.RawMessage, timestamp time.Time) (mod
 		},
 		CreatedAt: timestamp,
 	}, nil
+}
+
+// isGitHubPrivate applies the default-private rule: an event is public only
+// when the payload says repository.private is explicitly false.
+func isGitHubPrivate(private *bool) bool {
+	return private == nil || *private
 }

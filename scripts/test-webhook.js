@@ -1,10 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * Test script to verify webhook endpoint is working
+ * Test script to verify webhook endpoint is working.
+ * Sends a signed GitHub push. Requires WEBHOOK_SECRET (and optionally WEBHOOK_URL).
+ * Loads .env if dotenv is available.
  */
+try {
+  require('dotenv').config();
+} catch {
+  // dotenv not available, rely on the shell environment
+}
 
+const http = require('http');
 const https = require('https');
+const crypto = require('crypto');
 
 const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://heimdall-ashen.vercel.app/api/webhook';
 
@@ -46,10 +55,18 @@ const testPayload = {
 };
 
 async function testWebhook() {
+  const secret = process.env.WEBHOOK_SECRET;
+  if (!secret) {
+    throw new Error('WEBHOOK_SECRET is required (same value as on the Vercel deployment)');
+  }
+
   console.log('🧪 Testing webhook endpoint...');
   console.log('📡 URL:', WEBHOOK_URL);
 
   const payloadString = JSON.stringify(testPayload);
+
+  const signature =
+    'sha256=' + crypto.createHmac('sha256', secret).update(payloadString).digest('hex');
 
   return new Promise((resolve, reject) => {
     const url = new URL(WEBHOOK_URL);
@@ -59,18 +76,19 @@ async function testWebhook() {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payloadString),
         'X-GitHub-Event': 'push',
+        'X-GitHub-Delivery': crypto.randomUUID(),
+        'X-Hub-Signature-256': signature,
         'User-Agent': 'GitHub-Hookshot/webhook-test',
       },
     };
 
-    const req = https.request(url, options, (res) => {
+    const req = (url.protocol === 'http:' ? http : https).request(url, options, (res) => {
       let body = '';
       res.on('data', (chunk) => (body += chunk));
       res.on('end', () => {
         console.log('📊 Response:', {
           status: res.statusCode,
           statusMessage: res.statusMessage,
-          headers: res.headers,
           body: body,
         });
 

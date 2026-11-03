@@ -13,6 +13,7 @@ import {
   User,
 } from 'lucide-react';
 import { DashboardEvent } from '@/types/categories';
+import { safeUrl } from '@/lib/safeUrl';
 
 interface VercelEventDetailProps {
   event: DashboardEvent;
@@ -34,7 +35,8 @@ interface VercelMetadata {
 }
 
 export default function VercelEventDetail({ event }: VercelEventDetailProps) {
-  const metadata = event.metadata as VercelMetadata;
+  const metadata = (event.metadata ?? {}) as VercelMetadata;
+  const deploymentUrl = safeUrl(metadata.deployment_url);
 
   const getStatusIcon = (status?: string) => {
     switch (status?.toLowerCase()) {
@@ -112,10 +114,10 @@ export default function VercelEventDetail({ event }: VercelEventDetailProps) {
           </div>
         </div>
 
-        {metadata.deployment_url && (
+        {deploymentUrl && (
           <Button variant="ghost" size="sm" asChild className="h-8 px-2">
             <a
-              href={metadata.deployment_url}
+              href={deploymentUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1"
@@ -209,7 +211,7 @@ export default function VercelEventDetail({ event }: VercelEventDetailProps) {
       )}
 
       {/* Deployment URL Preview */}
-      {metadata.deployment_url && (
+      {deploymentUrl && (
         <div className="rounded-lg border bg-muted/30 p-4">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-medium">
             <Globe className="h-4 w-4" />
@@ -222,7 +224,7 @@ export default function VercelEventDetail({ event }: VercelEventDetailProps) {
             </span>
             <Button variant="outline" size="sm" asChild className="shrink-0">
               <a
-                href={metadata.deployment_url}
+                href={deploymentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1"

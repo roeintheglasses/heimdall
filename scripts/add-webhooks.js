@@ -3,7 +3,8 @@
 /**
  * Heimdall Webhook Automation Script
  *
- * This script automatically adds the Heimdall webhook to all your GitHub repositories.
+ * This script adds the Heimdall webhook to all your GitHub repositories, and updates
+ * the URL and secret on repositories that already have it.
  * It uses the GitHub API to list your repos and configure webhooks for each one.
  *
  * Prerequisites:
@@ -16,6 +17,7 @@
  * Environment Variables:
  *   GITHUB_TOKEN - Your GitHub Personal Access Token
  *   WEBHOOK_URL - Your Heimdall webhook URL (optional, defaults to production)
+ *   WEBHOOK_SECRET - Shared secret, must match WEBHOOK_SECRET on Vercel (required)
  */
 
 const https = require('https');
@@ -24,8 +26,7 @@ const { promisify } = require('util');
 // Configuration
 const GITHUB_API_BASE = 'https://api.github.com';
 const DEFAULT_WEBHOOK_URL = 'https://heimdall-ashen.vercel.app/api/webhook';
-const WEBHOOK_EVENTS = ['push', 'create', 'delete', 'release'];
-const DEFAULT_WEBHOOK_SECRET = 'heimdall-webhook-secret-2024';
+const WEBHOOK_EVENTS = ['push', 'pull_request', 'issues', 'release'];
 
 // Colors for console output
 const colors = {
@@ -47,7 +48,7 @@ class GitHubWebhookManager {
     this.stats = {
       total: 0,
       added: 0,
-      skipped: 0,
+      updated: 0,
       errors: 0,
     };
   }
@@ -169,6 +170,21 @@ class GitHubWebhookManager {
     }
   }
 
+  async updateWebhook(repo, hook) {
+    // Re-apply the config and events so existing hooks match the current environment.
+    const response = await this.makeRequest('PATCH', `/repos/${repo.full_name}/hooks/${hook.id}`, {
+      events: WEBHOOK_EVENTS,
+      active: true,
+      config: {
+        url: this.webhookUrl,
+        content_type: 'json',
+        secret: this.webhookSecret,
+        insecure_ssl: '0',
+      },
+    });
+    return response.data;
+  }
+
   async processRepository(repo) {
     this.stats.total++;
 
@@ -180,9 +196,10 @@ class GitHubWebhookManager {
       );
 
       if (heimdallHook) {
-        this.log(`  ⏭️  Webhook already exists for ${repo.name}`, 'yellow');
-        this.stats.skipped++;
-        return { repo: repo.name, status: 'skipped', reason: 'already exists' };
+        await this.updateWebhook(repo, heimdallHook);
+        this.log(`  🔄 Updated existing webhook for ${repo.name}`, 'yellow');
+        this.stats.updated++;
+        return { repo: repo.name, status: 'updated' };
       }
 
       // Add the webhook
@@ -191,7 +208,7 @@ class GitHubWebhookManager {
       this.stats.added++;
       return { repo: repo.name, status: 'added' };
     } catch (error) {
-      this.log(`  ❌ Failed to add webhook to ${repo.name}: ${error.message}`, 'red');
+      this.log(`  ❌ Failed to configure webhook for ${repo.name}: ${error.message}`, 'red');
       this.stats.errors++;
       return { repo: repo.name, status: 'error', error: error.message };
     }
@@ -245,7 +262,7 @@ class GitHubWebhookManager {
     this.log('\n📊 Summary:', 'cyan');
     this.log(`  Total repositories: ${this.stats.total}`, 'blue');
     this.log(`  ✅ Webhooks added: ${this.stats.added}`, 'green');
-    this.log(`  ⏭️  Already existed: ${this.stats.skipped}`, 'yellow');
+    this.log(`  🔄 Webhooks updated: ${this.stats.updated}`, 'yellow');
     this.log(`  ❌ Errors: ${this.stats.errors}`, 'red');
 
     if (this.stats.errors === 0) {
@@ -305,12 +322,15 @@ async function main() {
 
   const token = validateEnvironment();
   const webhookUrl = process.env.WEBHOOK_URL || DEFAULT_WEBHOOK_URL;
-  const webhookSecret = process.env.WEBHOOK_SECRET || DEFAULT_WEBHOOK_SECRET;
+  const webhookSecret = process.env.WEBHOOK_SECRET;
 
-  if (webhookSecret === DEFAULT_WEBHOOK_SECRET) {
-    console.log(
-      `${colors.yellow}⚠️  Using default webhook secret. For production, set a custom WEBHOOK_SECRET environment variable.${colors.reset}`
+  if (!webhookSecret) {
+    console.error(
+      `${colors.red}❌ Error: WEBHOOK_SECRET environment variable is required.${colors.reset}\n` +
+        `${colors.yellow}Generate one with: openssl rand -hex 32\n` +
+        `Set the same value as WEBHOOK_SECRET on Vercel.${colors.reset}`
     );
+    process.exit(1);
   }
 
   const manager = new GitHubWebhookManager(token, webhookUrl, webhookSecret);
@@ -336,7 +356,7 @@ ${colors.cyan}Usage:${colors.reset}
 ${colors.cyan}Environment Variables:${colors.reset}
   GITHUB_TOKEN   - Your GitHub Personal Access Token (required)
   WEBHOOK_URL    - Custom webhook URL (optional, defaults to production)
-  WEBHOOK_SECRET - Secret for webhook verification (optional, defaults to built-in)
+  WEBHOOK_SECRET - Secret for webhook verification (required, must match Vercel)
 
 ${colors.cyan}Examples:${colors.reset}
   # Basic usage with environment variable

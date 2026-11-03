@@ -123,13 +123,7 @@ const glowColors = {
   orange: 'shadow-[0_0_10px_hsl(30_100%_50%),_0_0_20px_hsl(30_100%_50%)]',
 };
 
-export function NeonGlow({
-  children,
-  className,
-  color = 'cyan',
-  intensity = 'medium',
-  animate = false,
-}: NeonGlowProps) {
+export function NeonGlow({ children, className, color = 'cyan', animate = false }: NeonGlowProps) {
   return (
     <div className={cn(glowColors[color], animate && 'animate-glow-pulse', className)}>
       {children}

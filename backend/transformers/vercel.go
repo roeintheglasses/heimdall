@@ -48,10 +48,14 @@ func TransformVercelDeploy(eventData json.RawMessage, timestamp time.Time) (mode
 	switch deployEvent.Type {
 	case "deployment.created":
 		status = "BUILDING"
-	case "deployment.succeeded":
+	case "deployment.succeeded", "deployment.ready":
 		status = "SUCCESS"
 	case "deployment.error":
 		status = "FAILED"
+	case "deployment.canceled":
+		status = "CANCELED"
+	case "deployment.promoted":
+		status = "PROMOTED"
 	default:
 		status = "DEPLOY"
 	}
@@ -79,6 +83,7 @@ func TransformVercelDeploy(eventData json.RawMessage, timestamp time.Time) (mode
 	return models.DashboardEvent{
 		EventType: "vercel.deploy",
 		Title:     title,
+		IsPrivate: !isVercelPublic(deployEvent.Payload.Deployment.Meta),
 		Metadata: map[string]interface{}{
 			"project":        projectName,
 			"status":         status,
@@ -93,4 +98,11 @@ func TransformVercelDeploy(eventData json.RawMessage, timestamp time.Time) (mode
 		},
 		CreatedAt: timestamp,
 	}, nil
+}
+
+// isVercelPublic reports whether the deployment is linked to a public repository.
+// Anything other than an explicit "public" visibility is treated as private.
+func isVercelPublic(meta map[string]interface{}) bool {
+	v, ok := meta["githubRepoVisibility"].(string)
+	return ok && v == "public"
 }

@@ -16,6 +16,7 @@ import { useCategories } from '@/contexts/CategoryContext';
 import { getServiceFromEventType } from '@/types/services';
 import { ServiceIcon } from '@/components/ServiceIcon';
 import { cn } from '@/lib/utils';
+import { safeUrl } from '@/lib/safeUrl';
 import { Terminal, Copy, Check, ExternalLink, FileJson, List, Info, Clock, X } from 'lucide-react';
 
 // Service-specific event detail components
@@ -23,11 +24,12 @@ import GitHubEventDetail from '@/components/event-details/GitHubEventDetail';
 import VercelEventDetail from '@/components/event-details/VercelEventDetail';
 import RailwayEventDetail from '@/components/event-details/RailwayEventDetail';
 import GenericEventDetail from '@/components/event-details/GenericEventDetail';
+import PrivateEventDetail from '@/components/event-details/PrivateEventDetail';
 
 interface EventDetailDrawerProps {
   event: DashboardEvent | null;
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange: (_open: boolean) => void;
 }
 
 // Category to neon color mapping
@@ -90,6 +92,10 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
   const renderEventDetail = () => {
     const eventType = event.event_type || 'unknown';
 
+    if (event.private) {
+      return <PrivateEventDetail event={event} />;
+    }
+
     if (eventType.startsWith('github.')) {
       return <GitHubEventDetail event={event} />;
     }
@@ -105,70 +111,36 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
     return <GenericEventDetail event={event} />;
   };
 
-  // Get direct links based on event type
+  // Get direct links based on event type. Only allowlisted http(s) hosts are linked.
   const getDirectLinks = () => {
     const links: Array<{ label: string; url: string; icon: React.ReactNode }> = [];
     const metadata = event.metadata || {};
+    const add = (label: string, raw: unknown) => {
+      const url = safeUrl(raw);
+      if (url) {
+        links.push({ label, url, icon: <ExternalLink className="h-3 w-3" /> });
+      }
+    };
 
-    // GitHub links
     if (event.event_type?.startsWith('github.')) {
-      if (metadata.repository_url) {
-        links.push({
-          label: 'Repository',
-          url: metadata.repository_url,
-          icon: <ExternalLink className="h-3 w-3" />,
-        });
-      }
-      if (metadata.commit_url) {
-        links.push({
-          label: 'Commit',
-          url: metadata.commit_url,
-          icon: <ExternalLink className="h-3 w-3" />,
-        });
-      }
-      if (metadata.pr_url) {
-        links.push({
-          label: 'Pull Request',
-          url: metadata.pr_url,
-          icon: <ExternalLink className="h-3 w-3" />,
-        });
-      }
+      add('Repository', metadata.repository_url);
+      add('Commit', metadata.commit_url);
+      add('Pull Request', metadata.pr_url);
     }
 
-    // Vercel links
     if (event.event_type?.startsWith('vercel.')) {
-      if (metadata.deployment_url) {
-        links.push({
-          label: 'Deployment',
-          url: metadata.deployment_url,
-          icon: <ExternalLink className="h-3 w-3" />,
-        });
-      }
-      if (metadata.url) {
-        links.push({
-          label: 'Preview',
-          url: `https://${metadata.url}`,
-          icon: <ExternalLink className="h-3 w-3" />,
-        });
+      add('Deployment', metadata.deployment_url);
+      if (typeof metadata.url === 'string' && metadata.url) {
+        add(
+          'Preview',
+          /^https?:\/\//i.test(metadata.url) ? metadata.url : `https://${metadata.url}`
+        );
       }
     }
 
-    // Railway links
     if (event.event_type?.startsWith('railway.')) {
-      if (metadata.deployment_url) {
-        links.push({
-          label: 'Service',
-          url: metadata.deployment_url,
-          icon: <ExternalLink className="h-3 w-3" />,
-        });
-      }
-      if (metadata.logs_url) {
-        links.push({
-          label: 'Logs',
-          url: metadata.logs_url,
-          icon: <ExternalLink className="h-3 w-3" />,
-        });
-      }
+      add('Service', metadata.deployment_url);
+      add('Logs', metadata.logs_url);
     }
 
     return links;
@@ -181,13 +153,13 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
 
     fields.push({ label: 'Event ID', value: event.id });
 
-    if (metadata.commit_sha) {
+    if (typeof metadata.commit_sha === 'string' && metadata.commit_sha) {
       fields.push({ label: 'Commit SHA', value: metadata.commit_sha });
     }
-    if (metadata.deployment_id) {
+    if (typeof metadata.deployment_id === 'string' && metadata.deployment_id) {
       fields.push({ label: 'Deployment ID', value: metadata.deployment_id });
     }
-    if (metadata.project_id) {
+    if (typeof metadata.project_id === 'string' && metadata.project_id) {
       fields.push({ label: 'Project ID', value: metadata.project_id });
     }
 
@@ -251,6 +223,11 @@ export default function EventDetailDrawer({ event, open, onOpenChange }: EventDe
                 >
                   {category.name.toUpperCase()}
                 </Badge>
+                {event.private && (
+                  <Badge variant="outline" className="border-neon-orange text-xs text-neon-orange">
+                    PRIVATE
+                  </Badge>
+                )}
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   {formatTimestamp(event.created_at)}

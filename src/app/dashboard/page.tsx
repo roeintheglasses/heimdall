@@ -11,8 +11,9 @@ import dynamic from 'next/dynamic';
 import EventCard from '@/components/EventCard';
 import EventCardSkeleton from '@/components/EventCardSkeleton';
 import EventDetailDrawer from '@/components/EventDetailDrawer';
-import ConnectionStatus from '@/components/ConnectionStatus';
+import ConnectionStatus, { type StreamState } from '@/components/ConnectionStatus';
 import { getGoServiceUrl } from '@/lib/api';
+import { MAX_EVENTS, mergeNewest, mergeOlder } from '@/lib/eventList';
 
 // Lazy load ActivityGraph (Recharts ~91KB) - only load when needed
 const ActivityGraph = dynamic(() => import('@/components/ActivityGraph'), {
@@ -50,8 +51,10 @@ import {
 import { DashboardEvent } from '@/types/categories';
 import { cn } from '@/lib/utils';
 
-// Maximum events to keep in memory to prevent unbounded growth
-const MAX_EVENTS = 500;
+interface NextCursor {
+  before: string;
+  before_id: string;
+}
 
 // Dashboard component wrapped with CategoryProvider
 function DashboardContent() {
@@ -69,10 +72,12 @@ function DashboardContent() {
   const { processEvent } = useNotifications();
 
   const [events, setEvents] = useState<DashboardEvent[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
+  const [streamState, setStreamState] = useState<StreamState>('connecting');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isLoadingMoreRef = useRef(false);
+  const nextCursorRef = useRef<NextCursor | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [totalEvents, setTotalEvents] = useState(0);
 
@@ -110,34 +115,65 @@ function DashboardContent() {
 
   const goServiceUrl = getGoServiceUrl();
 
-  // Function to load more events
-  const loadMoreEvents = useCallback(async () => {
-    if (isLoadingMore || !hasMore) return;
+  // Sound and notification callbacks change identity when sound initializes.
+  // Keep them in a ref so the fetch/SSE effect depends only on goServiceUrl.
+  const callbacksRef = useRef({ playSuccess, playError, playNotification, processEvent });
+  useEffect(() => {
+    callbacksRef.current = { playSuccess, playError, playNotification, processEvent };
+  });
 
+  // Ids of every event already in the list, used to skip duplicates from SSE
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  // Pending "isNew" flag-removal timers, cleared on unmount
+  const newFlagTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  const rememberIds = useCallback((list: DashboardEvent[]) => {
+    for (const e of list) knownIdsRef.current.add(e.id);
+  }, []);
+
+  // Load the next page of older events using the cursor from the previous page
+  const loadMoreEvents = useCallback(async () => {
+    const cursor = nextCursorRef.current;
+    if (isLoadingMoreRef.current || !cursor) return;
+
+    isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
     try {
-      const offset = events.length;
-      const response = await fetch(`${goServiceUrl}/api/events?limit=100&offset=${offset}`);
+      const params = new URLSearchParams({
+        limit: '100',
+        before: cursor.before,
+        before_id: cursor.before_id,
+      });
+      const response = await fetch(`${goServiceUrl}/api/events?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
-        const newEvents = data.events || data;
+        const newEvents: DashboardEvent[] = data.events || data;
         if (newEvents.length > 0) {
-          // Cap at MAX_EVENTS to prevent unbounded memory growth
-          setEvents((prev) => [...prev, ...newEvents].slice(0, MAX_EVENTS));
+          rememberIds(newEvents);
+          setEvents((prev) => mergeOlder(prev, newEvents));
         }
-        if (data.pagination) {
-          setHasMore(data.pagination.hasMore);
-          setTotalEvents(data.pagination.total);
-        }
+        const pagination = data.pagination;
+        nextCursorRef.current = pagination?.next_cursor ?? null;
+        setHasMore(Boolean(pagination?.hasMore && pagination?.next_cursor));
+        if (pagination) setTotalEvents(pagination.total);
       }
     } catch (err) {
       console.error('Error loading more events:', err);
     } finally {
+      isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [events.length, goServiceUrl, hasMore, isLoadingMore]);
+  }, [goServiceUrl, rememberIds]);
 
   useEffect(() => {
+    let cancelled = false;
+    let eventSource: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let cursorInitialized = false;
+    let lastLoadOk = false;
+    let inFlight: Promise<void> | null = null;
+    const newFlagTimers = newFlagTimersRef.current;
+
     // Fetch aggregate stats from dedicated endpoint (all events)
     // Falls back gracefully to local calculation if endpoint unavailable
     const fetchStats = async () => {
@@ -145,110 +181,143 @@ function DashboardContent() {
         const response = await fetch(`${goServiceUrl}/api/stats`);
         if (response.ok) {
           const stats = await response.json();
-          setApiStats(stats);
+          if (!cancelled) setApiStats(stats);
         }
-        // If not ok, silently fall back to local stats calculation
       } catch {
-        // Stats endpoint may not be deployed yet - fall back to local calculation
-        // No console error needed as this is expected during transition
+        // Stats endpoint may be unavailable - fall back to local calculation
       }
     };
 
-    // Fetch initial events with higher limit (for display)
-    const fetchEvents = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(`${goServiceUrl}/api/events?limit=200`);
-        if (response.ok) {
-          const data = await response.json();
-          // Handle both old format (array) and new format (object with events)
-          const initialEvents = data.events || data;
-          setEvents(initialEvents);
-          // Handle pagination metadata if present
-          if (data.pagination) {
-            setHasMore(data.pagination.hasMore);
-            setTotalEvents(data.pagination.total);
+    // Fetch the first page and merge it into the list. Runs on mount and on
+    // every SSE open so events missed while disconnected are recovered.
+    const fetchFirstPage = (): Promise<void> => {
+      if (inFlight) return inFlight;
+      inFlight = (async () => {
+        try {
+          const response = await fetch(`${goServiceUrl}/api/events?limit=200`);
+          if (cancelled) return;
+          if (response.ok) {
+            const data = await response.json();
+            const page: DashboardEvent[] = data.events || data;
+            rememberIds(page);
+            setEvents((prev) => mergeNewest(prev, page));
+            const pagination = data.pagination;
+            if (pagination) {
+              setTotalEvents(pagination.total);
+              // Keep the load-more cursor if the user already paged further back
+              if (!cursorInitialized) {
+                cursorInitialized = true;
+                nextCursorRef.current = pagination.next_cursor ?? null;
+                setHasMore(Boolean(pagination.hasMore && pagination.next_cursor));
+              }
+            }
+            setError(null);
+            // Chime on the first load or when recovering, not on every reconnect.
+            if (!lastLoadOk) callbacksRef.current.playSuccess();
+            lastLoadOk = true;
+          } else {
+            const errorText = await response.text();
+            console.error('Fetch failed:', response.status, errorText);
+            lastLoadOk = false;
+            setError(`Failed to fetch initial events: ${response.status}`);
+            callbacksRef.current.playError();
           }
-          setError(null);
-          // Play success sound on successful load
-          playSuccess();
-        } else {
-          const errorText = await response.text();
-          console.error('Fetch failed:', response.status, errorText);
-          setError(`Failed to fetch initial events: ${response.status}`);
-          playError();
+        } catch (err) {
+          if (cancelled) return;
+          console.error('Error fetching events:', err);
+          lastLoadOk = false;
+          setError('Failed to connect to service: ' + (err as Error).message);
+          callbacksRef.current.playError();
+        } finally {
+          inFlight = null;
+          if (!cancelled) setIsLoading(false);
         }
-      } catch (err) {
-        console.error('Error fetching events:', err);
-        setError('Failed to connect to service: ' + (err as Error).message);
-        playError();
-      } finally {
-        setIsLoading(false);
-      }
+      })();
+      return inFlight;
     };
 
-    // Fetch both stats and events in parallel
-    fetchStats();
-    fetchEvents();
+    let backendDown = false;
 
-    // Set up Server-Sent Events for real-time updates
-    const eventSource = new EventSource('/api/events/stream');
+    const connect = () => {
+      const source = new EventSource('/api/events/stream');
+      eventSource = source;
 
-    eventSource.onopen = () => {
-      setIsConnected(true);
-      setError(null);
-    };
+      source.onopen = () => {
+        setStreamState(backendDown ? 'backend-down' : 'live');
+        void fetchFirstPage();
+      };
 
-    eventSource.onmessage = (event) => {
-      try {
-        const newEvent = JSON.parse(event.data);
-
-        // Skip heartbeat and connection messages
-        if (newEvent.type === 'heartbeat' || newEvent.type === 'connected') {
-          return;
+      source.addEventListener('status', (event) => {
+        try {
+          const { backend } = JSON.parse((event as MessageEvent).data);
+          backendDown = backend === 'down';
+          setStreamState(backendDown ? 'backend-down' : 'live');
+        } catch (err) {
+          console.error('Error parsing status event:', err);
         }
+      });
 
-        // Add deduplication check to prevent duplicate events
-        setEvents((prev) => {
-          // Check if event already exists
-          const existingEvent = prev.find((e) => e.id === newEvent.id);
-          if (existingEvent) {
-            console.log('Duplicate event detected, skipping:', newEvent.id);
-            return prev; // Return unchanged if duplicate
+      source.onmessage = (event) => {
+        try {
+          const newEvent = JSON.parse(event.data);
+
+          // Skip heartbeat and connection messages
+          if (newEvent.type === 'heartbeat' || newEvent.type === 'connected') {
+            return;
           }
+          if (!newEvent.id || knownIdsRef.current.has(newEvent.id)) {
+            return;
+          }
+          knownIdsRef.current.add(newEvent.id);
 
-          // Play notification sound for new events
-          playNotification();
+          // Side effects run outside the state updater
+          callbacksRef.current.playNotification();
+          callbacksRef.current.processEvent(newEvent);
 
-          // Process event for notifications (auto-detect notable events)
-          processEvent(newEvent);
-
-          // Add new event with flash effect, cap at MAX_EVENTS to prevent memory growth
-          const updatedEvents = [{ ...newEvent, isNew: true }, ...prev].slice(0, MAX_EVENTS);
+          setEvents((prev) => mergeNewest(prev, [{ ...newEvent, isNew: true }]));
 
           // Remove the "new" flag after animation completes
-          setTimeout(() => {
+          const timer = setTimeout(() => {
+            newFlagTimers.delete(timer);
             setEvents((current) =>
               current.map((e) => (e.id === newEvent.id ? { ...e, isNew: false } : e))
             );
           }, 1000);
+          newFlagTimers.add(timer);
+        } catch (err) {
+          console.error('Error parsing SSE data:', err);
+        }
+      };
 
-          return updatedEvents;
-        });
-      } catch (err) {
-        console.error('Error parsing SSE data:', err);
-      }
+      source.onerror = () => {
+        backendDown = false;
+        if (source.readyState === EventSource.CLOSED) {
+          // The browser gave up (for example a 503 at the client cap). Retry later.
+          setStreamState('disconnected');
+          source.close();
+          if (!cancelled) reconnectTimer = setTimeout(connect, 30000);
+        } else {
+          setStreamState('connecting');
+        }
+      };
     };
 
-    eventSource.onerror = () => {
-      setIsConnected(false);
-      setError('Connection lost. Attempting to reconnect...');
-    };
+    void fetchStats();
+    void fetchFirstPage();
+    connect();
 
     return () => {
-      eventSource.close();
+      cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      eventSource?.close();
+      for (const timer of newFlagTimers) clearTimeout(timer);
+      newFlagTimers.clear();
     };
-  }, [playSuccess, playError, playNotification, processEvent, goServiceUrl]);
+  }, [goServiceUrl, rememberIds]);
+
+  const isConnected = streamState === 'live';
+  // Once the in-memory cap is reached there is nothing more to load
+  const canLoadMore = hasMore && events.length < MAX_EVENTS;
 
   // Use API stats for category counts (all events) with fallback to local calculation
   const categoryStats = useMemo(() => {
@@ -432,7 +501,7 @@ function DashboardContent() {
             {/* Notification Center */}
             <NotificationCenter />
 
-            <ConnectionStatus isConnected={isConnected} eventCount={events.length} error={error} />
+            <ConnectionStatus streamState={streamState} eventCount={events.length} error={error} />
             <SoundToggleCompact />
           </div>
         </div>
@@ -660,7 +729,7 @@ function DashboardContent() {
                       </div>
                     ))}
                     {/* Load More button */}
-                    {hasMore && (
+                    {canLoadMore && (
                       <div className="flex justify-center pt-4">
                         <Button
                           onClick={loadMoreEvents}

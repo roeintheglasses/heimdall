@@ -24,7 +24,7 @@ interface ActivityTickerProps {
   events: DashboardEvent[];
   speed?: 'slow' | 'medium' | 'fast';
   pauseOnHover?: boolean;
-  onEventClick?: (event: DashboardEvent) => void;
+  onEventClick?: (_event: DashboardEvent) => void;
   maxEvents?: number;
   className?: string;
 }

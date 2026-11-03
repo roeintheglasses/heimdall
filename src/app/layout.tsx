@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { JetBrains_Mono, Press_Start_2P } from 'next/font/google';
 import { SoundProvider } from '@/contexts/SoundContext';
 import { CRTScreenOnly } from '@/components/CRTMonitorFrame';
@@ -18,6 +18,36 @@ const pressStart2P = Press_Start_2P({
   variable: '--font-pixel',
   display: 'swap',
 });
+
+function getMetadataBase(): URL {
+  const explicit = process.env.NEXT_PUBLIC_BASE_URL;
+  const candidates = [
+    explicit,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : undefined,
+    'http://localhost:3000',
+  ];
+  for (const c of candidates) {
+    if (!c) continue;
+    try {
+      return new URL(c);
+    } catch {
+      // try the next candidate
+    }
+  }
+  return new URL('http://localhost:3000');
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#00FFFF' },
+    { media: '(prefers-color-scheme: dark)', color: '#00FFFF' },
+  ],
+};
 
 export const metadata: Metadata = {
   title: {
@@ -44,7 +74,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+  metadataBase: getMetadataBase(),
   alternates: {
     canonical: '/',
   },
@@ -88,15 +118,6 @@ export const metadata: Metadata = {
     apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
   },
   manifest: '/manifest.json',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#00FFFF' },
-    { media: '(prefers-color-scheme: dark)', color: '#00FFFF' },
-  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -114,7 +114,7 @@ export default function FilterPanel({
   defaultOpen = false,
 }: FilterPanelProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const { categories, filter, setFilter, hasActiveFilters, getActiveFilterCount, clearAllFilters } =
+  const { filter, setFilter, hasActiveFilters, getActiveFilterCount, clearAllFilters } =
     useCategories();
   const {
     getSortedCategories,

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	stdlog "log"
 	"net/http"
 	"os"
@@ -31,6 +32,10 @@ func main() {
 	// Initialize structured logger
 	log := logger.New(cfg.PrettyLogs)
 
+	if cfg.WebhookSecret == "" {
+		log.Error().Msg("BACKEND_WEBHOOK_SECRET is not set: /api/webhook will return 503 until it is configured")
+	}
+
 	log.Info().
 		Str("version", cfg.Version).
 		Str("port", cfg.Port).
@@ -52,12 +57,15 @@ func main() {
 	db.SetConnMaxIdleTime(1 * time.Minute) // Balance between memory and connection churn
 
 	// Test database connection
-	if err := db.Ping(); err != nil {
-		db.Close()
-		log.Fatal().Err(err).Msg("failed to ping database")
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	pingErr := db.PingContext(pingCtx)
+	pingCancel()
+	if pingErr != nil {
+		closeDB(db, log)
+		log.Fatal().Err(pingErr).Msg("failed to ping database")
 	}
 	// Defer close after successful ping to ensure cleanup on graceful shutdown
-	defer db.Close()
+	defer closeDB(db, log)
 
 	log.Info().Msg("connected to database successfully")
 
@@ -70,7 +78,7 @@ func main() {
 	eventsHandler := handlers.NewEventsHandler(eventRepo)
 	statsHandler := handlers.NewStatsHandler(eventRepo, log)
 	wrappedHandler := handlers.NewWrappedHandler(eventRepo, log)
-	webhookHandler := handlers.NewWebhookHandler(eventRepo, transformerRegistry)
+	webhookHandler := handlers.NewWebhookHandler(eventRepo, transformerRegistry, cfg.WebhookSecret)
 
 	// Create rate limiter for webhook endpoint (stricter limits for writes)
 	webhookRateLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
@@ -80,17 +88,18 @@ func main() {
 	// Create router
 	r := mux.NewRouter()
 
-	// Apply global middleware (order matters - executed in reverse order)
+	// Global middleware runs in registration order (first registered is outermost).
+	// RequestID must wrap LogRequest so the logger sees the request id.
 	r.Use(middleware.CORS)
-	r.Use(middleware.LogRequest(log))
 	r.Use(middleware.RequestID)
+	r.Use(middleware.LogRequest(log))
 
 	// API routes
 	api := r.PathPrefix("/api").Subrouter()
 	api.Handle("/health", healthHandler).Methods("GET", "OPTIONS")
 	api.Handle("/events", readRateLimiter.Limit(eventsHandler)).Methods("GET", "OPTIONS")
 	api.Handle("/stats", readRateLimiter.Limit(statsHandler)).Methods("GET", "OPTIONS")
-	api.PathPrefix("/wrapped/").Handler(readRateLimiter.Limit(wrappedHandler)).Methods("GET", "OPTIONS")
+	api.Handle("/wrapped/{month}", readRateLimiter.Limit(wrappedHandler)).Methods("GET", "OPTIONS")
 	// Apply stricter rate limiting to webhook endpoint
 	api.Handle("/webhook", webhookRateLimiter.Limit(webhookHandler)).Methods("POST", "OPTIONS")
 
@@ -106,7 +115,7 @@ func main() {
 	// Start server in goroutine
 	go func() {
 		log.Info().Str("port", cfg.Port).Msg("server listening")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msg("server error")
 		}
 	}()
@@ -128,4 +137,10 @@ func main() {
 	}
 
 	log.Info().Msg("server exited gracefully")
+}
+
+func closeDB(db *sql.DB, log *logger.Logger) {
+	if err := db.Close(); err != nil {
+		log.Warn().Err(err).Msg("failed to close database")
+	}
 }

@@ -181,6 +181,15 @@ export default function EventCard({ event, isSelected = false, onSelect }: Event
           {getEventTypeLabel(event.event_type || 'unknown')}
         </Badge>
 
+        {event.private && (
+          <Badge
+            variant="outline"
+            className="shrink-0 border-neon-orange px-1 py-0 text-[10px] text-neon-orange xs:px-1.5 xs:text-xs"
+          >
+            PRIVATE
+          </Badge>
+        )}
+
         {/* Title - truncated */}
         <span
           className={cn(

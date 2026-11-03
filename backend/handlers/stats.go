@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sync"
@@ -19,11 +20,10 @@ const yearlyStatsCacheTTL = 5 * time.Minute
 type statsCache struct {
 	stats       models.EventStats
 	yearlyStats []models.DailyCount
-	streak      models.StreakInfo
 	fetchedAt   time.Time
 	yearlyAt    time.Time
-	streakAt    time.Time
-	mu          sync.RWMutex
+	statsMu     sync.RWMutex // guards stats and fetchedAt
+	yearlyMu    sync.RWMutex // guards yearlyStats and yearlyAt
 }
 
 // StatsHandler handles stats retrieval requests with caching
@@ -43,19 +43,19 @@ func NewStatsHandler(repo database.EventStore, log *logger.Logger) *StatsHandler
 }
 
 // getStats retrieves stats from cache or database
-func (h *StatsHandler) getStats() (models.EventStats, bool, error) {
+func (h *StatsHandler) getStats(ctx context.Context) (models.EventStats, bool, error) {
 	// Try to get from cache first (read lock)
-	h.cache.mu.RLock()
+	h.cache.statsMu.RLock()
 	if time.Since(h.cache.fetchedAt) < statsCacheTTL {
 		stats := h.cache.stats
-		h.cache.mu.RUnlock()
+		h.cache.statsMu.RUnlock()
 		return stats, true, nil // Cache hit
 	}
-	h.cache.mu.RUnlock()
+	h.cache.statsMu.RUnlock()
 
 	// Cache miss or expired, fetch from database (write lock)
-	h.cache.mu.Lock()
-	defer h.cache.mu.Unlock()
+	h.cache.statsMu.Lock()
+	defer h.cache.statsMu.Unlock()
 
 	// Double-check after acquiring write lock
 	if time.Since(h.cache.fetchedAt) < statsCacheTTL {
@@ -63,7 +63,7 @@ func (h *StatsHandler) getStats() (models.EventStats, bool, error) {
 	}
 
 	// Fetch fresh stats from database
-	stats, err := h.repo.GetStats()
+	stats, err := h.repo.GetStats(ctx)
 	if err != nil {
 		// On error, return stale cache if available
 		if !h.cache.fetchedAt.IsZero() {
@@ -75,13 +75,11 @@ func (h *StatsHandler) getStats() (models.EventStats, bool, error) {
 	}
 
 	// Fetch streak data (can fail independently)
-	streak, err := h.repo.CalculateStreak()
+	streak, err := h.repo.CalculateStreak(ctx)
 	if err != nil {
 		h.log.Warn().Err(err).Msg("failed to calculate streak")
 	} else {
 		stats.Streak = streak
-		h.cache.streak = streak
-		h.cache.streakAt = time.Now()
 	}
 
 	// Update cache
@@ -91,26 +89,26 @@ func (h *StatsHandler) getStats() (models.EventStats, bool, error) {
 }
 
 // getYearlyStats retrieves yearly daily counts from cache or database
-func (h *StatsHandler) getYearlyStats() ([]models.DailyCount, error) {
+func (h *StatsHandler) getYearlyStats(ctx context.Context) ([]models.DailyCount, error) {
 	// Try cache first
-	h.cache.mu.RLock()
+	h.cache.yearlyMu.RLock()
 	if time.Since(h.cache.yearlyAt) < yearlyStatsCacheTTL && h.cache.yearlyStats != nil {
 		yearly := h.cache.yearlyStats
-		h.cache.mu.RUnlock()
+		h.cache.yearlyMu.RUnlock()
 		return yearly, nil
 	}
-	h.cache.mu.RUnlock()
+	h.cache.yearlyMu.RUnlock()
 
 	// Cache miss, fetch from database
-	h.cache.mu.Lock()
-	defer h.cache.mu.Unlock()
+	h.cache.yearlyMu.Lock()
+	defer h.cache.yearlyMu.Unlock()
 
 	// Double-check
 	if time.Since(h.cache.yearlyAt) < yearlyStatsCacheTTL && h.cache.yearlyStats != nil {
 		return h.cache.yearlyStats, nil
 	}
 
-	yearly, err := h.repo.GetYearlyDailyStats()
+	yearly, err := h.repo.GetYearlyDailyStats(ctx)
 	if err != nil {
 		// Return stale cache if available
 		if h.cache.yearlyStats != nil {
@@ -134,7 +132,7 @@ func (h *StatsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Str("range", rangeParam).Msg("retrieving event stats")
 
-	stats, fromCache, err := h.getStats()
+	stats, fromCache, err := h.getStats(r.Context())
 	if err != nil {
 		log.Error().Err(err).Msg("failed to retrieve stats")
 		http.Error(w, "Failed to retrieve stats", http.StatusInternalServerError)
@@ -143,7 +141,7 @@ func (h *StatsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// If range=year, fetch yearly data
 	if rangeParam == "year" {
-		yearly, err := h.getYearlyStats()
+		yearly, err := h.getYearlyStats(r.Context())
 		if err != nil {
 			log.Error().Err(err).Msg("failed to retrieve yearly stats")
 			http.Error(w, "Failed to retrieve yearly stats", http.StatusInternalServerError)

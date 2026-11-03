@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: heimdall_user
       POSTGRES_PASSWORD: heimdall_password
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
@@ -29,12 +29,10 @@ services:
     environment:
       DATABASE_URL: postgres://heimdall_user:heimdall_password@postgres:5432/heimdall?sslmode=disable
       PORT: 8080
+      BACKEND_WEBHOOK_SECRET: dev-secret
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
-    working_dir: /app
 
 volumes:
   postgres_data:

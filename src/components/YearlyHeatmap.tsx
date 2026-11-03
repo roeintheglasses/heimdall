@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Activity, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGoServiceUrl } from '@/lib/api';
+import { lastNUtcDates, parseUtcDate } from '@/lib/months';
 
 interface DayActivity {
   date: string;
@@ -72,10 +73,7 @@ export function YearlyHeatmap({ className = '', eventsPerYear }: YearlyHeatmapPr
     const maxCount = counts.length > 0 ? Math.max(...counts) : 0;
 
     // Generate last 365 days
-    for (let i = 364; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+    for (const dateStr of lastNUtcDates(now, 365)) {
       const count = eventsByDate[dateStr] || 0;
 
       // Calculate level (0-4) based on relative activity
@@ -107,8 +105,8 @@ export function YearlyHeatmap({ className = '', eventsPerYear }: YearlyHeatmapPr
     let currentWeek: DayActivity[] = [];
 
     // Find the first day's day of week
-    const firstDate = new Date(activity[0]?.date);
-    const firstDayOfWeek = firstDate.getDay();
+    const firstDate = parseUtcDate(activity[0]?.date);
+    const firstDayOfWeek = firstDate.getUTCDay();
 
     // Pad the first week with empty days
     for (let i = 0; i < firstDayOfWeek; i++) {
@@ -139,8 +137,8 @@ export function YearlyHeatmap({ className = '', eventsPerYear }: YearlyHeatmapPr
     weeks.forEach((week, weekIndex) => {
       const firstValidDay = week.find((d) => d.date);
       if (firstValidDay) {
-        const date = new Date(firstValidDay.date);
-        const month = date.getMonth();
+        const date = parseUtcDate(firstValidDay.date);
+        const month = date.getUTCMonth();
         if (month !== lastMonth) {
           labels.push({ month: MONTHS[month], col: weekIndex });
           lastMonth = month;
@@ -265,8 +263,9 @@ function getLevelStyles(level: 0 | 1 | 2 | 3 | 4): string {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
+  const date = parseUtcDate(dateStr);
   return date.toLocaleDateString('en-US', {
+    timeZone: 'UTC',
     weekday: 'short',
     month: 'short',
     day: 'numeric',

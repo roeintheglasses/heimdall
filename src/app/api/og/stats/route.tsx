@@ -4,7 +4,16 @@ import { getGoServiceUrl } from '@/lib/api';
 
 export const runtime = 'edge';
 
-async function getStats() {
+interface OgStats {
+  total_events?: number;
+  last_24_hours?: number;
+  last_week?: number;
+  streak?: { current_streak?: number };
+}
+
+type StatsResult = { ok: true; stats: OgStats } | { ok: false };
+
+async function getStats(): Promise<StatsResult> {
   try {
     const goServiceUrl = getGoServiceUrl();
     const response = await fetch(`${goServiceUrl}/api/stats`, {
@@ -12,22 +21,25 @@ async function getStats() {
     });
 
     if (!response.ok) {
-      return null;
+      return { ok: false };
     }
 
-    return response.json();
+    return { ok: true, stats: (await response.json()) as OgStats };
   } catch {
-    return null;
+    return { ok: false };
   }
 }
 
 export async function GET(_request: NextRequest) {
-  const stats = await getStats();
+  const result = await getStats();
+  const stats = result.ok ? result.stats : null;
 
-  const totalEvents = stats?.total_events || 0;
-  const currentStreak = stats?.streak?.current_streak || 0;
-  const last24h = stats?.last_24_hours || 0;
-  const lastWeek = stats?.last_week || 0;
+  // On backend failure show placeholders instead of misleading zeros.
+  const fmt = (n: number | undefined) => (stats ? (n ?? 0).toLocaleString('en-US') : '--');
+  const totalEvents = fmt(stats?.total_events);
+  const currentStreak = fmt(stats?.streak?.current_streak);
+  const last24h = fmt(stats?.last_24_hours);
+  const lastWeek = fmt(stats?.last_week);
 
   return new ImageResponse(
     <div
@@ -54,6 +66,7 @@ export async function GET(_request: NextRequest) {
           backgroundImage:
             'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 255, 0.03) 2px, rgba(0, 255, 255, 0.03) 4px)',
           pointerEvents: 'none',
+          display: 'flex',
         }}
       />
 
@@ -86,7 +99,7 @@ export async function GET(_request: NextRequest) {
             textShadow: '0 0 10px #00ffff',
           }}
         >
-          {'>'} HEIMDALL::DEV_ACTIVITY
+          {`> HEIMDALL::DEV_ACTIVITY`}
         </div>
       </div>
 
@@ -114,7 +127,7 @@ export async function GET(_request: NextRequest) {
               textShadow: '0 0 20px #00ffff, 0 0 40px #00ffff',
             }}
           >
-            {totalEvents.toLocaleString()}
+            {totalEvents}
           </div>
           <div
             style={{
@@ -134,6 +147,7 @@ export async function GET(_request: NextRequest) {
             width: 2,
             height: 100,
             backgroundColor: 'rgba(0, 255, 255, 0.2)',
+            display: 'flex',
           }}
         />
 
@@ -238,6 +252,9 @@ export async function GET(_request: NextRequest) {
     {
       width: 1200,
       height: 630,
+      headers: {
+        'Cache-Control': result.ok ? 'public, max-age=60, s-maxage=60' : 'no-store',
+      },
     }
   );
 }

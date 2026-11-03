@@ -86,7 +86,7 @@ func main() {
 				exitCode = 1
 			}
 		} else {
-			log.Printf("Current version: %d (dirty: %v)", version, dirty)
+			log.Printf("Current version: %d (dirty: %v)", version, dirty) //nolint:gosec // values come from the migrations table, not user input
 		}
 
 	case "force":
@@ -133,8 +133,12 @@ func main() {
 	}
 
 	// Close migration instance before exiting
-	if _, closeErr := m.Close(); closeErr != nil {
-		log.Printf("Warning: failed to close migration instance: %v", closeErr)
+	srcErr, dbErr := m.Close()
+	if srcErr != nil {
+		log.Printf("Warning: failed to close migration source: %v", srcErr)
+	}
+	if dbErr != nil {
+		log.Printf("Warning: failed to close migration database: %v", dbErr)
 	}
 
 	if exitCode != 0 {

@@ -1,6 +1,6 @@
 module heimdall-backend
 
-go 1.21
+go 1.26.0
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.17.0
@@ -17,5 +17,5 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 )

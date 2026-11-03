@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Clock, Calendar, CalendarDays } from 'lucide-react';
+import { Clock, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCategories } from '@/contexts/CategoryContext';
 import { TimeRangePreset } from '@/types/categories';

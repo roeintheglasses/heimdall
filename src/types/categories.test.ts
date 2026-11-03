@@ -7,6 +7,9 @@ import {
   DEFAULT_CATEGORIES,
   DEFAULT_SERVICES,
   EVENT_TYPE_CATEGORY_MAP,
+  extractEventStatus,
+  extractRepository,
+  type DashboardEvent,
 } from './categories';
 
 describe('classifyEvent', () => {
@@ -218,5 +221,31 @@ describe('DEFAULT_SERVICES', () => {
       expect(svc.color).toBeDefined();
       expect(svc.pattern).toBeDefined();
     });
+  });
+});
+
+describe('redacted private events', () => {
+  const base: DashboardEvent = {
+    id: '1',
+    event_type: 'github.push',
+    title: 'Private repository: 2 commits pushed',
+    metadata: {},
+    created_at: '2026-11-03T00:00:00Z',
+    private: true,
+  };
+
+  it('extractRepository returns null when metadata has no repo keys', () => {
+    expect(extractRepository(base)).toBeNull();
+  });
+
+  it('tolerates missing metadata entirely', () => {
+    const noMeta = { ...base, metadata: undefined } as unknown as DashboardEvent;
+    expect(extractRepository(noMeta)).toBeNull();
+    expect(extractEventStatus(noMeta)).toBeNull();
+  });
+
+  it('still reads status from allowed metadata keys', () => {
+    const deploy = { ...base, event_type: 'vercel.deploy', metadata: { status: 'SUCCESS' } };
+    expect(extractEventStatus(deploy)).toBe('success');
   });
 });

@@ -6,8 +6,8 @@ import { soundManager, SoundType } from '@/lib/sounds';
 interface SoundContextType {
   isEnabled: boolean;
   toggle: () => void;
-  setEnabled: (enabled: boolean) => void;
-  play: (type: SoundType) => void;
+  setEnabled: (_enabled: boolean) => void;
+  play: (_type: SoundType) => void;
   initialized: boolean;
 }
 
@@ -23,8 +23,21 @@ export function SoundProvider({ children, defaultEnabled = true }: SoundProvider
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    // Initialize on first user interaction to comply with browser autoplay policies
-    const initSound = async () => {
+    // Initialize on first user interaction to comply with browser autoplay policies.
+    // Listeners are registered once and remove themselves after the first event.
+    const events = ['click', 'keydown', 'touchstart'] as const;
+    let done = false;
+
+    const removeAll = () => {
+      for (const name of events) {
+        document.removeEventListener(name, handleInteraction);
+      }
+    };
+
+    async function handleInteraction() {
+      if (done) return;
+      done = true;
+      removeAll();
       await soundManager.initialize();
       setInitialized(true);
       setIsEnabled(soundManager.isEnabled());
@@ -33,29 +46,14 @@ export function SoundProvider({ children, defaultEnabled = true }: SoundProvider
       if (soundManager.isEnabled()) {
         soundManager.play('boot');
       }
-    };
+    }
 
-    const handleInteraction = () => {
-      if (!initialized) {
-        initSound();
-        // Remove listeners after initialization
-        document.removeEventListener('click', handleInteraction);
-        document.removeEventListener('keydown', handleInteraction);
-        document.removeEventListener('touchstart', handleInteraction);
-      }
-    };
+    for (const name of events) {
+      document.addEventListener(name, handleInteraction, { once: true });
+    }
 
-    // Add interaction listeners
-    document.addEventListener('click', handleInteraction);
-    document.addEventListener('keydown', handleInteraction);
-    document.addEventListener('touchstart', handleInteraction);
-
-    return () => {
-      document.removeEventListener('click', handleInteraction);
-      document.removeEventListener('keydown', handleInteraction);
-      document.removeEventListener('touchstart', handleInteraction);
-    };
-  }, [initialized]);
+    return removeAll;
+  }, []);
 
   const toggle = useCallback(() => {
     const newState = soundManager.toggle();
