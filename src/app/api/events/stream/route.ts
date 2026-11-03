@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 const MAX_CLIENTS = 50;
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 15000;
 const POLL_TIMEOUT_MS = 4000;
 const HEARTBEAT_MS = 25000;
 const MAX_STREAM_MS = 290000;
