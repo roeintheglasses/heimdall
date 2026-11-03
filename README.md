@@ -99,8 +99,13 @@ npm run dev
 | `go run ./cmd/migrate up`      | Apply migrations                   |
 | `go run ./cmd/migrate version` | Show the current migration version |
 | `go run ./cmd/migrate down`    | Roll back all migrations           |
+| `go run ./cmd/repos sync`      | Sync repo visibility from GitHub   |
+| `go run ./cmd/repos hide <r>`  | Hide a repo (`unhide`, `list`)     |
+| `go run ./cmd/dedupe`          | Dry run of duplicate push cleanup  |
 
 The migrate tool also accepts `force <version>` and `steps <n>`. It reads `DATABASE_URL` (or `-database`) and `database/migrations` (or `-path`). The Docker image ships the compiled tool as `./migrate`.
+
+The repos tool reads `DATABASE_URL` (or `-database`). `sync` also needs `GITHUB_TOKEN` and takes `-dry-run`. The Docker image ships it as `./repos`. The dedupe tool is a dry run unless you pass `-apply -export <file>`.
 
 ### Webhook scripts
 
@@ -257,6 +262,8 @@ heimdall/
 │   └── types/            # TypeScript types
 ├── backend/
 │   ├── cmd/migrate/      # migration tool
+│   ├── cmd/repos/        # repo visibility and hidden repos
+│   ├── cmd/dedupe/       # duplicate push cleanup
 │   ├── config/           # environment config
 │   ├── database/         # data access and migrations
 │   ├── handlers/         # HTTP handlers, redaction

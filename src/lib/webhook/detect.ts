@@ -62,11 +62,35 @@ function isRailwayDeploy(payload: Record<string, unknown>): boolean {
   return railwayDeployment(payload) !== null;
 }
 
+const ZERO_SHA = /^0+$/;
+
+/**
+ * Stable id for a push: two hooks on one repo send the same push with different
+ * X-GitHub-Delivery values, so the id is built from what the push is instead.
+ * It includes `before` so a force-push back to an earlier head is still a new
+ * push, and it is hashed so long refs never truncate it. Branch deletes (all-zero
+ * `after`) return null and fall back to the delivery header, since deleting the
+ * same branch twice would otherwise collide.
+ */
+async function pushDeliveryId(payload: Record<string, unknown>): Promise<string | null> {
+  const fullName = isObject(payload.repository) ? str(payload.repository.full_name) : '';
+  const ref = str(payload.ref);
+  const before = str(payload.before);
+  const after = str(payload.after);
+  if (!fullName || !ref || !before || !after || ZERO_SHA.test(after)) return null;
+  const hash = await sha256Hex([fullName, ref, before, after].join('\0'));
+  return `github:push:${hash}`;
+}
+
 async function detectGitHub(input: DetectInput): Promise<DetectResult> {
   const name = input.githubEvent ?? '';
   if (name === 'ping') return { kind: 'pong' };
   const type = GITHUB_TYPES[name];
   if (!type) return { kind: 'ignore', reason: `unsupported github event` };
+  if (name === 'push') {
+    const pushId = await pushDeliveryId(input.payload);
+    if (pushId) return { kind: 'forward', type, deliveryId: pushId };
+  }
   const delivery = input.githubDelivery?.trim();
   const deliveryId = delivery ? `github:${delivery}` : await bodyHashId(input.rawBody);
   return { kind: 'forward', type, deliveryId: clamp(deliveryId) };

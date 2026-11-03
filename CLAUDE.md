@@ -31,6 +31,8 @@ Key files:
 - `src/app/dashboard/page.tsx` is the dashboard. `src/app/page.tsx` is the landing page.
 - `src/contexts/CategoryContext.tsx` does client-side categorization and filtering.
 - `backend/cmd/migrate` applies SQL migrations from `backend/database/migrations`.
+- `backend/cmd/repos` manages `repo_settings` (see Repo settings and hidden repos).
+- `backend/cmd/dedupe` removes duplicate `github.push` rows. SQL lives in `backend/database/dedupe.go`.
 
 ## Commands
 
@@ -61,6 +63,14 @@ go test -race ./...
 
 # Migrations (from backend/)
 DATABASE_URL=... go run ./cmd/migrate up
+
+# Repo settings (from backend/)
+DATABASE_URL=... GITHUB_TOKEN=... go run ./cmd/repos sync -dry-run
+DATABASE_URL=... go run ./cmd/repos hide owner/name   # also: unhide, list
+
+# Duplicate pushes (from backend/): dry run, then apply with an export file
+DATABASE_URL=... go run ./cmd/dedupe
+DATABASE_URL=... go run ./cmd/dedupe -apply -export deleted.jsonl
 ```
 
 The migrate tool takes `up`, `down`, `version`, `force <version>`, and `steps <n>`. Flags: `-database` (default: `DATABASE_URL`) and `-path` (default: `database/migrations`). In the Docker image the binary is `./migrate`.
@@ -106,7 +116,9 @@ Edge to Go: the Edge handler sends `X-Heimdall-Secret: $BACKEND_WEBHOOK_SECRET`.
 
 GitHub events other than `push`, `pull_request`, `issues`, and `release` get 202 `{"status":"ignored"}`. A GitHub `ping` gets 200.
 
-Each forwarded payload carries a `delivery_id`. The backend has a unique index on it and answers duplicates with 200 `{"status":"duplicate"}`.
+Each forwarded payload carries a `delivery_id`. The backend has a unique index on it and answers duplicates with 200 `{"status":"duplicate"}`. For GitHub `push` events the id is `github:push:<repository.full_name>:<ref>:<after>` when all three are present, so two webhooks on one repo store a push once. Other GitHub events use `github:<X-GitHub-Delivery>`. Without a delivery header they fall back to a body hash.
+
+GitHub events carry `full_name` (`owner/name`) in metadata next to the short `repo`. `full_name` is not in the redaction allowlist.
 
 ## Event types and categories
 
@@ -127,6 +139,22 @@ The mapping lives in `src/types/categories.ts`.
 Each event has a `private` flag. It is true unless the source is known to be public: a GitHub repository with `private: false`, or a Vercel deployment from a public GitHub repository. Railway events are always private. Rows from before the flag existed are private.
 
 `GET /api/events` redacts private events. It keeps `id`, `event_type`, `created_at`, and `private`, replaces the title with a generic one (for example `Private repository: 3 commits pushed`), and keeps only the metadata keys `status`, `action`, `commit_count`, `environment`, and `merged`. `/api/stats` and `/api/wrapped` are aggregates and include private events.
+
+## Repo settings and hidden repos
+
+Table `repo_settings(full_name, visibility, hidden, updated_at)` (migration 000003). `visibility` is `public`, `private`, or `internal`.
+
+- `repos sync [-dry-run]` needs `GITHUB_TOKEN`. It reads `GET /user/repos?affiliation=owner`, upserts `visibility` (keeping `hidden`), and sets `events.is_private` on GitHub events. Rows match by `metadata.full_name`, or by short `repo` name for older rows without `full_name`, only when the short name is unique among synced repos. An older row with a `repository_url` for a different repo is skipped. `public` sets `is_private=false`, `private` and `internal` set it to true. `-dry-run` does the work in a transaction and rolls back.
+- `repos hide|unhide <owner/name>` sets `hidden`. It inserts a `private` row if none exists.
+- `GET /api/events` and its `total` exclude events of a hidden repo, using the same full_name or short name match. The SSE stream polls that endpoint, so it inherits the filter. `/api/stats`, `/api/wrapped`, yearly stats, and the streak still count everything. The ETag covers the first timestamp, last id, total, page size, and private count, so hiding or unhiding a repo changes it for any page whose rows or total change.
+- The Docker image includes `./repos`. Apply migration 000003 before deploying a backend that has the hidden filter, since the list query reads `repo_settings`.
+
+## Duplicate pushes
+
+`go run ./cmd/dedupe` is a dry run. It prints counts per rule and up to 10 sample rows. `-apply` needs `-export <file>` (the file must not exist), writes each deleted row as JSON, and deletes in one transaction. Both rules keep the earliest row by `(created_at, id)`:
+
+- Rule A: same `repo`, `branch`, and non-empty `commit_sha`, created within 2 minutes after an earlier matching row.
+- Rule B: no `commit_sha`, same `repo`, `branch`, and title, created within 10 seconds after an earlier matching row.
 
 ## Endpoints
 

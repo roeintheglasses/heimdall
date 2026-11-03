@@ -23,6 +23,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s' \
     -o /build/migrate ./cmd/migrate
 
+# Build the repo settings tool
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s' \
+    -o /build/repos ./cmd/repos
+
 # Final stage - minimal image
 FROM alpine:3.22
 
@@ -40,6 +45,7 @@ COPY --from=builder /build/heimdall-backend .
 
 # Copy migration binary and SQL files
 COPY --from=builder /build/migrate ./migrate
+COPY --from=builder /build/repos ./repos
 COPY --from=builder /build/database/migrations ./database/migrations
 
 # Set ownership

@@ -14,9 +14,10 @@ func TransformGitHubPush(eventData json.RawMessage, timestamp time.Time) (models
 	var pushEvent struct {
 		Ref        string `json:"ref"`
 		Repository struct {
-			Name    string `json:"name"`
-			HTMLURL string `json:"html_url"`
-			Private *bool  `json:"private"`
+			Name     string `json:"name"`
+			FullName string `json:"full_name"`
+			HTMLURL  string `json:"html_url"`
+			Private  *bool  `json:"private"`
 		} `json:"repository"`
 		Deleted    bool `json:"deleted"`
 		HeadCommit struct {
@@ -85,6 +86,7 @@ func TransformGitHubPush(eventData json.RawMessage, timestamp time.Time) (models
 		IsPrivate: isGitHubPrivate(pushEvent.Repository.Private),
 		Metadata: map[string]interface{}{
 			"repo":           repo,
+			"full_name":      pushEvent.Repository.FullName,
 			"branch":         branch,
 			"ref_type":       refType,
 			"deleted":        pushEvent.Deleted,
@@ -121,9 +123,10 @@ func TransformGitHubPR(eventData json.RawMessage, timestamp time.Time) (models.D
 			} `json:"base"`
 		} `json:"pull_request"`
 		Repository struct {
-			Name    string `json:"name"`
-			HTMLURL string `json:"html_url"`
-			Private *bool  `json:"private"`
+			Name     string `json:"name"`
+			FullName string `json:"full_name"`
+			HTMLURL  string `json:"html_url"`
+			Private  *bool  `json:"private"`
 		} `json:"repository"`
 	}
 
@@ -146,6 +149,7 @@ func TransformGitHubPR(eventData json.RawMessage, timestamp time.Time) (models.D
 		IsPrivate: isGitHubPrivate(prEvent.Repository.Private),
 		Metadata: map[string]interface{}{
 			"repo":           prEvent.Repository.Name,
+			"full_name":      prEvent.Repository.FullName,
 			"repository_url": prEvent.Repository.HTMLURL,
 			"action":         prEvent.Action,
 			"author":         prEvent.PullRequest.User.Login,
@@ -174,8 +178,9 @@ func TransformGitHubIssue(eventData json.RawMessage, timestamp time.Time) (model
 			HTMLURL string `json:"html_url"`
 		} `json:"issue"`
 		Repository struct {
-			Name    string `json:"name"`
-			Private *bool  `json:"private"`
+			Name     string `json:"name"`
+			FullName string `json:"full_name"`
+			Private  *bool  `json:"private"`
 		} `json:"repository"`
 	}
 
@@ -189,6 +194,7 @@ func TransformGitHubIssue(eventData json.RawMessage, timestamp time.Time) (model
 		Title:     fmt.Sprintf("Issue #%d %s: %s", issueEvent.Issue.Number, issueEvent.Action, issueEvent.Issue.Title),
 		Metadata: map[string]interface{}{
 			"repo":      issueEvent.Repository.Name,
+			"full_name": issueEvent.Repository.FullName,
 			"action":    issueEvent.Action,
 			"author":    issueEvent.Issue.User.Login,
 			"state":     issueEvent.Issue.State,
@@ -213,8 +219,9 @@ func TransformGitHubRelease(eventData json.RawMessage, timestamp time.Time) (mod
 			Draft   bool   `json:"draft"`
 		} `json:"release"`
 		Repository struct {
-			Name    string `json:"name"`
-			Private *bool  `json:"private"`
+			Name     string `json:"name"`
+			FullName string `json:"full_name"`
+			Private  *bool  `json:"private"`
 		} `json:"repository"`
 	}
 
@@ -233,6 +240,7 @@ func TransformGitHubRelease(eventData json.RawMessage, timestamp time.Time) (mod
 		Title:     fmt.Sprintf("Release %s: %s", releaseEvent.Release.TagName, title),
 		Metadata: map[string]interface{}{
 			"repo":        releaseEvent.Repository.Name,
+			"full_name":   releaseEvent.Repository.FullName,
 			"action":      releaseEvent.Action,
 			"tag":         releaseEvent.Release.TagName,
 			"author":      releaseEvent.Release.Author.Login,

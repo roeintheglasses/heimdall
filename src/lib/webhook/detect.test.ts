@@ -19,6 +19,67 @@ describe('detectEvent github', () => {
     expect(result).toEqual({ kind: 'forward', type, deliveryId: 'github:abc-123' });
   });
 
+  describe('push delivery id', () => {
+    const push = {
+      ref: 'refs/heads/main',
+      before: 'aaa111',
+      after: 'abc123',
+      repository: { full_name: 'octo/repo' },
+    };
+
+    it('derives a fixed-length hashed id from repo, ref, before and after', async () => {
+      const result = await run('github', push, { githubEvent: 'push', githubDelivery: 'd-1' });
+      expect(result).toMatchObject({ kind: 'forward', type: 'github.push' });
+      const id = (result as { deliveryId: string }).deliveryId;
+      expect(id).toMatch(/^github:push:[0-9a-f]{64}$/);
+    });
+
+    it('treats a force-push back to an earlier head as a new push', async () => {
+      const first = await run('github', push, { githubEvent: 'push', githubDelivery: 'd-1' });
+      const back = await run(
+        'github',
+        { ...push, before: 'bbb222' },
+        { githubEvent: 'push', githubDelivery: 'd-2' }
+      );
+      expect(first).not.toEqual(back);
+    });
+
+    it('keeps the id short for very long refs', async () => {
+      const ref = `refs/heads/${'x'.repeat(400)}`;
+      const a = await run('github', { ...push, ref }, { githubEvent: 'push' });
+      const b = await run('github', { ...push, ref, after: 'def456' }, { githubEvent: 'push' });
+      expect((a as { deliveryId: string }).deliveryId.length).toBeLessThan(80);
+      expect(a).not.toEqual(b);
+    });
+
+    it('falls back to the delivery header for branch deletes', async () => {
+      const del = { ...push, after: '0000000000000000000000000000000000000000' };
+      const result = await run('github', del, { githubEvent: 'push', githubDelivery: 'd-9' });
+      expect(result).toMatchObject({ deliveryId: 'github:d-9' });
+    });
+
+    it('gives two hooks with different delivery headers the same id', async () => {
+      const a = await run('github', push, { githubEvent: 'push', githubDelivery: 'd-1' });
+      const b = await run('github', push, { githubEvent: 'push', githubDelivery: 'd-2' });
+      expect(a).toEqual(b);
+    });
+
+    it.each([
+      ['full_name', { ...push, repository: {} }],
+      ['ref', { ...push, ref: undefined }],
+      ['before', { ...push, before: undefined }],
+      ['after', { ...push, after: 42 }],
+    ])('falls back to the delivery header without %s', async (_n, payload) => {
+      const result = await run('github', payload, { githubEvent: 'push', githubDelivery: 'd-1' });
+      expect(result).toMatchObject({ deliveryId: 'github:d-1' });
+    });
+
+    it('does not change ids for other event types', async () => {
+      const result = await run('github', push, { githubEvent: 'issues', githubDelivery: 'd-1' });
+      expect(result).toMatchObject({ deliveryId: 'github:d-1' });
+    });
+  });
+
   it('ignores unsupported events such as create', async () => {
     const result = await run('github', {}, { githubEvent: 'create' });
     expect(result.kind).toBe('ignore');
